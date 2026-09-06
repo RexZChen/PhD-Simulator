@@ -68,6 +68,9 @@ export const rebuttals = [
 ];
 
 export const achievements = {
+  cleanrun: { name: 'Four Clean Catches', desc: 'Take a session at the bench and get four of the five moments exactly right.' },
+  reactor: { name: 'Twenty-Five Reactions', desc: 'React to twenty-five messages. It costs nothing and it is not nothing.' },
+  sidebar: { name: 'Taking It To A DM', desc: 'Say something to one person instead of to the room. That is where the real conversations are.' },
   tenapps: { name: 'Ten Out', desc: 'Send ten applications. The spreadsheet is now a document you maintain.' },
   tenrejections: { name: 'A Folder For Them', desc: 'Collect ten rejections. You stopped reading past the first line, which is the line that tells you.' },
   anoffer: { name: 'Someone Said Yes', desc: 'Receive a job offer. After all of that, an email that begins differently.' },

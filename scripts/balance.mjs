@@ -3,8 +3,10 @@
 //   node scripts/balance.mjs
 // diligent: answers the advisor, rests, sees a doctor.  lazy: declines everything.
 // grinder: never rests, four coffees a day, skips meals.
-// Healthy targets: diligent mostly graduates; lazy is mostly fired; grinder graduates
-// but bottoms out around 35-45 health with a condition or two.
+// Healthy targets: diligent mostly graduates across a dozen distinct endings; lazy is mostly
+// fired; grinder bottoms out around 35-45 health with a condition or two and is fired more often
+// than not — they ignore every advisor request while visibly burning out, and since standing and
+// hope both became real systems that is the outcome the model produces.
 
 import { createRun } from '../src/engine/state.js';
 import { dispatch, focusOptions } from '../src/engine/game.js';
@@ -17,6 +19,7 @@ import { canAskTimeline } from '../src/engine/timeline.js';
 import { canApplyIntern } from '../src/engine/internship.js';
 import { availableWriters, letterCount, packetStrength } from '../src/engine/letters.js';
 import { openPortals, listingsFor, funnel, heatBand } from '../src/engine/jobsearch.js';
+import { outputDrought, droughtBand } from '../src/engine/advisor.js';
 import { buildCV } from '../src/engine/epilogue.js';
 
 const resolveAll = s => { let n = 0; while (s.event && n++ < 40) { const e = templateById[s.event]; const ok = e.choices.find(c => !c.ending && !c.minigame && !(c.requiresCoursework && s.coursework < c.requiresCoursework)) || e.choices[0]; s = dispatch(s, { type: 'CHOICE', id: ok.id }); if (s.stage === 'minigame') s = dispatch(s, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 }); } return s; };
@@ -175,7 +178,7 @@ async function run(seed, style) {
     thesisStatus: (s.projects.find(p => p.kind === 'thesis') || {}).status || 'none',
     thesisDraft: Math.round((s.projects.find(p => p.kind === 'thesis') || {}).draft || 0),
     defenseMonth: s.milestones.defenseMonth ?? null,
-  } : null, endMoney: Math.round(s.player.stats.money), endDebt: Math.round(s.debt || 0), intl: s.player.profile.international ? 1 : 0, ledger: s.ledger, tripCost: s.lastTrip ? 1 : 0, ending: s.ending?.id || `stuck:${s.stage}`, month: s.month, minHealth: Math.round(minHealth), maxDebt, clinics, trips, coffees, accepted: s.counts.accepted, cites: Object.values(s.citations || {}).reduce((a, b) => a + b, 0), warnings: s.warnings || 0, quit: Math.round(s.quitPressure || 0), standing: Math.round(s.standing ?? 60), conds: (s.conditions || []).length, interns: s.counts.internships || 0, letters: letterCount(s), packet: Math.round(packetStrength(s).score), sent: funnel(s).sent, screens: funnel(s).screens, jobOffers: funnel(s).offers, silent: funnel(s).silent, found: s.jobs?.secret?.discovered ? 1 : 0, dark: packetStrength(s).darkHorse ? 1 : 0, internHow: (s.intern?.history || []).map(h => h.how).join('+') || 'none', internType: (s.intern?.history || []).map(h => h.typeId).join('+') || 'none', research: Math.round(s.player.skills.research) };
+  } : null, endMoney: Math.round(s.player.stats.money), endDebt: Math.round(s.debt || 0), intl: s.player.profile.international ? 1 : 0, ledger: s.ledger, tripCost: s.lastTrip ? 1 : 0, ending: s.ending?.id || `stuck:${s.stage}`, month: s.month, minHealth: Math.round(minHealth), maxDebt, clinics, trips, coffees, accepted: s.counts.accepted, cites: Object.values(s.citations || {}).reduce((a, b) => a + b, 0), warnings: s.warnings || 0, quit: Math.round(s.quitPressure || 0), standing: Math.round(s.standing ?? 60), conds: (s.conditions || []).length, interns: s.counts.internships || 0, drought: outputDrought(s), letters: letterCount(s), packet: Math.round(packetStrength(s).score), sent: funnel(s).sent, screens: funnel(s).screens, jobOffers: funnel(s).offers, silent: funnel(s).silent, found: s.jobs?.secret?.discovered ? 1 : 0, dark: packetStrength(s).darkHorse ? 1 : 0, internHow: (s.intern?.history || []).map(h => h.how).join('+') || 'none', internType: (s.intern?.history || []).map(h => h.typeId).join('+') || 'none', research: Math.round(s.player.skills.research) };
 }
 
 for (const style of ['diligent', 'lazy', 'grinder']) {
@@ -198,5 +201,5 @@ for (const style of ['diligent', 'lazy', 'grinder']) {
   const hows = {}; for (const r of rows) for (const h of (r.internHow || 'none').split('+')) hows[h] = (hows[h] || 0) + 1;
   const types = {}; for (const r of rows) for (const h of (r.internType || 'none').split('+')) types[h] = (types[h] || 0) + 1;
   console.log('  internships: ' + Object.entries(hows).map(([k, v]) => `${k}:${v}`).join('  ') + '  ||  ' + Object.entries(types).map(([k, v]) => `${k}:${v}`).join('  '));
-  console.log(`month ${avg('month')} | minHealth ${avg('minHealth')} | maxDebt ${avg('maxDebt')} | clinics ${avg('clinics')} | trips ${avg('trips')} | coffee ${avg('coffees')} | accepted ${avg('accepted')} | citations ${avg('cites')} | warnings ${avg('warnings')} | quitPressure ${avg('quit')} | standing ${avg('standing')} | conditions ${avg('conds')} | interns ${avg('interns')} | letters ${avg('letters')} | sent ${avg('sent')} | screens ${avg('screens')} | jobOffers ${avg('jobOffers')} | silent ${avg('silent')} | darkhorse ${avg('dark')} | research ${avg('research')} | endMoney ${avg('endMoney')} | endDebt ${avg('endDebt')}`);
+  console.log(`month ${avg('month')} | minHealth ${avg('minHealth')} | maxDebt ${avg('maxDebt')} | clinics ${avg('clinics')} | trips ${avg('trips')} | coffee ${avg('coffees')} | accepted ${avg('accepted')} | citations ${avg('cites')} | warnings ${avg('warnings')} | quitPressure ${avg('quit')} | standing ${avg('standing')} | conditions ${avg('conds')} | interns ${avg('interns')} | drought ${avg('drought')} | letters ${avg('letters')} | sent ${avg('sent')} | screens ${avg('screens')} | jobOffers ${avg('jobOffers')} | silent ${avg('silent')} | darkhorse ${avg('dark')} | research ${avg('research')} | endMoney ${avg('endMoney')} | endDebt ${avg('endDebt')}`);
 }

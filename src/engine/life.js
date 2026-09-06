@@ -241,6 +241,30 @@ export function skipMeal(s) {
 
 // ── Vitals drift ──────────────────────────────────────────────────────────────
 // Called once per resolved turn, scaled by how many weeks passed.
+
+// Hope does not accumulate. Content grants far more of it than it costs — 121 choices give it,
+// 65 take it — so without gravity a long run only ever gets more hopeful, which is the opposite
+// of what the years do. This pulls hope toward a level your circumstances can actually sustain:
+// acceptances and milestones raise the level, a long flat middle and a silent project lower it.
+export function sustainableHope(s) {
+  const st = s.player.stats, hid = s.player.hidden;
+  const year = Math.floor(s.month / 12) + 1;
+  const sag = { 1: 0, 2: 4, 3: 6, 4: 6, 5: 4, 6: 2 }[Math.min(6, year)] ?? 4;   // the long middle
+  const recentWin = (s.counts.accepted || 0) > 0 && s.month - (s.lastAcceptMonth ?? -99) <= 6;
+  return clamp(64
+    + Math.min(14, (s.counts.accepted || 0) * 5)
+    + (recentWin ? 8 : 0)
+    + (s.milestones?.prelim === 'pass' ? 4 : 0)
+    + (s.milestones?.proposal === 'pass' ? 5 : 0)
+    + ((s.standing ?? 60) - 60) * .22
+    + (s.relationship.satisfaction - 55) * .12
+    - (hid.stress - 38) * .20
+    - (st.health < 50 ? 9 : 0)
+    - ((hid.loneliness || 0) > 60 ? 6 : 0)
+    - Math.min(8, (s.debt || 0) / 1400)
+    - sag);
+}
+
 export function vitalsDrift(s, weeks) {
   const st = s.player.stats, hid = s.player.hidden, b = budgetOf(s);
   const drag = conditionDrag(s);
@@ -269,6 +293,10 @@ export function vitalsDrift(s, weeks) {
   lonely += b.social < 0 ? .3 : b.social > 0 ? -.2 : 0;
 
   st.health = clamp(st.health + health * weeks);
+  // Hope converges on what the circumstances support, rather than ratcheting upward forever.
+  const target = sustainableHope(s);
+  s.hopeTarget = target;           // read by effects() to damp gains you cannot sustain
+  st.hope = clamp(st.hope + (target - st.hope) * (1 - Math.pow(1 - .045, weeks)));
   hid.loneliness = clamp((hid.loneliness || 0) + lonely * weeks);
 
   for (const [k, v] of Object.entries(drag)) if (k !== 'health') effects(s, { [k]: v * weeks });

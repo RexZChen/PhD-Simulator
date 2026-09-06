@@ -6,19 +6,39 @@ import { random, roll, pick, clamp } from './probability.js';
 import { chat, message, effects, log, fill, vars } from './state.js';
 
 // Lab and cohort chatter for a new month, plus department mail. Called at month start.
+
+// A pool cannot outrun the pigeonhole, but it can refuse to repeat itself twice in a season.
+// Keep a short memory per channel and draw from what has not been said lately.
+const RECENT = 22;
+function freshLine(s, channel, pool) {
+  s.saidRecently = s.saidRecently || {};
+  const recent = s.saidRecently[channel] || [];
+  const unsaid = pool.filter(x => !recent.includes(x));
+  const line = pick(s, unsaid.length ? unsaid : pool);
+  s.saidRecently[channel] = [...recent, line].slice(-RECENT);
+  return line;
+}
+
 export function monthlyChatter(s) {
   const active = s.labmates.filter(l => l.status === 'active');
   const count = 1 + Math.floor(random(s) * 3);
   for (let i = 0; i < count && active.length; i++) {
     const who = pick(s, active);
-    const pool = roll(s, .55) ? labLines[who.trait] : roleLines[who.role];
-    chat(s, 'general', who.name, fill(s, pick(s, pool)));
+    // Trait and role lines stay characterful; the shared pool is what stops a six-year run
+    // repeating the same nine messages.
+    // Their own trait and role weigh double so they still sound like themselves, but everyone
+    // can reach the whole room's worth of material rather than nine lines of it.
+    const own = [...(labLines[who.trait] || []), ...(roleLines[who.role] || [])];
+    const others = Object.entries(labLines).filter(([k]) => k !== 'any' && k !== who.trait).flatMap(([, v]) => v);
+    const pool = [...own, ...own, ...others, ...labLines.any];
+    chat(s, 'general', who.name, fill(s, freshLine(s, 'general', pool)));
   }
   if (s.peers.length && roll(s, .75)) {
     const who = pick(s, s.peers.filter(p => p.status === 'active'));
     if (who) {
-      const pool = (who.fate === 'thrive' && s.month >= 3) || (who.fate === 'struggle' && s.month >= 4) || (who.fate === 'leave' && s.month >= 8) ? cohortLines[who.fate] : cohortLines.generic;
-      chat(s, 'cohort', who.name, vars(fill(s, pick(s, pool)), { company: s.company }));
+      const fated = (who.fate === 'thrive' && s.month >= 3) || (who.fate === 'struggle' && s.month >= 4) || (who.fate === 'leave' && s.month >= 8);
+      const pool = [...(fated ? cohortLines[who.fate] : cohortLines.generic), ...cohortLines.any];
+      chat(s, 'cohort', who.name, vars(fill(s, freshLine(s, 'cohort', pool)), { company: s.company }));
     }
   }
   // Bonds decay slowly without contact; wholesome labmates hold the room together.

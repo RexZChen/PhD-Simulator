@@ -7,6 +7,8 @@ import { requestById } from '../../data/requests.js';
 import { absWeek, lastName, firstName, fill, entryDate, chatBody, requestText } from '../../engine/state.js';
 import { MODES } from '../../engine/advisor.js';
 import { composedText, isStreaming } from '../compose.js';
+import { reactions as reactionSet } from '../../data/slack.js';
+import { replyOptionsFor, dmPeople, dmOptions } from '../../engine/slack.js';
 import { t } from '../../i18n/index.js';
 
 const presenceOf = s => ['checkedOut', 'traveling'].includes(s.advisorMode?.id) ? 'off'
@@ -56,6 +58,7 @@ export function chatDraft(s, channel, optionId) {
 }
 
 function composer(s, ui, channel) {
+  if (channel.startsWith('dm:')) return dmComposer(s, channel);
   const options = chatOptions(s, channel);
   const open = !!ui.chatMenu;
   const chosen = ui.compose && ui.compose.kind === 'chat' ? ui.compose.optionId : null;
@@ -83,6 +86,37 @@ function composer(s, ui, channel) {
   </div>`;
 }
 
+
+// Reactions cost nothing and mean something. Shown as chips under the message, the way they are.
+function reactRow(s, m) {
+  if (m.mine) return '';
+  const tally = {};
+  for (const r of m.reacts || []) { tally[r.id] = tally[r.id] || { n: 0, mine: false }; tally[r.id].n++; if (r.mine) tally[r.id].mine = true; }
+  const on = Object.entries(tally).map(([id, v]) => {
+    const r = reactionSet.find(x => x.id === id);
+    return r ? `<button class="rx ${v.mine ? 'mine' : ''}" data-action="react" data-id="${esc(m.id)}" data-reaction="${id}" ${s.stage !== 'plan' ? 'disabled' : ''} title="${esc(t(r.label))}">${r.glyph} ${v.n}</button>` : '';
+  }).join('');
+  const picker = `<span class="rx-add"><button class="rx add" title="${esc(t('React'))}" ${s.stage !== 'plan' ? 'disabled' : ''}>＋</button><span class="rx-menu">${reactionSet.map(r => `<button class="rx" data-action="react" data-id="${esc(m.id)}" data-reaction="${r.id}" title="${esc(t(r.label))}">${r.glyph}</button>`).join('')}</span></span>`;
+  return `<div class="rx-row">${on}${picker}</div>`;
+}
+
+// Most messages invite no reply. The ones that do are worth answering, one person to one person.
+function replyRow(s, m) {
+  if (m.repliedWith) return `<div class="rx-row"><span class="tiny muted">${t('you answered')}</span></div>`;
+  const opts = replyOptionsFor(s, m);
+  if (!opts.length) return '';
+  return `<div class="rx-row reply">${opts.map(o => `<button class="rx word" data-action="chat-reply" data-id="${esc(m.id)}" data-kind="${o.id}" ${s.stage !== 'plan' || s.player.stats.energy < o.energy ? 'disabled' : ''} title="${esc(t(o.label))}${o.energy ? ` · −${o.energy}` : ''}">${esc(t(o.label))}${o.energy ? `<em>−${o.energy}</em>` : ''}</button>`).join('')}</div>`;
+}
+
+
+// A DM has no template menu: it has the two or three things you would actually ask this person.
+function dmComposer(s, channel) {
+  const id = channel.slice(3);
+  const opts = dmOptions(s, id);
+  if (!opts.length) return `<div class="slack-composer"><p class="muted small" style="padding:10px">${t('Nothing to say to them right now.')}</p></div>`;
+  return `<div class="slack-composer"><div class="say-menu-body dm-openers">${opts.map(o => `<button class="say-item" data-action="dm-send" data-id="${esc(id)}" data-opener="${o.id}" ${o.done || s.stage !== 'plan' || s.player.stats.energy < o.energy ? 'disabled' : ''}><b>${esc(t(o.label))}</b><small>${esc(t(o.draft))}</small>${o.done ? `<em>${t('asked')}</em>` : `<em>−${o.energy} ${t('Energy')}</em>`}</button>`).join('')}</div></div>`;
+}
+
 export function chatApp(s, ui) {
   const channel = ui.chatChannel || 'advisor';
   const msgs = s.chatMessages.filter(m => m.channel === channel);
@@ -102,10 +136,14 @@ export function chatApp(s, ui) {
     ${railItem('cohort', 'cohort', '#')}
     <div class="sl-section">${t('Direct messages')}</div>
     ${railItem('advisor', t('Prof. {name}', { name: lastName(s.advisor.name) }), `<i class="dot ${presenceOf(s)}"></i>`)}
-    <div class="sl-people">${s.labmates.map(l => `<div class="sl-person"><i class="dot ${l.role === 'phantom' ? 'off' : ''}"></i>${esc(firstName(l.name))}<span class="muted"> · ${esc(t(l.role))}</span></div>`).join('')}</div>
+    ${dmPeople(s).map(p => railItem(p.channel, firstName(p.name), `<i class="dot ${p.role === 'phantom' ? 'off' : ''}"></i>`, `<span class="sl-role">${esc(t(p.role || 'peer'))}</span>`)).join('')}
+    <div class="sl-people">${s.labmates.filter(l => !dmPeople(s).some(d => d.id === l.id)).map(l => `<div class="sl-person"><i class="dot ${l.role === 'phantom' ? 'off' : ''}"></i>${esc(firstName(l.name))}<span class="muted"> · ${esc(t(l.role))}</span></div>`).join('')}</div>
   </div>`;
 
-  const head = channel === 'advisor'
+  const dmWho = channel.startsWith('dm:') ? dmPeople(s).find(p => p.channel === channel) : null;
+  const head = dmWho
+    ? `<div><b>${esc(dmWho.name)}</b><span class="ch-topic">${esc(t(dmWho.role || 'peer'))} · ${t('a direct message, which nobody else sees')}</span></div>`
+    : channel === 'advisor'
     ? `<div><b>${t('Prof. {name}', { name: s.advisor.name })}</b><span class="ch-topic">${esc(t(mode.presence))} · ${esc(t(mode.label))} · ${t('1:1s {cadence}', { cadence: t(s.cadence.oneOnOne) })}</span></div>`
     : channel === 'general'
       ? `<div><b># general</b><span class="ch-topic">${t('The lab. {names} and you.', { names: s.labmates.map(l => firstName(l.name)).join(', ') })}</span></div>`
@@ -125,7 +163,7 @@ export function chatApp(s, ui) {
       : tag(t(req.status), req.status === 'done' ? 'ok' : req.status === 'expired' ? 'bad' : '')}</div>` : '';
     return `${divider}<div class="sl-msg ${grouped ? 'grouped' : ''} ${m.mine ? 'mine' : ''}">
       <span class="sl-av">${grouped ? `<span class="sl-time-hover">${m.time}</span>` : avatar(m.mine ? s.player.name : (m.sender === s.advisor.name ? s.advisor.id : m.sender), 34, { bg: m.mine ? '#cfe0ee' : undefined })}</span>
-      <div class="sl-body">${grouped ? '' : `<div class="sl-who"><b>${esc(who)}</b><small>${m.time}</small></div>`}<p>${esc(chatBody(s, m))}</p>${actions}</div>
+      <div class="sl-body">${grouped ? '' : `<div class="sl-who"><b>${esc(who)}</b><small>${m.time}</small></div>`}<p>${esc(chatBody(s, m))}</p>${reactRow(s, m)}${replyRow(s, m)}${actions}</div>
     </div>`;
   }).join('') || `<div class="sl-empty muted">${t('No messages yet.')}</div>`;
 

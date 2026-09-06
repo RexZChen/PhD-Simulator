@@ -107,7 +107,8 @@ export function freshness(s, e) {
   const inRun = s.seen[e.id] || 0;
   const acrossRuns = Number(s.seenBefore?.[e.id]) || 0;
   const historyWeight = acrossRuns ? 1 / (1 + .12 * acrossRuns) : 1.8;
-  return (e.weight || 1) * (e.probability || .5) * (1 / (1 + 1.5 * inRun)) * historyWeight;
+  // A repeat inside one run is a strong signal of staleness: penalise it hard, not gently.
+  return (e.weight || 1) * (e.probability || .5) * (1 / (1 + 1.5 * inRun * inRun)) * historyWeight;
 }
 
 export function pushEvent(s, id, actor = null) {

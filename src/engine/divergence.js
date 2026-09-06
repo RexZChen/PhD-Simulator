@@ -88,7 +88,10 @@ export function updateQuitPressure(s) {
   if (s.phase !== 'playing') return;
   const st = s.player.stats, hid = s.player.hidden;
   let p = 0;
-  p += st.hope < 25 ? 26 : st.hope < 40 ? 14 : st.hope > 65 ? -12 : 0;
+  // Recalibrated when hope stopped being inflationary: a run now sits in the fifties and dips
+  // through the middle years, so the old "under 40 is a crisis" band read an ordinary third year
+  // as an emergency, and the "over 65" relief almost never applied.
+  p += st.hope < 22 ? 26 : st.hope < 33 ? 12 : st.hope > 56 ? -11 : 0;
   p += st.health < 35 ? 18 : st.health < 50 ? 8 : 0;
   p += (hid.loneliness || 0) > 70 ? 14 : (hid.loneliness || 0) > 55 ? 7 : 0;
   p += hid.stress > 75 ? 12 : 0;

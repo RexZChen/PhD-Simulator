@@ -1,9 +1,10 @@
 import { venues, venueById, nextDeadline, acceptsThisMonth, timelineFor, topicFit, venuesForTopic } from '../data/venues.js';
 import { t } from '../i18n/index.js';
+import { BENCH_ENERGY, benchGrades } from '../data/bench.js';
 import { rebuttals, topics } from '../data/catalog.js';
 import { monthOf, dateLabel } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, chat, award, activeProject, absWeek, lastName, editable } from './state.js';
+import { effects, log, message, chat, award, activeProject, absWeek, lastName, editable, joined } from './state.js';
 import { pushEvent, hooks } from './events.js';
 
 const TITLES = {
@@ -60,8 +61,39 @@ export function syncProject(s) {
   for (const p of s.projects) {
     if (['Advisor Review', 'Ready', 'Submitted', 'Rebuttal', 'Accepted', 'Rejected', 'Abandoned'].includes(p.status)) continue;
     if (p.kind === 'thesis') { p.progress = Math.max(p.progress, p.draft); p.status = 'Drafting'; continue; }
-    p.status = p.progress < 20 ? 'Idea' : p.progress < 45 ? 'Prototype' : p.draft > 0 ? 'Drafting' : 'Experiments';
+    // A real draft means you are drafting, whatever the research bar says. Checking progress
+    // first left a trap at progress 40-44 with a finished draft: both send-to-advisor bars met,
+    // status 'Prototype', and the button refusing with a reason that was not the real one.
+    p.status = p.draft >= 15 ? 'Drafting'
+      : p.progress < 20 ? 'Idea'
+        : p.progress < 45 ? 'Prototype'
+          : 'Experiments';
   }
+}
+
+
+// A session at the bench. Timing is the skill and the outcome is real work, or real time lost.
+export function benchSession(s, tally = { crit: 0, hit: 0, miss: 0 }) {
+  const p = activeProject(s);
+  if (!p) throw new Error(t('There is no project to work on.'));
+  const { crit = 0, hit = 0, miss = 0 } = tally;
+  const progress = crit * 9 + hit * 5 - miss * 2;
+  const evidence = crit * 4 + hit * 2 - miss;
+  p.progress = clamp(p.progress + progress);
+  p.evidence = clamp((p.evidence || 0) + evidence);
+  effects(s, {
+    energy: -BENCH_ENERGY - miss * 2,
+    hope: crit * 2 - miss,
+    confidence: crit * 2 - miss,
+    stress: miss * 2 - crit,
+  });
+  s.lastOutputMonth = s.month;
+  s.actions.bench = true;
+  const score = crit * 2 + hit;
+  const grade = score >= 8 ? 'great' : score >= 5 ? 'good' : score >= 3 ? 'ok' : 'rough';
+  log(s, joined(t(benchGrades[grade]), ' ', t('Progress {p}, evidence {e}.', { p: progress >= 0 ? `+${progress}` : String(progress), e: evidence >= 0 ? `+${evidence}` : String(evidence) })));
+  if (crit >= 4) award(s, 'cleanrun');
+  return { grade, progress, evidence };
 }
 
 export function writeBudget(s) {
@@ -95,9 +127,14 @@ export function setTarget(s, p, mode = true) {
 export function clearTarget(s, p) { p.targetVenueId = null; p.targetMonth = null; p.targetVenue = null; }
 
 export function sendAdvisor(s, latencyWeeks) {
+  s.lastOutputMonth = s.month;
   const p = activeProject(s);
   if (p?.kind === 'thesis') { if (p.draft < 90 || p.status !== 'Drafting') throw new Error(t('The dissertation needs a 90% draft before the committee reads it.')); }
-  else if (!p || p.draft < 60 || p.progress < 40 || !['Drafting', 'Experiments'].includes(p.status)) throw new Error(t('Reach 40% research and 60% draft progress first.'));
+  else if (!p) throw new Error(t('There is no project to send.'));
+  else if (['Advisor Review', 'Ready', 'Submitted', 'Rebuttal', 'Accepted', 'Abandoned'].includes(p.status))
+    throw new Error(t('That draft is already with someone. Its status is “{status}”.', { status: t(p.status) }));
+  else if (p.draft < 60 || p.progress < 40)
+    throw new Error(t('Reach 40% research and 60% draft progress first. You are at {r}% and {d}%.', { r: Math.round(p.progress), d: Math.round(p.draft) }));
   p.status = 'Advisor Review'; p.reviewCycle++;
   p.reviewDueWeek = absWeek(s) + latencyWeeks;
   log(s, t('Sent the draft to {advisor}. Estimated reply: {n} week(s). Estimates are a genre.', { advisor: lastName(s.advisor.name), n: latencyWeeks }));
@@ -125,6 +162,7 @@ export function canSubmitNow(s, venue) {
   return s.flags.extensionFor === venue.id && s.flags.extensionMonth === s.month;
 }
 export function submit(s) {
+  s.lastOutputMonth = s.month;
   const p = activeProject(s), venue = venueById[p?.venueId];
   if (!p || p.status !== 'Ready' || p.wizardStep !== 4 || !venue) throw new Error(t('Complete all four submission checks first.'));
   if (!canSubmitNow(s, venue)) throw new Error(t('{venue} is not accepting submissions this month. Next deadline: {month}.', { venue: venue.name, month: dateLabel(nextDeadline(venue, s.month, monthOf)) }));
@@ -189,7 +227,7 @@ export function decide(s, p, bonus) {
   if (!roll(s, acceptanceChance(p, v, p.reviewers, bonus))) { reject(s, p, 'Reject'); return; }
   const distinction = random(s);
   const result = distinction > .985 ? 'Award nomination' : distinction > .94 ? 'Oral' : distinction > .8 ? 'Spotlight' : 'Accept';
-  p.status = 'Accepted'; p.submissionHistory.at(-1).outcome = result;
+  p.status = 'Accepted'; s.lastAcceptMonth = s.month; p.submissionHistory.at(-1).outcome = result;
   s.counts.accepted++;
   const capital = { 1: 22, 2: 16, 3: 8 }[v.tier] + (result === 'Accept' ? 0 : 6);
   effects(s, { academicCapital: capital, hope: 14, confidence: 12, satisfaction: 12, stress: -10, pressure: -15 });

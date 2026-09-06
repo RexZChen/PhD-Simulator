@@ -953,3 +953,47 @@ table.mini th { background: var(--face); }
 .guide-cta { display: flex; align-items: center; gap: 4px; flex: none; flex-wrap: wrap; justify-content: flex-end; max-width: 260px; }
 .guide-hint { font-size: 11px; color: #2a4f8f; font-weight: 700; text-align: right; }
 @media (max-width: 900px) { .guide { flex-wrap: wrap; } .guide-cta { max-width: none; width: 100%; justify-content: flex-start; } }
+
+/* The six-year strip: where you are, what is behind you, and the next thing with a date. */
+.journey { margin: 0 0 8px; padding: 6px 8px 4px; background: var(--face); border: 1px solid var(--shadow); box-shadow: inset 1px 1px var(--face-light); }
+.jb-track { position: relative; height: 22px; background: var(--hi); border: 1px solid var(--dark); box-shadow: inset 1px 1px rgba(0,0,0,.2); overflow: hidden; }
+.jb-term { position: absolute; top: 0; bottom: 0; background: rgba(36,117,114,.10); }
+.jb-year { position: absolute; top: 0; bottom: 0; font-size: 10px; color: var(--muted); line-height: 22px; text-align: center; border-left: 1px solid rgba(0,0,0,.18); pointer-events: none; }
+.jb-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, rgba(63,143,63,.30), rgba(63,143,63,.16)); }
+.jb-mark { position: absolute; top: 0; bottom: 0; width: 0; }
+.jb-mark i { position: absolute; left: -4px; top: 3px; width: 8px; height: 8px; border: 1px solid var(--dark); background: var(--face-light); transform: rotate(45deg); }
+.jb-mark.milestone i { background: #d8c98a; }
+.jb-mark.done i { background: #6fae6f; }
+.jb-mark.bad i { background: #c96f6f; }
+.jb-mark.defense i { background: #c9a24a; }
+.jb-mark.goal i { background: #8ab4e8; }
+.jb-mark.decision i { background: #b9a0d6; border-radius: 50%; transform: none; }
+.jb-mark.trip i { background: #7fc4c1; border-radius: 50%; transform: none; }
+.jb-mark.summer i { background: #e0c07a; border-radius: 50%; transform: none; }
+/* A deadline you chose gets an actual pin. */
+.jb-mark.pin i { left: -3px; top: 1px; width: 2px; height: 13px; background: #a11d1d; border: 0; transform: none; }
+.jb-mark.pin::after { content: ""; position: absolute; left: -5px; top: 0; width: 6px; height: 6px; border-radius: 50%; background: #a11d1d; }
+.jb-mark.past i, .jb-mark.past::after { opacity: .45; }
+.jb-now { position: absolute; top: 0; bottom: 0; width: 0; z-index: 2; }
+.jb-now i { position: absolute; left: -1px; top: 0; bottom: 0; width: 2px; background: #10305a; box-shadow: 0 0 0 1px rgba(255,255,255,.55); }
+.jb-legend { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 11px; margin-top: 3px; }
+.jb-holiday { color: #8a6d1e; }
+.jb-next { margin-left: auto; color: #2a4f8f; }
+
+/* Slack: reactions, per-message replies, and the DM rail. */
+.rx-row { display: flex; gap: 3px; align-items: center; margin-top: 3px; flex-wrap: wrap; }
+.rx { font-size: 11px; line-height: 1; padding: 2px 5px; border: 1px solid var(--shadow); background: var(--face); border-radius: 9px; cursor: pointer; }
+.rx:hover:not(:disabled) { border-color: var(--sel); background: #eef4ff; }
+.rx:disabled { opacity: .5; cursor: default; }
+.rx.mine { background: #dce8fb; border-color: var(--sel); font-weight: 700; }
+.rx.add { opacity: .35; padding: 2px 6px; }
+.rx-row:hover .rx.add { opacity: 1; }
+.rx-add { position: relative; display: inline-block; }
+.rx-menu { display: none; position: absolute; bottom: 100%; left: 0; z-index: 5; gap: 2px; padding: 3px; background: var(--face); border: 1px solid var(--dark); box-shadow: 2px 2px 0 rgba(0,0,0,.3); white-space: nowrap; }
+.rx-add:hover .rx-menu, .rx-add:focus-within .rx-menu { display: flex; }
+.rx-row.reply { margin-top: 4px; }
+.rx.word { border-radius: 3px; padding: 3px 7px; font-size: 11px; display: inline-flex; gap: 5px; align-items: baseline; }
+.rx.word em { font-style: normal; color: var(--muted); font-size: 10px; }
+.sl-role { font-size: 10px; color: var(--muted); margin-left: auto; }
+.dm-openers { display: grid; gap: 3px; padding: 6px; max-height: 190px; overflow: auto; }
+.dm-openers .say-item em { display: block; font-style: normal; font-size: 10px; color: var(--muted); margin-top: 2px; }

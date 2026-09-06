@@ -19,7 +19,16 @@ import { t } from '../src/i18n/index.js';
 import { emailFollowUps, visitQuestions } from '../src/data/threads.js';
 
 function resolveAll(state) {
-  while (state.event) {
+  // A choice can leave a real-time scene on screen (the lecture minigame, a pushback exchange).
+  // Clear those too, or a test that only drained the event queue asserts against the wrong stage.
+  let guard = 0;
+  while ((state.event || ['minigame', 'pushback'].includes(state.stage)) && guard++ < 60) {
+    if (state.stage === 'minigame') { state = dispatch(state, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 }); continue; }
+    if (state.stage === 'pushback') {
+      const pb = pushbacks.find(x => x.id === state.pushback?.id);
+      state = dispatch(state, { type: 'PUSHBACK', id: pb ? pb.options[0].id : 'hold' });
+      continue;
+    }
     const e = templateById[state.event];
     const ok = e.choices.find(c => !c.ending && !(c.requiresCoursework && state.coursework < c.requiresCoursework)) || e.choices[0];
     state = dispatch(state, { type: 'CHOICE', id: ok.id });

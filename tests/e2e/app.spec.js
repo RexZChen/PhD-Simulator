@@ -726,3 +726,74 @@ test('an effect that costs money reads as a loss, not a gain', async ({ page }) 
   expect(moneyPill).toContain('−');
   expect(moneyPill).not.toContain('+');
 });
+
+test('the journey bar shows where you are, what is done, and the next dated thing', async ({ page }) => {
+  await seedPlay(page, `s.month = 30;
+    s.milestones.prelim = 'pass'; s.milestones.proposal = null;
+    p.targetMonth = 33; p.targetVenue = 'NeurIPSy'; p.status = 'Drafting';`);
+  const bar = page.locator('.journey');
+  await expect(bar).toBeVisible();
+  // Six year bands, a position marker, and the terms shaded.
+  expect(await bar.locator('.jb-year').count()).toBe(6);
+  await expect(bar.locator('.jb-now')).toHaveCount(1);          // a zero-width rule; its bar is the visible part
+  await expect(bar.locator('.jb-now i')).toBeVisible();
+  expect(await bar.locator('.jb-term').count()).toBeGreaterThan(20);
+  // A passed prelim reads as done; a chosen deadline gets an actual pin.
+  expect(await bar.locator('.jb-mark.done').count()).toBeGreaterThan(0);
+  const pin = bar.locator('.jb-mark.pin');
+  expect(await pin.count()).toBe(1);
+  await expect(pin).toHaveAttribute('title', /NeurIPSy/);
+  // And the legend names the next thing with a date on it.
+  await expect(bar.locator('.jb-next')).toContainText(/NeurIPSy|Proposal|Deadline/);
+});
+
+test('Slack: you can react, answer one person, and take it to a DM', async ({ page }) => {
+  await seedPlay(page, `s.month = 8; s.player.stats.energy = 90;
+    s.chatMessages.push({ id: 'seed-1', channel: 'general', month: 8, week: 0, phase: 'playing',
+      time: '11:14', sender: s.labmates[0].name, body: 'the cluster is down again and i am losing my mind', read: true });`);
+  await page.locator('[data-action="open"][data-app="chat"]').first().click();
+  await page.locator('[data-action="chat-channel"][data-id="general"]').click();
+
+  const msg = page.locator('.sl-msg', { hasText: /cluster is down/ }).first();
+  await expect(msg).toBeVisible();
+
+  // React: free, and it registers.
+  await msg.locator('.rx-add .rx.add').hover();
+  await msg.locator('.rx-menu [data-reaction="sob"]').click();
+  await resolveScenes(page);
+  await expect(page.locator('.sl-msg', { hasText: /cluster is down/ }).locator('.rx.mine')).toBeVisible();
+
+  // Reply: this message invites one, and answering it costs energy and builds a bond.
+  const before = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const r = loadSave(localStorage).run;
+    return { energy: r.player.stats.energy, msgs: r.chatMessages.length };
+  });
+  const reply = page.locator('.sl-msg', { hasText: /cluster is down/ }).locator('.rx.word').first();
+  await expect(reply).toBeVisible();
+  await reply.click();
+  await resolveScenes(page);
+  const after = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const r = loadSave(localStorage).run;
+    return { energy: r.player.stats.energy, msgs: r.chatMessages.length, replied: r.chatMessages.find(m => m.id === 'seed-1')?.repliedWith };
+  });
+  expect(after.replied).toBeTruthy();
+  expect(after.msgs).toBeGreaterThan(before.msgs + 1);   // your line, and theirs back
+
+  // A DM channel exists for a labmate, and asking uses it.
+  const dmRail = page.locator('[data-action="chat-channel"][data-id^="dm:"]').first();
+  await expect(dmRail).toBeVisible();
+  await dmRail.click();
+  await resolveScenes(page);
+  const opener = page.locator('[data-action="dm-send"]').first();
+  await expect(opener).toBeVisible();
+  await opener.click();
+  await resolveScenes(page);
+  const dm = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const r = loadSave(localStorage).run;
+    return r.chatMessages.filter(m => (m.channel || '').startsWith('dm:')).length;
+  });
+  expect(dm).toBeGreaterThanOrEqual(2);
+});

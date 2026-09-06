@@ -21,6 +21,22 @@ export const MODES = {
 export const modeOf = s => MODES[s.advisorMode?.id || 'normal'];
 const cadenceSteps = ['whenever', 'monthly', 'biweekly', 'weekly'];
 
+
+// How long since your advisor last saw anything real. A first term is a grace period; after that,
+// silence from a student is the loudest thing in their inbox.
+export const GRACE_MONTHS = 4;
+export function outputDrought(s) {
+  const last = Math.max(
+    s.lastOutputMonth ?? -99,
+    s.milestones?.prelim === 'pass' ? (s.milestones.prelimMonth ?? -99) : -99,
+    s.milestones?.proposal === 'pass' ? (s.milestones.proposalMonth ?? -99) : -99,
+    s.counts.accepted ? s.month - 1 : -99,
+  );
+  if (s.month < GRACE_MONTHS) return 0;
+  return Math.max(0, s.month - Math.max(last, GRACE_MONTHS - 1));
+}
+export const droughtBand = s => { const d = outputDrought(s); return d >= 9 ? 'severe' : d >= 5 ? 'real' : d >= 3 ? 'noticed' : 'none'; };
+
 export function updateAdvisorMode(s) {
   if (s.advisorMode && s.advisorMode.until > s.month) return;
   const a = s.advisor, m = monthOf(s.month);
@@ -30,8 +46,10 @@ export function updateAdvisorMode(s) {
   const weights = {
     traveling: .1 + (conference ? .3 : 0) + (a.archetype === 'ghost' ? .15 : a.archetype === 'empire' ? .08 : 0) + (a.availability < 40 ? .08 : 0),
     grant: ([10, 11, 1, 2].includes(m) ? .18 : .05) * (a.funding < 60 ? 1.5 : 1),
-    pressed: (target ? .5 : .06) + (a.ambition > 70 ? .12 : 0) + (s.mutators.includes('tenure') ? .15 : 0),
-    checkedOut: .06 + (a.availability < 35 ? .22 : 0) + (sabbatical ? .55 : 0) + (s.relationship.satisfaction < 35 ? .1 : 0),
+    pressed: (target ? .5 : .06) + (a.ambition > 70 ? .12 : 0) + (s.mutators.includes('tenure') ? .15 : 0)
+      + { none: 0, noticed: .14, real: .32, severe: .5 }[droughtBand(s)],
+    checkedOut: (.06 + (a.availability < 35 ? .22 : 0) + (sabbatical ? .55 : 0) + (s.relationship.satisfaction < 35 ? .1 : 0))
+      * ({ none: 1, noticed: .85, real: .6, severe: .4 }[droughtBand(s)]),
     attentive: .1 + (a.caring > 65 ? .1 : 0) + (s.relationship.satisfaction > 70 ? .08 : 0) + (s.month <= 1 ? .2 : 0) + (a.availability > 70 ? .08 : 0),
     normal: .45,
   };
@@ -231,18 +249,41 @@ export function updatePressure(s) {
   if (s.pressure > 60 && s.report?.before && (activeProject(s)?.progress || 0) <= (s.report.before.progress || 0)) effects(s, { satisfaction: -Math.round((s.pressure - 60) / 10) });
 }
 
+
+// Same memory as the lab channels: an advisor who says the same four things for six years is
+// not characterful, only short.
+const PING_RECENT = 10;
+function freshPing(s, pool) {
+  s.saidRecently = s.saidRecently || {};
+  const recent = s.saidRecently.advisor || [];
+  const unsaid = pool.filter(x => !recent.includes(x));
+  const line = pick(s, unsaid.length ? unsaid : pool);
+  s.saidRecently.advisor = [...recent, line].slice(-PING_RECENT);
+  return line;
+}
+
 export function advisorPing(s) {
   const mode = s.advisorMode?.id || 'normal';
   const a = s.advisor;
   let pool = advisorPings.calm;
   let chance = .45;
+  const band = droughtBand(s);
+  if (band !== 'none' && advisorPings.drought?.length) {
+    // Nothing has arrived in months. They notice, and they say so before they say anything else.
+    const droughtChance = { noticed: .45, real: .7, severe: .88 }[band];
+    if (roll(s, droughtChance)) {
+      chat(s, 'advisor', a.name, fill(s, freshPing(s, band === 'severe' && a.toxicity > 55 ? [...advisorPings.drought, ...advisorPings.toxic] : advisorPings.drought)));
+      if (band !== 'noticed') effects(s, { stress: band === 'severe' ? 5 : 3 });
+      return;
+    }
+  }
   if (mode === 'pressed') { pool = a.toxicity > 55 ? [...advisorPings.pressed, ...advisorPings.toxic] : advisorPings.pressed; chance = .8; }
   else if (mode === 'attentive') { pool = advisorPings.calm; chance = .85; }
   else if (mode === 'grant') { pool = advisorPings.busy; chance = .55; }
   else if (mode === 'checkedOut' || mode === 'traveling') { chance = .05; pool = advisorPings.busy; }
   else if (s.pressure > 60) { pool = advisorPings.pressed; chance = .5; }
   if ([12].includes(monthOf(s.month)) && roll(s, .6)) { chat(s, 'advisor', a.name, pick(s, advisorPings.holiday)); return; }
-  if (roll(s, chance)) chat(s, 'advisor', a.name, fill(s, pick(s, pool)));
+  if (roll(s, chance)) chat(s, 'advisor', a.name, fill(s, freshPing(s, pool)));
 }
 
 export function ask(s, id, composed = '') {

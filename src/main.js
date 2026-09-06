@@ -258,6 +258,10 @@ root.addEventListener('click', event => {
     case 'reflect': perform({ type: 'REFLECT' }); return;
     case 'ask-timeline': perform({ type: 'ASK_TIMELINE' }, { preserveScroll: false }); return;
     case 'timeline-move': perform({ type: 'TIMELINE_MOVE', id }); return;
+    case 'react': perform({ type: 'REACT', id, reaction: target.dataset.reaction }); return;
+    case 'chat-reply': perform({ type: 'CHAT_REPLY', id, kind: target.dataset.kind }); return;
+    case 'dm-send': perform({ type: 'DM', id, opener: target.dataset.opener }); return;
+    case 'dm-open': ui.chatChannel = `dm:${id}`; perform({ type: 'READ_CHAT', channel: ui.chatChannel }, { preserveScroll: false }); return;
     case 'ask-letter': perform({ type: 'ASK_LETTER', id }); return;
     case 'job-apply': perform({ type: 'JOB_APPLY', id, effort: target.dataset.effort }); return;
     case 'job-withdraw': perform({ type: 'JOB_WITHDRAW', id }); return;

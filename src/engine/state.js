@@ -253,7 +253,15 @@ export function award(s, id) { if (!s.achievements.includes(id)) { s.achievement
 // Apply a delta to stats, hidden values, relationship, misc counters, or the active project.
 export function effects(s, delta = {}, actor = null) {
   const p = activeProject(s);
-  for (const [key, value] of Object.entries(delta)) {
+  for (const [key, rawValue] of Object.entries(delta)) {
+    // Hope has diminishing returns above what your circumstances support. Content grants far
+    // more hope than it costs, so without this a long run only ever climbs. Below the line a
+    // good day is worth its full value; well above it, another good day moves you very little.
+    let value = rawValue;
+    if (key === 'hope' && rawValue > 0 && s.hopeTarget !== undefined) {
+      const over = Math.max(0, (s.player.stats.hope ?? 50) - s.hopeTarget);
+      value = rawValue * Math.max(.2, 1 - over / 38);
+    }
     if (key === 'money') {
       // Losses that outrun the balance become card debt, not a negative number.
       if (value >= 0) s.player.stats.money = Math.round(s.player.stats.money + value);

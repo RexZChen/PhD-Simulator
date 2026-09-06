@@ -1,7 +1,7 @@
 import { esc, money, btn, bar, group, tag, note, signed, band, effectPills, gauge, gaugeRow, mood } from '../helpers.js';
 import { icon } from '../icons.js';
 import { avatar } from '../avatars.js';
-import { dateLabel, monthOf, semester, holidays, seasonalFlavor, phdYear } from '../../data/calendar.js';
+import { dateLabel, monthOf, semester, holidays, seasonalFlavor, phdYear, isTeachingTerm } from '../../data/calendar.js';
 import { venueById, nextDeadline, venuesForTopic } from '../../data/venues.js';
 import { mutators, topics } from '../../data/catalog.js';
 import { requestById } from '../../data/requests.js';
@@ -196,6 +196,64 @@ export function lettersPanel(s) {
 }
 const writerKindLabel = kind => ({ advisor: 'Your advisor', committee: 'A committee member', collaborator: 'An external collaborator', mentor: 'Your internship mentor', senior: 'A senior professor in the department', postdocmate: 'The postdoc who supervised you day to day', chair: 'The department chair' }[kind] || kind);
 
+// The six-year strip. Where you are, what is behind you, and the next thing with a date on it.
+// Everything on it is drawn from real run state, so it changes shape as the story does.
+export function journeyBar(s) {
+  if (s.phase !== 'playing' && s.phase !== 'epilogue') return '';
+  const TOTAL = 72;
+  const now = Math.min(TOTAL, s.month);
+  const pct = m => (Math.max(0, Math.min(TOTAL, m)) / TOTAL) * 100;
+  const marks = [];
+  const add = (m, kind, label, note = '') => {
+    if (m === null || m === undefined || m < 0 || m > TOTAL) return;
+    marks.push({ m, kind, label, note, done: m < s.month });
+  };
+
+  // Milestones: the spine of the thing.
+  const ms = s.milestones || {};
+  add(ms.prelimMonth, ms.prelim === 'pass' ? 'done' : ms.prelim === 'fail' ? 'bad' : 'milestone', t('Prelim'),
+    ms.prelim === 'pass' ? t('passed') : ms.prelim === 'retake' ? t('retake') : t('year two'));
+  add(ms.proposalMonth, ms.proposal === 'pass' ? 'done' : 'milestone', t('Proposal'),
+    ms.proposal === 'pass' ? t('passed') : t('candidacy'));
+  if (ms.defenseMonth !== null && ms.defenseMonth !== undefined)
+    add(ms.defenseMonth, ms.defense === 'pass' ? 'done' : 'defense', t('Defense'), ms.defense === 'pass' ? t('passed') : t('scheduled'));
+
+  // Deadlines you actually chose: pinned, because you put them there.
+  for (const p of s.projects || []) {
+    if (p.targetMonth !== null && p.targetMonth !== undefined && !['Accepted', 'Abandoned'].includes(p.status))
+      add(p.targetMonth, 'pin', p.targetVenue || t('Deadline'), p.title);
+    if (p.status === 'Submitted' && p.timeline?.decision !== null && p.timeline?.decision !== undefined)
+      add(p.timeline.decision, 'decision', t('Decision'), p.title);
+    if (p.status === 'Accepted' && p.timeline?.conference !== null && p.timeline?.conference !== undefined && p.timeline.conference >= s.month)
+      add(p.timeline.conference, 'trip', t('Conference'), p.title);
+  }
+  if (s.internship) add(s.internship.start, 'summer', t('Internship'), s.internship.company);
+  if (s.grad?.settled) add(s.grad.targetYear === 5 ? 57 : 69, 'goal', t('Target'), t('year {n}', { n: s.grad.targetYear }));
+
+  marks.sort((a, b) => a.m - b.m);
+  const next = marks.find(x => x.m >= s.month);
+
+  // Year bands, so six years reads as six years rather than seventy-two of something.
+  const years = [1, 2, 3, 4, 5, 6].map(y => `<span class="jb-year" style="left:${pct((y - 1) * 12)}%;width:${100 / 6}%">${t('Y{n}', { n: y })}</span>`).join('');
+  // Terms: teaching terms shaded, summers left pale, so the rhythm of the year is visible.
+  const terms = Array.from({ length: TOTAL }, (_, m) => isTeachingTerm(m)
+    ? `<i class="jb-term" style="left:${pct(m)}%;width:${100 / TOTAL}%"></i>` : '').join('');
+
+  return `<div class="journey" title="${esc(t('Six years, and where you are in them.'))}">
+    <div class="jb-track">
+      ${terms}${years}
+      <i class="jb-fill" style="width:${pct(now)}%"></i>
+      ${marks.map(x => `<span class="jb-mark ${x.kind} ${x.done ? 'past' : ''}" style="left:${pct(x.m)}%" title="${esc(`${x.label}${x.note ? ' — ' + x.note : ''} · ${dateLabel(x.m)}`)}"><i></i></span>`).join('')}
+      <span class="jb-now" style="left:${pct(now)}%" title="${esc(dateLabel(s.month))}"><i></i></span>
+    </div>
+    <div class="jb-legend">
+      <span><b>${esc(semester(s.month))}</b> · ${t('Year {n}', { n: phdYear(s.month) })}</span>
+      ${holidays(s.month).length ? `<span class="jb-holiday">${esc(t(holidays(s.month)[0].name))}</span>` : ''}
+      ${next ? `<span class="jb-next">${t('Next')}: <b>${esc(next.label)}</b> · ${esc(dateLabel(next.m))}${next.m > s.month ? ` (${t('{n} month(s)', { n: next.m - s.month })})` : ` (${t('this month')})`}</span>` : `<span class="muted">${t('Nothing scheduled. That is its own kind of pressure.')}</span>`}
+    </div>
+  </div>`;
+}
+
 export function planList(s) {
   const opts = focusOptions(s);
   return `<div class="radio-list">${opts.map(f => `<button class="option ${s.focus === f.id ? 'selected' : ''}" data-action="plan" data-id="${f.id}" ${f.disabled ? 'disabled' : ''} title="${esc(f.disabled || f.desc)}"><span class="radio"></span>${icon(f.icon, 22)}<span><b>${esc(f.name)}</b><span class="muted">${esc(f.disabled || f.desc)}</span><span class="eff">${f.disabled ? '' : effectPills(f.effects, {}, 4)}</span></span></button>`).join('')}</div>`;
@@ -281,6 +339,7 @@ export function managerApp(s, ui) {
   const objective = s.stage !== 'plan' ? t('Respond to what is on screen.') : s.thesis && !s.thesis.deposited ? (canDeposit(s) ? t('Every revision is done. Deposit it, and then the margins will have opinions.') : t('You passed. Now finish the revisions — the degree is conferred on deposit, not on the defense.')) : !s.focus ? (tempo === 'day' ? t('Give today to something, then end the day. Coffee is optional. It is not.') : tempo === 'week' ? t('Decide what this week goes to, then Continue.') : t('Pick a plan for the month, then Continue. Everything else is optional.')) : !s.projects.length ? t('Start a project in the Projects box, or just Continue and see what the month brings.') : s.requests.some(r => r.status === 'open') ? t('Your advisor asked for something. Answer it (or don’t), then Continue.') : p?.status === 'Ready' && p.kind !== 'thesis' ? t('A draft is approved. Submit it in Netscope → OpenRegret when a venue is open.') : p?.status === 'Rebuttal' ? t('Reviews are in. Write the rebuttal in OpenRegret this month.') : t('Plan set. Use the desktop if you want, then Continue.');
   const tempoNote = tempo === 'day' ? t('Days pass one at a time now. Everything counts and nothing is enough.') : tempo === 'week' ? t('Deadline weeks pass one at a time.') : tempo === 'season' ? t('Calm seasons pass three months at a time.') : t('Calm months pass in one step.');
   return `<div class="topstrip raised"><div><h1>${dateLabel(s.month)} ${tempo === 'day' ? `<span class="tag info">${esc(dayName(s))} · ${t('week {n}', { n: Math.min(4, s.week + 1) })}</span>` : tempo === 'week' ? `<span class="tag info">${t('Week {n} of 4', { n: Math.min(4, s.week + 1) })}</span>` : ''} ${crunch ? tag(crunchLabel(crunch), 'crunch') : ''}</h1><div class="sub">${esc(semester(s.month))} · ${t('Year {n}', { n: phdYear(s.month) })} · ${esc(seasonalFlavor(s.month, s.seed + s.month))}</div></div><div class="stack right">${btn(nextLabel, 'continue', { cls: 'continue primary', disabled: s.stage !== 'plan' || !s.focus, title: 'Enter' })}<span class="tiny muted">${tempoNote}</span>${crunch ? btn(tempo === 'day' ? t('Back to whole weeks') : t('Go day by day'), 'day-mode', { cls: 'small link', disabled: s.stage !== 'plan', title: t('Day pace: five working days a week, coffee, and every hour visible.') }) : ''}${s.month >= 24 && tempo !== 'week' && tempo !== 'day' ? btn(s.pace === 'month' ? t('Let seasons pass faster') : t('Take it month by month'), 'pace', { cls: 'small link', disabled: s.stage !== 'plan' }) : ''}</div></div>
+  ${journeyBar(s)}
   ${standingBanner(s)}
   ${note(objective)}
   <div class="grid-3">

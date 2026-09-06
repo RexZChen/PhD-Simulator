@@ -8,7 +8,7 @@ import { clamp, random, roll, pick } from './probability.js';
 import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS } from './state.js';
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
-import { createProject, createThesis, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
+import { createProject, createThesis, benchSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
 import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, expireRequests, doRequest, pushbackRequest, declineRequest, ask, updatePressure, advisorPing, shiftCadence, revealHint, reviewLatencyWeeks, advisorResponds, newAdvisor } from './advisor.js';
 import { monthlyChatter, monthlyMail, fieldNote } from './lab.js';
 import { monthlyLedger, monthlyLife, vitalsDrift, doLifeAction, visitClinic, payDebt, setBudget, coffee, skipMeal, charge, caffeineState } from './life.js';
@@ -24,6 +24,7 @@ import { beginRevisions, revise, deposit, canDeposit, revisionMonth, revisionsLe
 import { openTimeline, playTimelineMove, canAskTimeline, timelineDrift } from './timeline.js';
 import { crunchOf, tempoOf, focusOptions, focusById, crunchSnapshot, milestoneOf, seasonEligible, dayEligible, DAYS_PER_WEEK } from './time.js';
 import { applyInternships, canApplyIntern, openInternTalk, playInternMove, endInternship, ensureIntern, internWindow } from './internship.js';
+import { react, replyTo, sendDm, dmPeople, dmOptions, replyOptionsFor } from './slack.js';
 import { askLetter, availableWriters, letterCount, lettersReady, packetStrength, closeLetters, needsLetters } from './letters.js';
 import { applyJob, jobsMonth, discloseSearch, withdrawApp, setWorkAuth, listingsFor, openPortals, funnel, liveOffers, ensureJobs } from './jobsearch.js';
 import * as applyEngine from './apply.js';
@@ -159,6 +160,9 @@ function monthStart(s, first = false, intermediate = false) {
   if (s.month >= 60 && s.advisor.funding < 60 && !s.ta && !s.flags.fellow && !s.flags.loan && !s.flags.finishFast) s.flags.fundingGap = true;
   if (intermediate) return;
   s.report = { before: snapshot(s), events: [], focus: null, meetings: null, month: s.month, weeks: [], ledger: s.ledger || null, monthsCovered: 1 };
+  // Real movement on a project is something an advisor can see in a meeting, so it counts as
+  // output too — not only a draft that was formally sent.
+  s.turnStartWork = s.projects.reduce((a, p) => a + (p.progress || 0) + (p.draft || 0), 0);
   beginTurn(s);
   if (s.eventQueue.length) { s.eventReturn = 'plan'; openNext(s); }
 }
@@ -355,6 +359,10 @@ function dismissReport(s) {
 }
 function advanceMonths(s, n) {
   s.report = s.report || {};
+  if (s.turnStartWork !== undefined) {
+    const now = s.projects.reduce((a, p) => a + (p.progress || 0) + (p.draft || 0), 0);
+    if (now - s.turnStartWork >= 8) s.lastOutputMonth = s.month;
+  }
   const ledgers = [];
   for (let i = 0; i < n; i++) {
     s.month++; s.week = 0;
@@ -673,6 +681,10 @@ export function dispatch(state, action) {
     case 'PAY_DEBT': payDebt(s, a.amount === 'all' ? s.debt : Number(a.amount) || 0); break;
     case 'ASK_TIMELINE': openTimeline(s); break;
     case 'TIMELINE_MOVE': playTimelineMove(s, a.id); break;
+    case 'BENCH': benchSession(s, a.tally); break;
+    case 'REACT': react(s, a.id, a.reaction); break;
+    case 'CHAT_REPLY': replyTo(s, a.id, a.kind, a.text || ''); break;
+    case 'DM': sendDm(s, a.id, a.opener, a.text || ''); break;
     case 'ASK_LETTER': askLetter(s, a.id); break;
     case 'JOB_APPLY': applyJob(s, a.id, a.effort || 'standard'); break;
     case 'JOB_WITHDRAW': withdrawApp(s, a.id); break;
