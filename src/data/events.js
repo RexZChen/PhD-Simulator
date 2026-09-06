@@ -1,0 +1,19 @@
+import application from './events/application.js';
+import holiday from './events/holiday.js';
+import life from './events/life.js';
+import research from './events/research.js';
+import advisor from './events/advisor.js';
+import review from './events/review.js';
+import department from './events/department.js';
+import career from './events/career.js';
+import lab from './events/lab.js';
+import peer from './events/peer.js';
+import crunch from './events/crunch.js';
+import urgent from './events/urgent.js';
+import conference from './events/conference.js';
+import late from './events/late.js';
+import divergence from './events/divergence.js';
+
+export const events = [...application, ...holiday, ...life, ...research, ...advisor, ...review, ...department, ...career, ...lab, ...peer, ...crunch, ...urgent, ...conference, ...late, ...divergence]
+  .map(e => ({ cooldown: 99, probability: .5, weight: 1, conditions: {}, ...e }));
+export const eventById = Object.fromEntries(events.map(e => [e.id, e]));

@@ -1,0 +1,105 @@
+import { esc, btn, hotkey, effectPills, money } from './helpers.js';
+import { icon } from './icons.js';
+import { avatar } from './avatars.js';
+import { memeFor, memeCard } from '../data/memes.js';
+import { dateLabel } from '../data/calendar.js';
+import { templateById, eventText } from '../engine/events.js';
+import { fill, lastName, labmateById } from '../engine/state.js';
+import { prelimChance, proposalChance, defenseChance } from '../engine/game.js';
+import { pushbacks, lectureLines } from '../data/minigames.js';
+import { t } from '../i18n/index.js';
+
+function strip(scene, s, e) {
+  const advisor = e.speaker === 'advisor' || e.category === 'meeting';
+  const caption = advisor ? `${t('PROF.')} ${esc(s.advisor?.name.toUpperCase() || t('ADVISOR'))}` : { lab: t('THE LAB · SOME TIME AFTER COFFEE'), home: t('HOME · SUCH AS IT IS'), life: t('HOME · SUCH AS IT IS'), campus: t('CAMPUS'), party: t('LAB SOCIAL · NOBODY IS WORKING'), portal: t('STUDENT PORTAL · NOTICE'), conference: t('CONFERENCE · HALLWAY TRACK'), winter: t('DECEMBER'), office: t('OFFICE') }[scene] || t('SOMEWHERE');
+  const inner = {
+    office: `<div class="s-window"></div><div class="s-shelf"></div><div class="s-desk"></div><div class="s-plant"></div><div class="portrait-avatar">${s.advisor ? avatar(s.advisor.id, 110, { bg: 'transparent' }) : ''}</div><div class="call-bar"><i></i> ${t('LIVE')} · ${esc(t(s.cadence?.oneOnOne || 'meeting'))}</div>`,
+    lab: `<div class="s-window"></div><div class="s-server"></div><div class="s-desk"></div><div class="portrait" style="--shirt:#4f7c5b;right:52%"><i></i></div>`,
+    home: `<div class="s-window"></div><div class="s-plant" style="left:70%"></div><div class="s-desk" style="left:10%;width:40%"></div><div class="portrait" style="--shirt:#6b6b8f;right:60%"><i></i></div>`,
+    life: `<div class="s-window"></div><div class="s-plant" style="left:70%"></div><div class="s-desk" style="left:10%;width:40%"></div><div class="portrait" style="--shirt:#6b6b8f;right:60%"><i></i></div>`,
+    campus: `<div class="s-banner">${esc(s.program?.name || t('CAMPUS'))} · ${t('DEPARTMENT OF COMPUTER SCIENCE')}</div><div class="s-poster"></div><div class="portrait" style="--shirt:#4f7c5b;right:30%"><i></i></div><div class="portrait p3" style="right:55%"><i></i></div>`,
+    party: `<div class="s-lights"></div><div class="s-window"></div><div class="s-desk"></div><div class="portrait" style="--shirt:#8f4f6b;right:25%"><i></i></div><div class="portrait p3"><i></i></div>`,
+    portal: `<div class="s-form"><b>${t('FORM 27-B · REQUEST FOR PERMISSION TO REQUEST')}</b>${t('Name')}: ________ ID: ________<br>${t('Reason')}: ________________________<br>${t('Approved by')}: ____ ${t('Date')}: ____ ${t('Hold')}: [x]</div>`,
+    conference: `<div class="s-banner">${t('WELCOME ATTENDEES · REGISTRATION →')}</div><div class="s-poster"></div><div class="portrait" style="--shirt:#637ab0;right:40%"><i></i></div><div class="portrait p2"><i></i></div>`,
+    winter: `<div class="s-snow"></div><div class="s-window"></div><div class="s-desk" style="background:#8a8f99;border-top-color:#b9bfc9"></div><div class="portrait" style="--shirt:#2f4f6f;right:50%"><i></i></div>`,
+  }[scene] || `<div class="s-window"></div><div class="s-desk"></div><div class="portrait"><i></i></div>`;
+  return `<div class="scene-strip ${scene}">${inner}<span class="scene-caption">${caption}</span>${memeCard(memeFor(e))}</div>`;
+}
+
+export function sceneDialog(s) {
+  const e = templateById[s.event]; if (!e) return '';
+  const scene = e.scene || (e.category === 'meeting' ? 'office' : 'life');
+  const advisor = e.speaker === 'advisor' || e.category === 'meeting';
+  const actor = s.eventActor ? labmateById(s, s.eventActor.id) : null;
+  const title = advisor ? t('MeetMe — Prof. {name}', { name: s.advisor?.name }) : { lab: t('The lab'), home: 'Life.exe', life: 'Life.exe', campus: t('Campus'), party: t('Lab social'), portal: t('Student Portal — Notice'), conference: t('Conference'), winter: t('Winter break') }[scene] || t('Something happened');
+  const ic = advisor ? 'chat' : scene === 'portal' ? 'portal' : scene === 'party' ? 'gift' : scene === 'conference' ? 'plane' : scene === 'winter' ? 'snow' : scene === 'lab' ? 'research' : 'home';
+  const speaker = advisor ? t('Prof. {name}', { name: lastName(s.advisor.name) }) : actor ? actor.name : e.category === 'crunch' ? t('The deadline') : t('Narrator');
+  const mode = s.advisorMode?.id;
+  const timed = e.category === 'meeting' && (mode === 'pressed' || s.crunch || s.advisor.toxicity > 55 || s.relationship.conflict > 45);
+  const seconds = s.crunch ? 11 : 15;
+  return `<div class="modal"><section class="dialog ${timed ? 'timed-scene' : ''}" role="dialog" aria-modal="true" aria-labelledby="scene-title"><div class="titlebar"><span class="tb-title">${icon(ic, 16)}<span>${title}</span></span><span class="tb-right">${esc(dateLabel(s.month))}${s.tempo === 'week' ? ` · ${t('week {n}', { n: Math.min(4, s.week + 1) })}` : ''}</span></div><div class="body">${strip(scene, s, e)}<h2 id="scene-title" style="margin:0 0 6px">${esc(fill(s, e.title))}</h2><div class="scene-text"><span class="speaker">${esc(speaker)}</span>${esc(eventText(s, e))}</div><div class="choices">${e.choices.map((c, i) => `<button class="btn choice" data-action="choice" data-id="${c.id}" data-hotkey="${i + 1}" ${(c.requiresCoursework && s.coursework < c.requiresCoursework) || (c.requiresMoney && s.player.stats.money < c.requiresMoney) ? 'disabled' : ''}><span>${hotkey(i + 1)}</span><span><b>${esc(fill(s, c.text))}</b><small>${effectPills(c.effects, c, 5)}<span class="muted">${esc(fill(s, c.hint))}${c.requiresCoursework ? ` · ${t('needs {n} coursework', { n: c.requiresCoursework })}` : ''}</span></small></span><span class="arrow">→</span></button>`).join('')}</div>${timed ? timedFooter(seconds) : ''}<div class="dialog-footer"><span>${timed ? t('They are waiting for an answer, visibly.') : e.category === 'meeting' ? t('A meeting. It will end with a list.') : t('Some consequences take time.')}</span><span>${e.choices.some(c => c.check) ? t('Some options roll against your skills or your advisor’s traits.') : ''}</span></div></div></section></div>`;
+}
+
+// A meeting under a clock. The bar is honest: when it runs out, the moment closes.
+export function timedFooter(seconds) {
+  return `<div class="timer-bar meeting" data-scene-timer="${seconds}"><i data-scene-bar></i></div><p class="tiny muted timer-note">${t('They are waiting. {n} seconds.', { n: seconds })}</p>`;
+}
+
+// The second beat: your advisor did not accept the first answer.
+export function pushbackDialog(s) {
+  const pb = pushbacks.find(x => x.id === s.pushback?.id);
+  if (!pb) return '';
+  const seconds = s.pushback.seconds || 12;
+  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="pb-title"><div class="titlebar"><span class="tb-title">${icon('chat', 16)}<span>${t('MeetMe — Prof. {name}', { name: s.advisor?.name })}</span></span><span class="tb-right">${esc(dateLabel(s.month))}</span></div><div class="body pushback">
+    <div class="pb-mark">${t('They are not finished.')}</div>
+    <h2 id="pb-title">${esc(fill(s, t(pb.text)))}</h2>
+    <div class="choices">${pb.options.map((o, i) => `<button class="btn choice" data-action="pushback" data-id="${o.id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(o.label))}</b><small>${effectPills(o.effects, o, 4)}</small></span><span class="arrow">→</span></button>`).join('')}</div>
+    ${timedFooter(seconds)}
+  </div></section></div>`;
+}
+
+// The lecture. Real time, and the only enemy is a person with a whiteboard marker.
+export function lectureDialog(s) {
+  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="lec-title"><div class="titlebar"><span class="tb-title">${icon('book', 16)}<span>${t('Lecture hall 1B')}</span></span><span class="tb-right">${esc(dateLabel(s.month))}</span></div><div class="body">
+    <h2 id="lec-title">${t('Two hours of a required course')}</h2>
+    <p class="small muted">${esc(t(lectureLines.intro))}</p>
+    <div class="lecture" data-lec>
+      <div class="lec-front"><span class="lec-prof" data-lec-eye>✎</span><span class="lec-board" data-lec-board></span></div>
+      <div class="lec-room">${Array.from({ length: 18 }, (_, i) => `<i class="${i === 9 ? 'you' : ''}"></i>`).join('')}</div>
+      <div class="lec-meters">
+        <span class="lbl">${t('Lecture')}</span><span class="lec-bar"><i data-lec-time></i></span>
+        <span class="lbl">${t('Your draft')}</span><span class="lec-bar work"><i data-lec-work></i></span>
+        <span class="lbl">${t('Caught')}</span><b class="lec-caught" data-lec-caught>···</b>
+      </div>
+      <button class="lec-toggle" data-action="lecture-toggle">${t('Work on the paper')}<small>${t('SPACE')}</small></button>
+      <p class="tiny muted" data-lec-hint></p>
+    </div>
+  </div></section></div>`;
+}
+
+export function milestoneDialog(s) {
+  const kind = s.milestoneKind || 'prelim';
+  const best = s.projects.filter(p => p.kind !== 'thesis').reduce((m, p) => (p.progress > (m?.progress || 0) ? p : m), null);
+  const thesis = s.projects.find(p => p.kind === 'thesis');
+  const odds = { prelim: prelimChance(s), proposal: proposalChance(s), defense: defenseChance(s), graduation: 1 }[kind];
+  const oddsWord = odds > .7 ? t('good') : odds > .45 ? t('even') : t('uphill');
+  const title = { prelim: t('Preliminary examination — Room 214'), proposal: t('Thesis proposal — Room 214'), defense: t('Dissertation defense — Room 214'), graduation: t('Commencement') }[kind];
+  const heading = { prelim: t('“Tell us about your contribution.”'), proposal: t('“Tell us what the next two years are.”'), defense: t('“Tell us what you did, and why it matters.”'), graduation: t('“Doctor.”') }[kind];
+  const emphasis = s.program.structure === 'exam' ? t('This program weighs coursework and the talk.') : t('This program weighs the research.');
+  const body = {
+    prelim: t('Three professors. One presentation. The projector works, which feels like an omen. Coursework {c} · Presentation {r} · Best project {p} · Papers accepted {a}. {emph} Rough odds: <b>{odds}</b>.', { c: Math.round(s.coursework), r: Math.round(s.readiness), p: Math.round(best?.progress || 0), a: s.counts.accepted, emph: emphasis, odds: oddsWord }),
+    proposal: t('Three professors and a document. They want to see a thesis where you see a pile of projects. Papers accepted {a} · Presentation {r} · Best project {p} · Advisor support {sup}. Rough odds: <b>{odds}</b>.', { a: s.counts.accepted, r: Math.round(s.readiness), p: Math.round(best?.progress || 0), sup: s.relationship.trust > 60 ? t('solid') : t('thin'), odds: oddsWord }),
+    defense: t('Four professors, two hours, one dissertation at {d}% draft quality and {a} chapter(s) that were once papers. Someone will ask about Chapter 4. Rough odds: <b>{odds}</b>.', { d: thesis ? Math.round(thesis.draft) : 0, a: s.counts.accepted, odds: oddsWord }),
+    graduation: t('You passed. The committee shook your hand in an order that meant something. Now the question that has been waiting since year one: what next? Offers on the table: {offers}.', { offers: s.jobs.offers.length ? s.jobs.offers.map(o => esc(t(o))).join(', ') : t('none yet (they arrive later; they always do)') }),
+  }[kind];
+  const choices = kind === 'graduation'
+    ? (s.jobs.market || []).map(o => [o.kind, t('Take it: {name}', { name: t(o.name) }), `${esc(o.org)} · ${o.salary ? money(o.salary) : t('no salary, yet')}`])
+    : kind === 'defense'
+      ? [['balanced', t('Present the work carefully'), t('Let six years speak.')], ['honest', t('Be honest about the limitations'), t('Committees respect it, mostly.')], ['bold', s.player.stats.confidence > 65 ? t('Defend the big claim') : t('Try to sound certain'), t('Confidence can help; overconfidence can hurt.')]]
+      : [['balanced', t('Present the evidence carefully'), t('Let the work speak.')], ['honest', t('Explain the limitations honestly'), t('A small bonus for intellectual clarity.')], ['bold', s.player.stats.confidence > 65 ? t('Defend the big idea') : t('Try to sound certain'), t('Confidence can help; overconfidence can hurt.')], ['master', t('Choose the MS exit'), t('Requires 55 coursework progress. A degree, not an apology.')]];
+  const subtitle = { prelim: t('PRELIMINARY EXAMINATION'), proposal: t('THESIS PROPOSAL'), defense: t('DISSERTATION DEFENSE'), graduation: t('COMMENCEMENT') }[kind];
+  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="milestone-title"><div class="titlebar"><span class="tb-title">${icon('portal', 16)}<span>${title}</span></span><span class="tb-right">${esc(dateLabel(s.month))}</span></div><div class="body"><div class="scene-strip committee"><div class="s-screen">${esc(kind === 'defense' && thesis ? thesis.title : best?.title || t('A Work in Progress'))}<small>${subtitle} · ${esc(s.player.name.toUpperCase())}</small></div><div class="portrait" style="right:6%;--shirt:#637ab0"><i></i></div><div class="portrait p2" style="right:20%"><i></i></div><div class="portrait p3" style="right:34%"><i></i></div><div class="s-table"></div><span class="scene-caption">${t('COMMITTEE')}: ${s.committee.map(c => esc(c.toUpperCase())).join(' · ')}</span></div>
+  <h2 id="milestone-title">${heading}</h2><div class="scene-text"><span class="speaker">${kind === 'graduation' ? t('The dean, allegedly') : t('The committee')}</span>${body}</div>
+  <div class="choices">${choices.map(([id, label, h], i) => `<button class="btn choice" data-action="${kind === 'graduation' ? 'graduate' : 'milestone'}" data-id="${id}" data-hotkey="${i + 1}" ${id === 'master' && s.coursework < 55 ? 'disabled' : ''}><span><kbd>${i + 1}</kbd></span><span><b>${esc(label)}</b><small>${esc(h)}</small></span><span class="arrow">→</span></button>`).join('')}</div></div></section></div>`;
+}
+export const prelimDialog = milestoneDialog;

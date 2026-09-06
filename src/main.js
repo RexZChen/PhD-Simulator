@@ -1,0 +1,348 @@
+import './styles.css';
+import { createRun, chatBody, mailSubject, mailSender, requestText } from './engine/state.js';
+import { dispatch, prepareRun } from './engine/game.js';
+import { loadSave, saveRun, resetSave, emptyMeta } from './engine/save.js';
+import { shell } from './ui/shell.js';
+import { play, setSound } from './ui/sound.js';
+import { setAppLanguage } from './i18n/apply.js';
+import { streamText, stopStream, finishStream, isStreaming, composedText } from './ui/compose.js';
+import { startTalk, pickWord, stopTalk, talkRunning, startQaTimer, stopQaTimer } from './ui/talkgame.js';
+import { startLecture, toggleWork, stopLecture, lectureRunning } from './ui/lecture.js';
+import { draftFor } from './ui/apps/mail.js';
+import { chatDraft } from './ui/apps/chat.js';
+import { rebuttalDraft } from './ui/apps/browser.js';
+import { conditions as conditionDefs } from './data/life.js';
+import { t, pauseProvenance, resumeProvenance } from './i18n/index.js';
+const conditionNames = Object.fromEntries(Object.entries(conditionDefs).map(([k, v]) => [k, v.name]));
+
+const root = document.querySelector('#app');
+const loaded = loadSave(localStorage);
+let run = loaded.run;
+let meta = loaded.meta;
+let notices = [loaded.notice, loaded.error].filter(Boolean);
+let ui = { screen: 'boot', wizardStep: 0, wizardChoice: run && run.phase !== 'ending' ? 'continue' : 'new', eula: false, app: 'dashboard', browserTab: 'overgrief', mailFolder: 'inbox', selectedMail: null, chatChannel: 'advisor', startMenu: false, minimized: false, confirm: null, dialog: null, balloons: [], saveError: loaded.error, effort: 'generic', contact: false };
+let balloonId = 0;
+setSound(meta.settings.sound);
+document.body.classList.toggle('large-text', !!meta.settings.largeText);
+const initialLanguage = meta.settings.lang || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
+setAppLanguage(initialLanguage);
+if (!meta.settings.lang) meta.settings.lang = initialLanguage;
+
+// Timed dialogs: the bar in the DOM is the clock. When it empties, the moment closes.
+let sceneTimer = null, sceneKey = null;
+function stopSceneTimer() { if (sceneTimer) clearInterval(sceneTimer); sceneTimer = null; sceneKey = null; }
+function syncSceneTimer() {
+  const el = document.querySelector('[data-scene-timer]');
+  if (!el) { stopSceneTimer(); return; }
+  const key = el.dataset.sceneTimer + '|' + (run?.pushback?.id || run?.event || '');
+  if (sceneTimer && sceneKey === key) return;
+  stopSceneTimer();
+  sceneKey = key;
+  const total = Number(el.dataset.sceneTimer) * 1000;
+  let left = total;
+  sceneTimer = setInterval(() => {
+    left -= 100;
+    const bar = document.querySelector('[data-scene-bar]');
+    if (!bar) { stopSceneTimer(); return; }
+    const pct = Math.max(0, left / total) * 100;
+    bar.style.width = `${pct}%`;
+    bar.className = pct < 30 ? 'low' : '';
+    if (left <= 0) { stopSceneTimer(); perform({ type: 'HESITATE' }); }
+  }, 100);
+}
+// The lecture runs itself once its dialog is on screen.
+function syncLecture() {
+  const on = run?.stage === 'minigame' && run?.minigame === 'lecture';
+  if (on && !lectureRunning()) startLecture((run.seed + run.month * 7) >>> 0, r => perform({ type: 'LECTURE', ...r }));
+  if (!on && lectureRunning()) stopLecture();
+}
+
+function render({ restoreTyping = false, preserveScroll = true } = {}) {
+  const scroll = preserveScroll ? (document.querySelector('.client')?.scrollTop || 0) : 0;
+  const modalScroll = document.querySelector('.dialog .body')?.scrollTop || 0;
+  // Rendering calls t() thousands of times; none of it is text the run stores, so keep it
+  // out of the provenance buffer.
+  pauseProvenance();
+  try { root.innerHTML = shell(run, ui, meta, loaded.run, notices); } finally { resumeProvenance(); }
+  const client = document.querySelector('.client');
+  if (client && preserveScroll) client.scrollTop = scroll;
+  const body = document.querySelector('.dialog .body'); if (body) body.scrollTop = modalScroll;
+  if (restoreTyping) document.querySelector('#typing-zone')?.focus();
+  const log = document.querySelector('.chat-log'); if (log) log.scrollTop = log.scrollHeight;
+  syncSceneTimer();
+  syncLecture();
+}
+function persist() {
+  if (!run) return;
+  const result = saveRun(localStorage, run, meta);
+  meta = result.meta; ui.saveError = result.error; loaded.run = run; loaded.meta = meta;
+}
+function saveMeta() { const result = saveRun(localStorage, run, meta); meta = result.meta; ui.saveError = result.error; loaded.meta = meta; }
+function balloon(title, text, icon = 'bell', sound = 'notify') {
+  ui.balloons.push({ id: ++balloonId, title, text: String(text).slice(0, 140) });
+  if (ui.balloons.length > 3) ui.balloons.shift();
+  const id = balloonId;
+  setTimeout(() => { ui.balloons = ui.balloons.filter(b => b.id !== id); render(); }, 6000);
+  play(sound);
+}
+function notify(text) { balloon('Academic OS', text, 'warn', 'error'); }
+// The composer types a canned line into the box, then Send becomes available.
+function closeCompose() { stopStream(); ui.compose = null; ui.chatMenu = false; }
+function beginCompose(mailId, optionId) {
+  ui.compose = { mailId, optionId, done: false };
+  render();
+  const text = draftFor(run, mailId, optionId);
+  play('click');
+  streamText(text, () => { if (ui.compose) { ui.compose.done = true; render(); } });
+}
+function setLanguage(lang) { meta.settings.lang = lang; setAppLanguage(lang); saveMeta(); render(); }
+
+function afterDispatch(before, after) {
+  const newMail = after.inbox.filter(m => !before.inbox.some(x => x.id === m.id));
+  const newChat = after.chatMessages.filter(m => !m.mine && !before.chatMessages.some(x => x.id === m.id));
+  const newReq = after.requests.filter(r => r.status === 'open' && !before.requests.some(x => x.id === r.id));
+  const newAch = after.achievements.filter(a => !before.achievements.includes(a));
+  if (newAch.length) balloon(t('Achievement unlocked'), newAch.join(', '), 'star', 'chime');
+  if (newReq.length) balloon(t('Request from Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), requestText(after, newReq[0]), 'chat', 'ring');
+  else if (newChat.filter(m => m.channel === 'advisor').length) balloon(t('Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), chatBody(after, newChat.filter(m => m.channel === 'advisor')[0]), 'chat', 'notify');
+  else if (newChat.length) balloon(`#${newChat[0].channel}`, `${newChat[0].sender}: ${chatBody(after, newChat[0])}`, 'chat', 'notify');
+  if (newMail.length) balloon(t('New mail'), `${mailSender(after, newMail[0])}: ${mailSubject(after, newMail[0])}`, 'mail', newChat.length ? 'click' : 'notify');
+  const newConds = (after.conditions || []).filter(c => !(before.conditions || []).some(x => x.id === c.id));
+  if (newConds.length) balloon(t('Your body, calling'), t(conditionNames[newConds[0].id] || newConds[0].id), 'warn', 'error');
+  if (after.phase === 'ending' && before.phase !== 'ending') play(after.ending.id === 'pass' ? 'accept' : 'reject');
+  const acc = after.counts?.accepted || 0, bef = before.counts?.accepted || 0;
+  if (acc > bef) play('accept'); else if ((after.counts?.rejected || 0) > (before.counts?.rejected || 0)) play('reject');
+}
+function perform(action, options = {}) {
+  try {
+    const before = run;
+    run = dispatch(run, action);
+    if (before.phase === 'playing' || run.phase === 'playing') afterDispatch(before, run);
+    persist();
+    render(options);
+  } catch (error) { notify(error.message || t('That action is unavailable.')); render(); }
+}
+function startRun(seed, answers) {
+  run = prepareRun(createRun(seed, answers));
+  run.seenBefore = { ...meta.eventCounts };
+  meta.runs = (meta.runs || 0) + 1;
+  ui = { ...ui, screen: 'game', app: 'dashboard', confirm: null, startMenu: false, minimized: false, wizardStep: 0, selectedMail: null };
+  persist(); play('submit'); render();
+}
+function submitProfile() {
+  const form = document.querySelector('#profile-form'); if (!form) return;
+  const values = Object.fromEntries(new FormData(form));
+  values.international = values.international === 'true';
+  startRun(undefined, values);
+}
+function wizardNext() {
+  const choice = ui.wizardChoice || 'new';
+  if (ui.wizardStep === 0) {
+    if (choice === 'collection') { ui.screen = 'collection'; render(); return; }
+    if (choice === 'continue' && run) { ui.screen = 'game'; ui.app = 'dashboard'; if (meta.settings.tips && run.phase !== 'ending') ui.dialog = 'tips'; render(); return; }
+    ui.wizardStep = 1; render(); return;
+  }
+  if (ui.wizardStep === 1) {
+    if (!ui.eula) { notify(t('The license is short. Please tick the box.')); return; }
+    if (choice === 'random') { startRun(); if (meta.settings.tips) { ui.dialog = 'tips'; render(); } return; }
+    ui.wizardStep = 2; render(); return;
+  }
+  submitProfile();
+}
+
+root.addEventListener('submit', e => {
+  if (e.target.id === 'profile-form') { e.preventDefault(); submitProfile(); if (meta.settings.tips) { ui.dialog = 'tips'; render(); } }
+  if (e.target.id === 'chatphd-form') { e.preventDefault(); const input = document.querySelector('#chatphd-input'); const text = input?.value || ''; perform({ type: 'CHATPHD_SAY', text }); const again = document.querySelector('#chatphd-input'); if (again) again.focus(); }
+});
+root.addEventListener('change', e => {
+  if (e.target.id === 'eula') { ui.eula = e.target.checked; render(); }
+  if (e.target.id === 'effort-select') { ui.effort = e.target.value; render(); }
+  if (e.target.id === 'contact-faculty') { ui.contact = e.target.checked; render(); }
+  if (e.target.id === 'tips-toggle') { meta.settings.tips = e.target.checked; saveMeta(); }
+});
+root.addEventListener('keydown', e => {
+  if (e.target.id === 'typing-zone') {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
+    e.preventDefault(); perform({ type: 'WRITE', amount: 1 }, { restoreTyping: true }); return;
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, select, textarea, #typing-zone')) return;
+  if (/^[1-6]$/.test(e.key)) { const b = document.querySelector(`[data-hotkey="${e.key}"]:not(:disabled)`); if (b) { e.preventDefault(); b.click(); } return; }
+  if (e.key === 'Enter') { const d = document.querySelector('.modal [data-default="1"]:not(:disabled)') || document.querySelector('.wizard-buttons [data-default="1"]:not(:disabled)') || (!document.querySelector('.modal') && document.querySelector('[data-action="continue"]:not(:disabled)')); if (d) { e.preventDefault(); d.click(); } return; }
+  if (e.key === ' ' && lectureRunning()) { e.preventDefault(); toggleWork(); return; }
+  if (e.key === 'Escape') { if (ui.startMenu || ui.dialog || ui.confirm || ui.thread) { ui.startMenu = false; ui.dialog = null; ui.confirm = null; ui.thread = null; render(); } }
+});
+
+root.addEventListener('click', event => {
+  const word = event.target.closest('[data-tg-pick]');
+  if (word && talkRunning()) { play('click'); pickWord(word.dataset.tgPick); return; }
+  const target = event.target.closest('[data-action]');
+  if (!target || target.disabled) return;
+  const action = target.dataset.action, id = target.dataset.id;
+  if (action !== 'start-menu') ui.startMenu = false;
+  if (!['choice', 'continue', 'dismiss-report', 'boot-skip'].includes(action)) play('click');
+  switch (action) {
+    case 'boot-skip': ui.screen = 'home'; render(); return;
+    case 'home': ui.screen = 'home'; ui.minimized = false; ui.confirm = null; ui.dialog = null; ui.wizardStep = 0; render({ preserveScroll: false }); return;
+    case 'collection': ui.screen = 'collection'; ui.minimized = false; render({ preserveScroll: false }); return;
+    case 'wiz-choice': ui.wizardChoice = id; render(); return;
+    case 'wiz-next': wizardNext(); return;
+    case 'wiz-back': ui.wizardStep = Math.max(0, ui.wizardStep - 1); render(); return;
+    case 'wiz-submit': submitProfile(); if (meta.settings.tips) { ui.dialog = 'tips'; render(); } return;
+    case 'wiz-cancel': if (run && run.phase !== 'ending') { ui.screen = 'game'; } ui.wizardStep = 0; render(); return;
+    case 'new': if (run && run.phase !== 'ending') { ui.confirm = 'new'; render(); } else { ui.screen = 'home'; ui.wizardStep = 0; ui.wizardChoice = 'new'; render(); } return;
+    case 'reset': ui.confirm = 'reset'; render(); return;
+    case 'cancel-confirm': ui.confirm = null; render(); return;
+    case 'confirm':
+      if (ui.confirm === 'reset') { resetSave(localStorage); run = null; meta = emptyMeta(); loaded.run = null; loaded.meta = meta; notices = []; ui = { ...ui, screen: 'home', confirm: null, wizardStep: 0, wizardChoice: 'new', eula: false }; }
+      else { ui.confirm = null; ui.screen = 'home'; ui.wizardStep = 0; ui.wizardChoice = 'new'; }
+      render(); return;
+    case 'about': ui.dialog = 'about'; render(); return;
+    case 'language': setLanguage(id); return;
+    case 'tips': ui.dialog = 'tips'; render(); return;
+    case 'shutdown': ui.dialog = 'shutdown'; render(); return;
+    case 'close-dialog': ui.dialog = null; render(); return;
+    case 'dismiss-balloon': ui.balloons = ui.balloons.filter(b => String(b.id) !== id); render(); return;
+    case 'start-menu': ui.startMenu = !ui.startMenu; render(); return;
+    case 'minimize': ui.minimized = true; render(); return;
+    case 'restore': ui.minimized = false; render(); return;
+    case 'maximize': document.querySelector('.workspace')?.classList.toggle('no-side'); return;
+    case 'close-window': if (run?.phase === 'playing') ui.minimized = true; else ui.screen = 'home'; render(); return;
+    case 'sound': meta.settings.sound = !meta.settings.sound; setSound(meta.settings.sound); saveMeta(); if (meta.settings.sound) play('notify'); render(); return;
+    case 'quiet': meta.settings.quiet = !meta.settings.quiet; saveMeta(); render(); return;
+    case 'large-text': meta.settings.largeText = !meta.settings.largeText; document.body.classList.toggle('large-text', meta.settings.largeText); saveMeta(); render(); return;
+    case 'open': if (!run || run.phase !== 'playing') return; closeCompose(); ui.screen = 'game'; ui.app = target.dataset.app; ui.minimized = false; if (ui.app === 'mail' && !ui.selectedMail) ui.selectedMail = run.inbox[0]?.id; if (ui.app === 'chat') perform({ type: 'READ_CHAT', channel: ui.chatChannel }, { preserveScroll: false }); else render({ preserveScroll: false }); return;
+    case 'browser-tab': closeCompose(); ui.browserTab = id; render({ preserveScroll: false }); return;
+    case 'life-tab': ui.lifeTab = id; render({ preserveScroll: false }); return;
+    case 'trip-visa': perform({ type: 'TRIP_VISA', id }, { preserveScroll: false }); return;
+    case 'talk-intro': ui.talkStage = 'intro'; render({ preserveScroll: false }); return;
+    case 'talk-start': {
+      ui.talkStage = 'game'; render({ preserveScroll: false });
+      play('click');
+      startTalk((run.seed + run.month) >>> 0, tally => { ui.talkStage = 'result'; perform({ type: 'TRIP_TALK', tally }, { preserveScroll: false }); play('chime'); });
+      return;
+    }
+    case 'talk-qa': {
+      ui.talkStage = 'qa'; render({ preserveScroll: false });
+      startQaTimer(14, () => { if (run?.trip && !run.trip.qaDone) { perform({ type: 'TRIP_QA', id: 'timeout' }, { preserveScroll: false }); } });
+      return;
+    }
+    case 'trip-qa': {
+      stopQaTimer();
+      perform({ type: 'TRIP_QA', id }, { preserveScroll: false });
+      if (run?.trip && !run.trip.qaDone) startQaTimer(14, () => { if (run?.trip && !run.trip.qaDone) perform({ type: 'TRIP_QA', id: 'timeout' }, { preserveScroll: false }); });
+      else { ui.talkStage = null; }
+      return;
+    }
+    case 'trip-day': perform({ type: 'TRIP_DAY', id }, { preserveScroll: false }); return;
+    case 'cv-step': ui.cvStep = (ui.cvStep ?? 0) + 1; play('click'); render(); return;
+    case 'cv-all': ui.cvStep = (run.cv?.lines.length || 0); play('chime'); render(); return;
+    case 'take-offer': ui.cvStep = 0; play('accept'); perform({ type: 'TAKE_OFFER', id }, { preserveScroll: false }); return;
+    case 'epilogue': perform({ type: 'EPILOGUE', id }, { preserveScroll: false }); return;
+    case 'epilogue-end': perform({ type: 'EPILOGUE', id: (run.epilogue && 'ok') || 'ok' }, { preserveScroll: false }); return;
+    case 'trip-caught': perform({ type: 'TRIP_CAUGHT', id }, { preserveScroll: false }); return;
+    case 'trip-upgrade': play('submit'); perform({ type: 'TRIP_UPGRADE', id }); return;
+    case 'scholar-tab': ui.scholarTab = id; render({ preserveScroll: false }); return;
+    case 'coffee': play('click'); perform({ type: 'COFFEE' }); return;
+    case 'skip-meal': perform({ type: 'SKIP_MEAL' }); return;
+    case 'pop-in': perform({ type: 'POP_IN' }); return;
+    case 'run-into': perform({ type: 'RUN_INTO' }); return;
+    case 'day-mode': perform({ type: 'DAY_MODE' }, { preserveScroll: false }); return;
+    case 'life': perform({ type: 'LIFE', id }); return;
+    case 'clinic': perform({ type: 'CLINIC', id }); return;
+    case 'budget': perform({ type: 'BUDGET', id }); return;
+    case 'reflect': perform({ type: 'REFLECT' }); return;
+    case 'ask-timeline': perform({ type: 'ASK_TIMELINE' }, { preserveScroll: false }); return;
+    case 'timeline-move': perform({ type: 'TIMELINE_MOVE', id }); return;
+    case 'intern-apply': perform({ type: 'INTERN_APPLY' }, { preserveScroll: false }); return;
+    case 'intern-talk': perform({ type: 'INTERN_TALK', id }, { preserveScroll: false }); return;
+    case 'intern-move': perform({ type: 'INTERN_MOVE', id }); return;
+    case 'revise': perform({ type: 'REVISE', id }); return;
+    case 'deposit': play('submit'); perform({ type: 'DEPOSIT' }, { preserveScroll: false }); return;
+    case 'pay-debt': perform({ type: 'PAY_DEBT', amount: id }); return;
+    case 'rebut-option': {
+      ui.compose = { kind: 'rebuttal', optionId: id, done: false };
+      render(); play('click');
+      streamText(rebuttalDraft(run, id), () => { if (ui.compose) { ui.compose.done = true; render(); } });
+      return;
+    }
+    case 'rebut-send': {
+      if (!ui.compose || ui.compose.kind !== 'rebuttal' || !ui.compose.done) return;
+      const { optionId } = ui.compose;
+      closeCompose(); play('submit');
+      perform({ type: 'REBUT', id: optionId });
+      return;
+    }
+    case 'mail-folder': closeCompose(); ui.mailFolder = id; ui.selectedMail = null; render({ preserveScroll: false }); return;
+    case 'mail-reply': closeCompose(); ui.compose = { mailId: id, optionId: null, done: false }; render(); return;
+    case 'mail-option': beginCompose(target.dataset.mail, id); return;
+    case 'mail-discard': closeCompose(); render(); return;
+    case 'compose-skip': if (isStreaming()) finishStream(); return;
+    case 'mail-archive': closeCompose(); perform({ type: 'READ_MAIL', id }); return;
+    case 'mail-send': {
+      if (!ui.compose || !ui.compose.done) return;
+      const { mailId, optionId } = ui.compose;
+      closeCompose(); play('submit');
+      perform({ type: 'MAIL_REPLY', mailId, id: optionId });
+      if (run && run.mailOutcome) { balloon(t('Reply sent'), run.mailOutcome, 'mail', 'notify'); run.mailOutcome = null; }
+      return;
+    }
+    case 'chat-channel': closeCompose(); ui.chatChannel = id; perform({ type: 'READ_CHAT', channel: id }); return;
+    case 'chat-menu': stopStream(); ui.compose = null; ui.chatMenu = true; render(); return;
+    case 'chat-menu-close': ui.chatMenu = false; render(); return;
+    case 'chat-option': {
+      ui.chatMenu = false;
+      ui.compose = { kind: 'chat', channel: ui.chatChannel, optionId: id, done: false };
+      render();
+      play('click');
+      streamText(chatDraft(run, ui.chatChannel, id), () => { if (ui.compose) { ui.compose.done = true; render(); } });
+      return;
+    }
+    case 'chat-send': {
+      if (!ui.compose || ui.compose.kind !== 'chat' || !ui.compose.done) return;
+      const { channel, optionId } = ui.compose;
+      const text = composedText();
+      const [kind, x, y] = optionId.split(':');
+      closeCompose(); play('submit');
+      if (kind === 'ask') perform({ type: 'ASK', id: x, text });
+      else if (kind === 'soc') perform({ type: 'SOCIAL', channel, id: x, text });
+      else if (kind === 'req') perform({ type: { do: 'REQUEST_DO', push: 'REQUEST_PUSH', decline: 'REQUEST_DECLINE' }[x], id: y, text });
+      return;
+    }
+    case 'read-mail': closeCompose(); ui.selectedMail = id; perform({ type: 'READ_MAIL', id }); return;
+    case 'apply': perform({ type: 'APPLY', schoolId: id, effort: ui.effort || 'generic', contact: !!ui.contact, poiId: target.dataset.target }); return;
+    case 'ga-tab': ui.gaTab = id; render({ preserveScroll: false }); return;
+    case 'ga-school': ui.gaSchool = ui.gaSchool === id ? null : id; render(); return;
+    case 'ga-filter': ui.gaFilter = id; render(); return;
+    case 'ga-poi': ui.poi = { ...(ui.poi || {}), [id]: target.dataset.target }; render(); return;
+    case 'ga-thread': ui.thread = id; render(); return;
+    case 'close-thread': ui.thread = null; render(); return;
+    case 'prep': perform({ type: 'PREP', id, target: target.dataset.target }); return;
+    case 'email': perform({ type: 'EMAIL', advisorId: target.dataset.target, id }); return;
+    case 'student': perform({ type: 'STUDENT', advisorId: target.dataset.target, id }); return;
+    case 'interview': perform({ type: 'INTERVIEW', schoolId: target.dataset.target, id }); return;
+    case 'visit': perform({ type: 'VISIT', advisorId: target.dataset.target, id }); return;
+    case 'decisions': ui.gaTab = null; perform({ type: 'DECISIONS' }); return;
+    case 'wait-april': perform({ type: 'WAIT_APRIL' }); return;
+    case 'wizard': { const p = run.projects.find(x => x.id === run.activeProjectId); perform({ type: 'WIZARD', venueId: p?.wizardStep === 0 ? id : undefined }); return; }
+    case 'continue': play('click'); perform({ type: 'CONTINUE' }); return;
+    case 'dismiss-report': play('chime'); perform({ type: 'DISMISS_REPORT' }); return;
+    case 'choice': stopSceneTimer(); play('click'); perform({ type: 'CHOICE', id }); return;
+    case 'pushback': stopSceneTimer(); play('click'); perform({ type: 'PUSHBACK', id }); return;
+    case 'lecture-toggle': toggleWork(); return;
+    default: break;
+  }
+  const actions = {
+    admissions: { type: 'ADMISSIONS' }, enroll: { type: 'ENROLL', id }, 'ask-student': { type: 'ASK_STUDENT', id },
+    plan: { type: 'PLAN', id }, 'start-project': { type: 'START_PROJECT' }, 'start-side': { type: 'START_SIDE' }, 'select-project': { type: 'SELECT_PROJECT', id },
+    write: { type: 'WRITE', amount: 5 }, hype: { type: 'HYPE' }, 'send-advisor': { type: 'SEND_ADVISOR' }, 'skip-approval': { type: 'SKIP_APPROVAL' }, 'set-target': { type: 'SET_TARGET', id }, 'clear-target': { type: 'CLEAR_TARGET' }, zoom: { type: 'ZOOM' },
+    submit: { type: 'SUBMIT' }, rebut: { type: 'REBUT', id }, recycle: { type: 'RECYCLE', id }, preprint: { type: 'PREPRINT' }, chatphd: { type: 'CHATPHD', id }, practice: { type: 'PRACTICE' }, grant: { type: 'GRANT' },
+    'req-do': { type: 'REQUEST_DO', id }, 'req-push': { type: 'REQUEST_PUSH', id }, 'req-decline': { type: 'REQUEST_DECLINE', id }, ask: { type: 'ASK', id }, prelim: { type: 'MILESTONE', id }, milestone: { type: 'MILESTONE', id }, graduate: { type: 'MILESTONE', id },
+    pace: { type: 'PACE' }, 'start-thesis': { type: 'START_THESIS' }, 'schedule-defense': { type: 'SCHEDULE_DEFENSE' },
+  };
+  if (actions[action]) { if (action === 'submit') play('submit'); if (action === 'admissions' || action === 'enroll') ui.gaTab = null; if (action === 'enroll') ui.thread = null; perform(actions[action]); }
+});
+
+render();
+setTimeout(() => { if (ui.screen === 'boot') { ui.screen = 'home'; play('startup'); render(); } }, 1800);

@@ -1,0 +1,23 @@
+const c = (id, text, hint, effects = {}, extra = {}) => ({ id, text, hint, effects, ...extra });
+export default [
+  { id: 'fee', title: 'The price of potential', category: 'application', scene: 'home', probability: 1, cooldown: 99, conditions: { phase: 'application' },
+    text: 'The application portal charges another processing fee. Processing apparently means accepting money.',
+    choices: [c('pay', 'Pay and move on', '−$100. Less uncertainty, less lunch.', { money: -100, confidence: 3 }),
+      c('waiver', 'Request a fee waiver', 'Energy → a chance to keep the money', { energy: -3 }, { check: { skill: 'communication', difficulty: 35 }, successEffects: { hope: 3 }, failureEffects: { money: -75 }, successText: 'The waiver is approved. A surprisingly human email.', failureText: 'The waiver deadline was on a different website, in a different font.' })] },
+  { id: 'sop', title: 'A statement of someone’s purpose', category: 'application', scene: 'home', probability: 1, cooldown: 99, conditions: { phase: 'application' },
+    text: 'A friend offers to read your statement. They ask what your actual research question is. An excellent question. You will think about it for six years.',
+    choices: [c('revise', 'Rewrite the opening', 'Energy → stronger applications', { energy: -4, confidence: 4 }, { flags: { sopRevised: true } }),
+      c('send', 'It already has a compelling journey', 'Keep your Energy and your metaphors', { hope: 2 })] },
+  { id: 'letter', title: 'Your recommender is “on it”', category: 'application', scene: 'home', probability: 1, cooldown: 99, conditions: { phase: 'application' },
+    text: 'One of your letter writers has not submitted. The deadline is in three days. Their auto-reply says they are at a workshop about mentoring.',
+    choices: [c('nudge', 'Send a polite, terrified reminder', 'Communication check', { energy: -2 }, { check: { skill: 'communication', difficulty: 40 }, successEffects: { confidence: 3 }, failureEffects: { hope: -4, stress: 5 }, successText: 'They submit it from the workshop bathroom. The letter is warm.', failureText: 'They submit it four hours late. Two schools accept it. One does not say.' }),
+      c('backup', 'Ask a backup writer', 'A safer, weaker letter', { energy: -4, hope: -1 }, { flags: { backupLetter: true } })] },
+  { id: 'faculty', title: 'Thank you for your interest', category: 'application', scene: 'home', probability: 1, cooldown: 99, conditions: { phase: 'application' },
+    text: '“Thank you for your interest in our lab. Please apply through the official portal.” The email is signed Sent from my phone. You wrote four drafts.',
+    choices: [c('accept', 'Count this as a response', 'A small amount of closure', { hope: 2 }),
+      c('follow', 'Ask a current student instead', 'Energy → recruitment intel later', { energy: -3 }, { flags: { studentContact: true } })] },
+  { id: 'interview', title: 'A 20-minute video interview', category: 'application', scene: 'home', probability: 1, cooldown: 99, conditions: { phase: 'application' },
+    text: 'A professor wants to “chat.” They ask what you would do with unlimited compute. The honest answer is “sleep.”',
+    choices: [c('pitch', 'Pitch a concrete project', 'Research check → better odds somewhere', { energy: -5 }, { check: { skill: 'research', difficulty: 55 }, successEffects: { confidence: 6 }, failureEffects: { confidence: -3 }, successText: 'They nod. Twice. You have learned that two nods is the maximum.', failureText: 'They ask a follow-up you were not ready for. You were ready for a different follow-up.', flags: { interviewed: true } }),
+      c('listen', 'Ask about the lab and listen', 'Learn something; commit to nothing', { hope: 2, energy: -2 }, { flags: { interviewed: true, studentContact: true } })] },
+];

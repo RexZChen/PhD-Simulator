@@ -1,0 +1,16 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+.DS_Store
+
+# Local tooling and editor state — kept on disk, out of the repo.
+.claude/
+.codex/
+.idea/
+.mcp.json
+
+# Working notes and scratch harnesses, superseded by scripts/balance.mjs.
+spec.md
+dep_sim.mjs
+tests/_sim_probe.mjs

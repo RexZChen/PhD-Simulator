@@ -1,0 +1,23 @@
+{
+  "name": "phdsim",
+  "version": "1.0.0",
+  "description": "A satirical US CS PhD simulator, presented as a 90s desktop OS. Runs entirely in the browser.",
+  "private": false,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RexZChen/PhD-Simulator.git"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.js",
+    "test:e2e": "playwright test",
+    "balance": "node scripts/balance.mjs"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0",
+    "@playwright/test": "^1.55.0"
+  }
+}

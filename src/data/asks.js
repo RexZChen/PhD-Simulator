@@ -1,0 +1,41 @@
+// Player-initiated conversations with the advisor. The engine computes the chance from `chance`.
+// chance = base + Σ(trait × factor) − crunch penalty; all values clamped to [.05, .95].
+export const asks = [
+  { id: 'update', draft: "Quick written update so you have it in one place: the experiments are running, the draft has moved, and nothing is on fire. I will send the next figure by the end of the week.", name: 'Send a written progress update', desc: 'Costs 2 Energy. Always lands. Trust +, a little satisfaction.', cooldown: 3, cost: { energy: 2 }, chance: { base: 1 },
+    success: { effects: { trust: 3, satisfaction: 2, dependency: -1 }, text: ['“Thanks — helpful.” Three words, and you feel seen for one afternoon.', '“Got it.” They got it. That is the whole reply.'] } },
+  { id: 'leave', draft: "I would like to take a week off. I have not taken one since I started and I think I would come back to this sharper than I am now. Nothing is due that week.", name: 'Ask for a week off', desc: 'A real week. Depends on caring, trust, and how close the deadline is.', cooldown: 8, cost: { energy: 1 }, chance: { base: .45, caring: .004, trust: .002, pressure: -.004, toxicity: -.003, crunch: -.3 },
+    success: { effects: { trust: 2, hope: 4 }, leave: 1, text: ['“Of course. Go. Don’t open the laptop.” You will open the laptop.', '“Take two, if you need them.” You take one, out of guilt, which is the plan.'] },
+    failure: { effects: { satisfaction: -6, stress: 4, pressure: 3 }, text: ['“Now? We’re in a critical phase.” Every phase is critical.', '“Can it wait until after the deadline?” The deadline is a horizon; it moves as you walk.'] } },
+  { id: 'sick', draft: "I am not well — I am going to be offline for a few days. I will pick things up as soon as I am upright.", name: 'Take sick leave', desc: 'For when the body has filed a complaint. Only when Energy is low.', cooldown: 6, cost: {}, conditions: { maxEnergy: 30 }, chance: { base: .7, caring: .003, toxicity: -.004 },
+    success: { effects: { trust: 1 }, leave: 1, text: ['“Feel better. Nothing here can’t wait.” A lie, kindly told.'] },
+    failure: { effects: { stress: 5, satisfaction: -3 }, leave: 1, text: ['“Feel better. Can you still send the figure?” You send the figure.'] } },
+  { id: 'travel', draft: "The conference is in a few months and I would like to go. Is there travel funding on the grant, or should I apply to the department scheme?", name: 'Ask for conference travel funding', desc: 'Depends on advisor funding. Sets travel as covered for the next conference.', cooldown: 10, cost: { energy: 1 }, conditions: { notFlag: 'travelFunded' }, chance: { base: .3, funding: .006, trust: .002, freeze: -.2 },
+    success: { effects: { trust: 2, hope: 3 }, flags: { travelFunded: true }, text: ['“Expense it.” The most romantic phrase in academia.'] },
+    failure: { effects: { hope: -2 }, text: ['“The travel budget is allocated.” To whom is a mystery with a name.', '“Apply for the department travel grant.” The grant is $200 and closed.'] } },
+  { id: 'letter', draft: "I am applying for a fellowship — the deadline is in three weeks. Would you be willing to write me a letter? I can send my CV and a draft of the research statement today.", name: 'Ask for a recommendation letter', desc: 'Needed for fellowships and internships. Depends on availability and trust.', cooldown: 10, cost: { energy: 2 }, conditions: { notFlag: 'letterReady' }, chance: { base: .4, availability: .005, trust: .003 },
+    success: { effects: { academicCapital: 3 }, flags: { letterReady: true }, text: ['“Send me the deadline and your CV.” A letter arrives two days early. Two days!'] },
+    failure: { effects: { stress: 3 }, text: ['“Send me a draft.” You are now writing about yourself in the third person, with adjectives.'] } },
+  { id: 'meeting', draft: "Could we find an extra half hour this week? I want to talk through the direction before I commit another month to it.", name: 'Request an extra meeting', desc: 'Depends on availability. Opens a meeting scene if it works.', cooldown: 3, cost: { energy: 1 }, chance: { base: .3, availability: .007, trust: .001 },
+    success: { effects: {}, meeting: true, text: ['“Tomorrow at 4?” Tomorrow at 4 exists.'] },
+    failure: { effects: { hope: -1 }, text: ['“Let’s do email.” Email does not happen.', '“Next week is better.” Next week is also this sentence.'] } },
+  { id: 'direction', draft: "Honestly, I think the project is too broad to finish well. Could we cut it down to the part that already works and write that up?", name: 'Ask to narrow the project', desc: 'Depends on management and trust; ambition works against you. Shrinks scope if it works.', cooldown: 8, cost: { energy: 2 }, conditions: { hasProject: true }, chance: { base: .35, management: .004, trust: .003, ambition: -.002 },
+    success: { effects: { scope: -12, progress: 5, trust: 3 }, text: ['They draw a smaller box. You live in the smaller box now. It has a door.'] },
+    failure: { effects: { satisfaction: -6, scope: 4 }, text: ['“The scope is the contribution.” The scope is also the problem.'] } },
+  { id: 'timeline', draft: "Could we sketch a timeline to the prelim? I would like to know what you expect from me and roughly by when, so I can plan the semester around it.", name: 'Ask about the prelim timeline', desc: 'Depends on management; dependency works against you. A plan with dates if it works.', cooldown: 8, cost: { energy: 1 }, chance: { base: .5, management: .004, dependency: -.003 },
+    success: { effects: { readiness: 5, stress: -4, hope: 3 }, text: ['A timeline appears on the whiteboard with dates on it. Dates! You photograph it, in case it is erased by morning. It is.'] },
+    failure: { effects: { stress: 3, dependency: 3 }, text: ['“Let’s focus on the paper first.” The paper is the timeline. There is no timeline.'] } },
+  { id: 'more', draft: "I think I would move faster with more frequent check-ins — even fifteen minutes weekly. Would that work for your calendar?", name: 'Ask for more frequent meetings', desc: 'Depends on availability and caring. Steps the cadence up.', cooldown: 12, cost: { energy: 1 }, conditions: { maxCadence: 'biweekly' }, chance: { base: .3, availability: .006, caring: .003 },
+    success: { effects: { trust: 2 }, cadence: 'up', text: ['“Weekly, then. Short ones.” Short ones become long ones by March.'] },
+    failure: { effects: { satisfaction: -2 }, text: ['“My calendar is what it is.” It is a Google Calendar with 40 colors.'] } },
+  { id: 'less', draft: "I would like to try fewer meetings and more written updates for a while. I lose most of a day around each one and I would rather spend it on the experiments.", name: 'Ask for fewer meetings', desc: 'Depends on caring; ambition and toxicity work against you. Steps the cadence down and builds independence.', cooldown: 12, cost: { energy: 1 }, conditions: { minCadence: 'biweekly' }, chance: { base: .4, caring: .004, ambition: -.003, toxicity: -.003 },
+    success: { effects: { dependency: -6, confidence: 3 }, cadence: 'down', personality: 'independent', text: ['“Sure. Write me updates instead.” You write them. They read some.'] },
+    failure: { effects: { satisfaction: -5, conflict: 4 }, text: ['“Students who meet less, publish less.” They cite nothing.'] } },
+  { id: 'coauthor', draft: "Could we bring someone else onto this? A second pair of hands on the evaluation would get us to the deadline in a state I am not embarrassed by.", name: 'Ask to bring a labmate onto the project', desc: 'Depends on caring. Adds a collaborator; a bond with them.', cooldown: 10, cost: { energy: 1 }, conditions: { hasProject: true, noCollaborator: true }, chance: { base: .5, caring: .002, management: .002 },
+    success: { effects: { progress: 4 }, collaborator: true, text: ['“Good idea. Loop them in.” You are now two people with one deadline.'] },
+    failure: { effects: { satisfaction: -2 }, text: ['“Keep it tight for now.” Tight is a synonym for alone.'] } },
+];
+export const askById = Object.fromEntries(asks.map(a => [a.id, a]));
+
+// Indexed for translation: lines picked from here are stored in the run by reference.
+import { registerCatalog } from '../i18n/index.js';
+registerCatalog('asks', asks);
