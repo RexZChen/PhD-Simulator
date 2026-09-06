@@ -36,6 +36,10 @@ because these situations are widely shared, not because anyone in particular was
 
 ## Run it
 
+**Play it now: [rexzchen.github.io/PhD-Simulator](https://rexzchen.github.io/PhD-Simulator/)** — no install, no account, nothing saved anywhere but your own browser.
+
+Or run it locally:
+
 ```bash
 npm install
 npm run dev
@@ -46,8 +50,8 @@ the browser and can be muted from the system tray. English and 简体中文 are 
 switched at any point mid-run, including for mail and chat you have already received.
 
 ```bash
-npm test          # 68 deterministic engine tests (node --test)
-npm run test:e2e  # 17 Playwright browser flows (uses installed Google Chrome)
+npm test          # 87 deterministic engine tests (node --test)
+npm run test:e2e  # 19 Playwright browser flows (uses installed Google Chrome)
 npm run build     # production build
 npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
 ```
@@ -109,18 +113,36 @@ years. After the defense your advisor keeps after you about revisions, because d
 finishing; the degree is conferred on deposit, and the margins have opinions. Defend after May and
 you will be asked whether you want to come back for hooding.
 
-**The market.** 48 fictional employers across 12 tracks named after the paperwork that governs them.
-A CV assembled from what you actually did, scored on seven axes. Job portals, applications,
-interviews, recommendation letters, and the sponsorship question that ends some applications on the
-spot. Most people do not land the thing they wanted, and the game does not treat that as a verdict
-on them.
+**Letters.** Four minimum, for faculty jobs and postdocs only; industry asks for referees it never
+calls. You ask people the run actually produced — your advisor, the committee, a collaborator from a
+conference, the manager from a summer. A letter from outside the lab is worth more than one from
+inside it. And one writer may quietly write a lukewarm one: a big name who barely knows you is the
+classic way to acquire it, three good letters do not average it away, and you never, ever see it.
+
+**The market.** Three seasonal job boards — LinkedOut all year, CRAB for the short faculty season,
+The Pipeline for postdocs — over 48 fictional employers across 12 tracks named after the paperwork
+that governs them. Applications freeze their odds *and the committee's mood* at submit, so volume
+cannot average away a bad draw; you find out in March what you did in October. Silence is a normal
+outcome and never resolves. **Most people do not land the thing they wanted**, and the game does not
+treat that as a verdict on them.
+
+**The checkbox.** *Will you now or in the future require sponsorship for employment visa status?*
+Answer honestly and roughly half the industry board closes, inside the hour, by something that did
+not read the rest of the file. The rejection is the fastest mail you will ever receive.
+
+**Applying quietly.** You do not have to tell your advisor. It accrues, and it comes out — through a
+recruiter who cc'd them, a seminar compliment, three cancelled Thursdays — and there are four
+different advisors waiting on the other side of that. Two of them remember it when the letters are
+written. Telling them yourself costs a bad ten minutes and buys all of it back. And if an offer
+lands while your graduation date is still unsettled, you can put it on the table: one move, once per
+run, that works more often than anything else and casts a shadow you are never shown.
 
 **After.** It does not end at graduation. Your advisor stays in touch: work you left behind gets
 finished by someone newer and accepted, and you are invited to the venue at your own expense; life
 updates; coffee when you are back on campus as alumni. That relationship is the long-run return on
 the whole thing.
 
-**Endings and achievements.** 12 endings and 41 achievements, in a register that refuses to call
+**Endings and achievements.** 12 endings and 52 achievements, in a register that refuses to call
 you a failure for any of them.
 
 ## How it is built
@@ -128,7 +150,7 @@ you a failure for any of them.
 Vanilla ES modules and Vite. No framework. About 16k lines.
 
 - `src/data/` — content: schools, venues, calendar, 171 event templates, 21 meeting scenes, employers, tracks, cities, internships, names. Placeholders live here so they can be swapped without touching the engine.
-- `src/engine/` — simulation: state, time, events, advisor, papers, life, scholar, trips, internships, the graduation negotiation, thesis, market, epilogue, saves.
+- `src/engine/` — simulation: state, time, events, advisor, papers, life, scholar, trips, internships, letters, the job search, the graduation negotiation, thesis, market, epilogue, saves.
 - `src/ui/` — the desktop shell, its apps (PhD Manager, Mail, LabChat, Netscope, Portal, Calendar, Scholar, About Me, GradApply), scenes, real-time minigames, icons and synthesized sound.
 - `src/i18n/` — English source strings plus 3,739 Chinese entries, with provenance tracking so stored text re-translates on a language switch.
 - `tests/`, `scripts/balance.mjs` — engine tests, browser flows, and the multi-seed balance harness.
