@@ -4,7 +4,7 @@ import { t } from '../i18n/index.js';
 import { stances, conditions, moves, secondOpinions } from '../data/timeline.js';
 import { dateLabel, phdYear } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, chat, award, lastName, vars, activeProject } from './state.js';
+import { effects, log, message, chat, award, lastName, vars, activeProject, joined } from './state.js';
 import { paperQuality } from './paper.js';
 
 export const TALK_OPENS = 36;          // year four
@@ -49,7 +49,7 @@ export function openTimeline(s) {
     used: [],
   };
   effects(s, { energy: -4, stress: id === 'yes' ? -8 : 6 });
-  log(s, `${t('You asked about finishing.')} ${s.grad.line}`);
+  log(s, joined(t('You asked about finishing.'), ' ', s.grad.line));
   if (id === 'yes') settle(s, 5, t('They agreed in the room, without being pushed.'));
   return s.grad;
 }
@@ -111,7 +111,7 @@ export function playTimelineMove(s, id) {
     g.knowsTruth = fair ? 'fair' : 'unfair';
     effects(s, { hope: fair ? -2 : 6, stress: fair ? 2 : -4 });
     award(s, 'askedaround');
-    log(s, `${t(move.line)} ${line}`);
+    log(s, joined(t(move.line), ' ', line));
     return { id, line: `${t(move.line)} ${line}`, outcome: 'informed', fair };
   }
 

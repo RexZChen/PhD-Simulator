@@ -4,7 +4,7 @@ import { t, provenanceOf } from '../i18n/index.js';
 import { meetings, meetingById } from '../data/meetings.js';
 import { monthOf, isTeachingTerm, isSummer } from '../data/calendar.js';
 import { random, roll, clamp, pickWeighted, pick } from './probability.js';
-import { effects, log, award, finish, activeProject, absWeek, labmateById, fill, chat, lastName, setTemplateLookup } from './state.js';
+import { effects, log, award, finish, activeProject, absWeek, labmateById, fill, chat, lastName, setTemplateLookup, joined } from './state.js';
 
 export const templateById = { ...eventById, ...meetingById };
 setTemplateLookup(id => templateById[id]);
@@ -181,7 +181,7 @@ export function resolvePushback(s, id) {
   const opt = pb.options.find(o => o.id === id) || pb.options.at(-1);
   effects(s, opt.effects || {});
   const line = fill(s, t(opt.line));
-  log(s, `${t('They push back.')} ${line}`);
+  log(s, joined(t('They push back.'), ' ', line));
   if (s.report) s.report.events.push({ title: t('They push back'), choice: t(opt.label), result: line, category: 'meeting' });
   s.pushbackResult = line;
   s.pushback = null;

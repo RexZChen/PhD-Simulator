@@ -41,7 +41,7 @@ function windowTitle(s, ui) {
 
 function content(s, ui, meta, saved, notices) {
   if (ui.screen === 'home' || !s && ui.screen !== 'collection') return setupWizard(ui, meta, saved, notices);
-  if (ui.screen === 'collection') return collectionApp(meta);
+  if (ui.screen === 'collection') return collectionApp(meta, s);
   if (['prep', 'application', 'interviews', 'admissions'].includes(s.phase)) return gradApply(s, ui);
   if (s.phase === 'epilogue') return epilogueScreen(s, ui);
   if (s.phase === 'ending') return endingApp(s, meta);
@@ -81,6 +81,6 @@ export function shell(run, ui, meta, saved, notices = []) {
   ${ui.startMenu ? `<div class="start-menu"><div class="start-brand">ACADEMIC<small>OS</small></div><div class="start-items">${playing ? appDefs.map(([id, ic2, label]) => `<button data-action="open" data-app="${id}">${icon(ic2, 18)} ${t(label)}</button>`).join('') + '<hr>' : ''}<button data-action="home">${icon('wizard', 18)} ${t('Setup / Welcome')}</button><button data-action="collection">${icon('star', 18)} ${t('Achievements')}</button><button data-action="tips">${icon('info', 18)} ${t('Tips')}</button><button data-action="about">${icon('info', 18)} ${t('About & disclaimer')}</button><hr>${languages.map(([id, label]) => `<button data-action="language" data-id="${id}">${icon('doc', 18)} ${getLanguage() === id ? '● ' : '○ '}${label}</button>`).join('')}<hr><button data-action="sound">${icon(meta.settings.sound ? 'sound' : 'mute', 18)} ${t('Sound')}: ${meta.settings.sound ? t('on') : t('off')}</button><button data-action="quiet">${icon('moon', 18)} ${t('Visual effects')}: ${meta.settings.quiet ? t('reduced') : t('on')}</button><button data-action="large-text">${icon('doc', 18)} ${t('Text size')}: ${meta.settings.largeText ? t('large') : t('normal')}</button><hr><button data-action="new">${icon('paper', 18)} ${t('New run')}</button><button data-action="reset">${icon('trash', 18)} ${t('Reset save')}</button><button data-action="shutdown">${icon('computer', 18)} ${t('Shut down…')}</button></div></div>` : ''}
   <div class="balloons">${(ui.balloons || []).map(b => `<div class="balloon">${icon(b.icon || 'bell', 16)}<div><b>${esc(b.title)}</b>${esc(b.text)}</div><button class="x" data-action="dismiss-balloon" data-id="${b.id}" aria-label="${esc(t('Dismiss'))}">×</button></div>`).join('')}</div>
   ${ui.screen === 'game' && s?.event ? sceneDialog(s) : ''}${ui.screen === 'game' && s?.pushback ? pushbackDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'minigame' && s?.minigame === 'lecture' ? lectureDialog(s) : ''}${ui.screen === 'game' && s && !s.event && ui.thread ? threadDialog(s, ui) : ''}${playing && s.stage === 'report' && !s.event ? reportDialog(s) : ''}${playing && s.stage === 'milestone' && !s.event ? milestoneDialog(s) : ''}
-  ${ui.confirm ? confirmDialog(ui) : ''}${ui.dialog === 'about' ? aboutDialog() : ''}${ui.dialog === 'tips' ? tipsDialog() : ''}${ui.dialog === 'shutdown' ? shutdownDialog() : ''}
+  ${ui.confirm ? confirmDialog(ui) : ''}${ui.dialog === 'about' ? aboutDialog() : ''}${ui.dialog === 'tips' ? tipsDialog(s) : ''}${ui.dialog === 'shutdown' ? shutdownDialog() : ''}
   </div>`;
 }

@@ -1,5 +1,6 @@
 // Original, code-native icons drawn as 32×32 line art. No proprietary artwork or external font assets.
 const paths = {
+  bolt: 'M18 2L6 18h8l-2 12 12-16h-8z',
   computer: 'M3 3h25v19H3z M7 7h17v11H7z M12 23h8v4h6v3H6v-3h6z',
   mail: 'M2 7h28v19H2z M3 8l13 10L29 8 M3 25l9-9 M29 25l-9-9',
   chat: 'M3 4h26v19H18l-7 6v-6H3z M8 10h16 M8 16h11',

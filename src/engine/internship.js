@@ -6,7 +6,7 @@ import { firstNames, surnames } from '../data/names.js';
 import { monthOf, nextIndexFor, dateLabel } from '../data/calendar.js';
 import { venueById, venuesForTopic, nextDeadline } from '../data/venues.js';
 import { random, roll, clamp, pick, shuffle } from './probability.js';
-import { effects, log, message, chat, award, activeProject, lastName, firstName, fill, vars } from './state.js';
+import { effects, log, message, chat, award, activeProject, lastName, firstName, fill, vars, joined } from './state.js';
 import { milestoneOf } from './time.js';
 
 export const ensureIntern = s => (s.intern = s.intern || { season: null, offers: [], talk: null, history: [], applied: false });
@@ -131,7 +131,7 @@ export function openInternTalk(s, offerId) {
   }
   s.intern.talk = { offerId, stance, line, used: [], settled: stance === 'bless', collisions: cols.map(c => c.kind) };
   effects(s, { energy: -3, stress: stance === 'bless' ? -4 : 6 });
-  log(s, `${t('You told them about the internship.')} ${line}`);
+  log(s, joined(t('You told them about the internship.'), ' ', line));
   if (stance === 'bless') { s.intern.talk.outcome = 'blessed'; award(s, 'blessedsummer'); }
   return s.intern.talk;
 }
@@ -178,7 +178,7 @@ export function playInternMove(s, id) {
     if (cost >= 2) { s.flags.internWentAnyway = true; s.letterDrag = (s.letterDrag || 0) + cost; }
     s.player.personality.boundarySetter++;
     accept(s, offer);
-    const line = `${t(move.line)}${cost >= 2 ? ' ' + t('They say “fine.” The word does no work at all.') : ''}`;
+    const line = cost >= 2 ? joined(t(move.line), ' ', t('They say “fine.” The word does no work at all.')) : t(move.line);
     log(s, line);
     if (cost >= 2) award(s, 'wentanyway');
     return { id, line, outcome: talk.outcome };
@@ -189,7 +189,7 @@ export function playInternMove(s, id) {
     const who = s.labmates.find(l => l.status === 'active') || s.peers[0];
     const verdict = t(pick(s, fair ? labmateVerdicts.fair : labmateVerdicts.unfair));
     talk.knowsTruth = fair ? 'fair' : 'unfair';
-    const line = `${vars(t(move.line), { labmate: firstName(who?.name || t('a labmate')) })} ${verdict}`;
+    const line = joined(vars(t(move.line), { labmate: firstName(who?.name || t('a labmate')) }), ' ', verdict);
     effects(s, { hope: fair ? -2 : 5 });
     log(s, line);
     return { id, line, outcome: 'informed', fair };
@@ -203,7 +203,7 @@ export function playInternMove(s, id) {
   }[id];
   const odds = clamp(base + (willing - 40) / 240 - collisionWeight(s, offer) * .05, .08, .85);
   const won = roll(s, odds);
-  const line = `${vars(t(move.line), { salary: offer.salary, stipend: Math.round(s.program.stipend), mentor: offer.mentor })} ${t(won ? move.good : move.bad)}`;
+  const line = joined(vars(t(move.line), { salary: offer.salary, stipend: Math.round(s.program.stipend), mentor: offer.mentor }), ' ', t(won ? move.good : move.bad));
   log(s, line);
   if (won) {
     talk.stance = talk.stance === 'forbid' ? 'hijack' : talk.stance === 'hijack' ? 'trade' : 'bless';
@@ -243,7 +243,7 @@ export function endInternship(s) {
   const key = rough ? 'rough' : how === 'forbidden' ? 'forbidden' : how === 'hijacked' ? (paper ? 'hijackedPaper' : 'hijackedNothing') : (paper ? 'blessedPaper' : 'blessedNothing');
   const line = t(returnLines[key]);
   log(s, line);
-  chat(s, 'advisor', s.advisor.name, line.slice(0, 160));
+  chat(s, 'advisor', s.advisor.name, line);
   if (ty.skills.research < 0) log(s, t('The research skill you had in May is not the research skill you have in September. It comes back. It takes until about February.'));
   s.internship = null;
   s.intern.talk = null;

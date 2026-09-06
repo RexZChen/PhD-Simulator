@@ -1020,6 +1020,7 @@ test('fit rises with the file, and crossing tracks costs less in the direction t
 test('the market is a lottery: a strong file strikes out and a thin one lands', () => {
   const outcomes = { strongMiss: 0, thinHit: 0, strongHit: 0 };
   for (let seed = 200; seed < 260; seed++) {
+    if (!admitted(seed)) continue;
     const strong = graduand(seed, s => {
       withPapers(s, 4); s.counts.taSemesters = 3; s.relationship.trust = 80; s.relationship.satisfaction = 76;
       s.conferenceConnections = 8; s.citiesVisited = ['a', 'b', 'c']; s.advisor.connections = 80; s.advisor.prestige = 88;
@@ -1038,6 +1039,7 @@ test('the market is a lottery: a strong file strikes out and a thin one lands', 
 
 test('the market always produces something to read, and never more offers than a person could hold', () => {
   for (let seed = 300; seed < 330; seed++) {
+    if (!admitted(seed)) continue;
     const s = graduand(seed, x => { withPapers(x, 2); x.jobs.track = tracks[seed % 11].id; });
     const offers = generateOffers(s, buildCV(s));
     assert.ok(offers.length >= 1, 'there is always an outcome');
@@ -1195,7 +1197,8 @@ test('declining is a settled ending, and the offer list closes with it', () => {
   const s = summerCandidate(15, x => { x.player.skills.coding = 90; x.counts.accepted = 2; });
   const offers = applyInternships(s);
   if (!offers.length) return;
-  openInternTalk(s, offers[0].id);
+  const talk = openInternTalk(s, offers[0].id);
+  if (talk.settled) return;   // an advisor who simply says go leaves nothing to decline
   playInternMove(s, 'decline');
   assert.equal(s.intern.talk.outcome, 'declined');
   assert.equal(s.internship, null, 'you did not go');
@@ -1326,6 +1329,7 @@ test('who you can ask comes from people the run actually produced', () => {
 test('a big name who barely knows you is how you acquire a dark horse', () => {
   let seniorDark = 0, postdocDark = 0, seniorN = 0, postdocN = 0;
   for (let seed = 700; seed < 780; seed++) {
+    if (!admitted(seed)) continue;
     const a = graduand(seed, x => { x.letters = { asked: [], closed: false }; x.conferenceConnections = 9; });
     const senior = availableWriters(a).find(w => w.kind === 'senior');
     if (senior) { const r = askLetter(a, senior.id); if (r.status === 'yes') { seniorN++; if (a.letters.asked.at(-1).darkHorse) seniorDark++; } }
@@ -1360,11 +1364,15 @@ test('letters from outside the lab are worth more than letters from inside it', 
 });
 
 test('the packet moves the market, and closes when the applications go out', () => {
-  const strong = graduand(64, x => { withPapers(x, 3); withLetters(x, 5, 88); x.jobs.track = 'tenure_track'; });
-  const weak = graduand(64, x => { withPapers(x, 3); withLetters(x, 4, 34); x.jobs.track = 'tenure_track'; });
-  const e = employersFor('tenure_track')[0];
-  const cv = buildCV(strong);
-  assert.ok(slateOdds(strong, cv, e).per > slateOdds(weak, buildCV(weak), e).per, 'better letters, better odds');
+  const lift = x => { x.advisor.prestige = 88; x.advisor.connections = 80; x.program.prestige = 88; x.conferenceConnections = 8; };
+  const strong = graduand(64, x => { withPapers(x, 3); lift(x); withLetters(x, 5, 88); x.jobs.track = 'tenure_track'; });
+  const weak = graduand(64, x => { withPapers(x, 3); lift(x); withLetters(x, 4, 34); x.jobs.track = 'tenure_track'; });
+  // The hardest employer floors both files at the clamp, which compares two floors and proves
+  // nothing. Use the most reachable one in the track, where the letters can actually move it.
+  const e = [...employersFor('tenure_track')].sort((a, b) => a.difficulty - b.difficulty)[0];
+  const so = slateOdds(strong, buildCV(strong), e), wo = slateOdds(weak, buildCV(weak), e);
+  assert.ok(so.per > wo.per, `better letters, better odds (${so.per} vs ${wo.per})`);
+  assert.ok(so.per > .012, 'and the comparison must not be against the clamp floor');
   const closed = closeLetters(strong);
   assert.ok(closed.score > 0 && strong.letters.closed);
   assert.throws(() => askLetter(strong, availableWriters(strong)[0]?.id || 'w-chair'), /closed/i);
@@ -1596,4 +1604,26 @@ test('every rejection register is written, and the ghost has no mail by design',
     for (const line of rejections[k]) assert.ok(line.length > 60, `${k} is too thin to sting`);
   }
   assert.equal(rejections.ghost, null, 'silence has no letter; that is the mechanic');
+});
+
+test('a line built from two translated pieces still follows the language', async () => {
+  const { setAppLanguage } = await import('../src/i18n/apply.js');
+  const { joined, log: logLine, entryText: readEntry } = await import('../src/engine/state.js');
+  const s = createRun(1);
+  s.history = [];
+  logLine(s, t('They push back.'));
+  logLine(s, joined(t('They push back.'), ' ', t('Thanks.')));
+  logLine(s, joined(t('Format review: rejected.'), ' ', t('Thanks.')));
+  const en = s.history.map(e => readEntry(s, e));
+  setAppLanguage('zh');
+  const zh = s.history.map(e => readEntry(s, e));
+  setAppLanguage('en');
+  const back = s.history.map(e => readEntry(s, e));
+  for (let i = 0; i < en.length; i++) {
+    assert.notEqual(zh[i], en[i], `line ${i} froze in English: ${en[i]}`);
+    assert.ok(/[一-鿿]/.test(zh[i]), `line ${i} has no Chinese in it`);
+    assert.equal(back[i], en[i], `line ${i} did not come back to English`);
+  }
+  // Joining plain strings with no provenance must not invent any.
+  assert.equal(joined('abc', ' ', 'def'), 'abc def');
 });

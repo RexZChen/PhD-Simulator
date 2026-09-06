@@ -1,6 +1,8 @@
 import { schools } from '../data/catalog.js';
 import { t, t as tr } from '../i18n/index.js';
 import { emailOpeners, emailFollowUps, studentOpeners, studentFlavor, interviewQuestions, visitQuestions } from '../data/threads.js';
+import { recommenderPools, LETTERS_EXPECTED } from '../data/recommenders.js';
+import { insiderNotes, poolsFor, NOTE_SOURCES } from '../data/insider.js';
 import { firstNames, surnames } from '../data/names.js';
 import { random, roll, clamp, pick, pickWeighted, jitter } from './probability.js';
 import { effects, log, message, finish, lastName, firstName } from './state.js';
@@ -9,12 +11,19 @@ import { openNext } from './events.js';
 // ---- Preparation (fall 2027) ----
 export function initPrep(s) {
   const bg = s.player.profile.background;
-  const relations = { undergrad: ['thesis advisor', 'course professor', 'REU mentor'], masters: ['research advisor', 'committee member', 'course professor'], industry: ['former manager', 'undergraduate advisor', 'team lead'], theory: ['olympiad coach', 'thesis advisor', 'course professor'], changer: ['former manager', 'evening-course professor', 'a colleague with a PhD'] }[bg];
+  const pool = recommenderPools[bg] || recommenderPools.undergrad;
   const used = new Set();
   const name = () => { let n; do { n = `${pick(s, firstNames)} ${pick(s, surnames)}`; } while (used.has(n)); used.add(n); return n; };
   s.prep = {
     sop: bg === 'masters' ? 20 : 10, sopSteps: [], gre: null, waivers: false, waiverRolled: false, proceeded: false, researched: {},
-    letters: relations.map((relation, i) => ({ id: `rec-${i}`, name: `Prof. ${name()}`, relation, strength: clamp(jitter(s, i === 0 ? (bg === 'masters' ? 75 : 60) : 55, 15)), reliability: clamp(jitter(s, 65, 25)), asked: false, reminded: false, status: 'pending' })),
+    // Seven people you could ask, and Energy for perhaps four. The note is a true hint; the
+    // numbers behind it are not shown, because you do not get to see them in life either.
+    letters: pool.map((w, i) => ({
+      id: `rec-${i}`, name: `${w.relation.includes('manager') || w.relation.includes('engineer') || w.relation.includes('director') || w.relation.includes('collaborator') ? '' : 'Prof. '}${name()}`.trim(),
+      relation: w.relation, note: w.note,
+      strength: clamp(jitter(s, w.base, 11)), reliability: clamp(jitter(s, w.rel, 14)),
+      asked: false, reminded: false, status: 'pending',
+    })),
   };
   s.threads = {};
   for (const a of s.advisors) { a.openings = random(s) < .2 ? 0 : random(s) < .6 ? 1 : 2; a.fitBonus = 0; }
@@ -27,14 +36,110 @@ export function prepAction(s, id, target) {
     case 'sop_draft': if (p.sopSteps.includes('draft')) throw new Error(t('The statement is drafted. It has a journey.')); spend(6); p.sop = clamp(p.sop + 30); p.sopSteps.push('draft'); log(s, t('Drafted the statement of purpose. It uses the word “passion” twice, which is the legal limit.')); break;
     case 'sop_friend': if (!p.sopSteps.includes('draft')) throw new Error(t('Draft it first.')); if (p.sopSteps.includes('friend')) throw new Error(t('Your friend has read it. They have opinions; they are done.')); spend(4); { const ok = roll(s, .5 + (s.player.skills.writing - 50) / 150); p.sop = clamp(p.sop + (ok ? 18 : 8)); p.sopSteps.push('friend'); log(s, ok ? t('A friend cut the second paragraph. It was the best cut of your life.') : t('A friend asked what your research question is. An excellent question.')); } break;
     case 'sop_mentor': if (!p.sopSteps.includes('draft')) throw new Error(t('Draft it first.')); if (p.sopSteps.includes('mentor')) throw new Error(t('Your recommender already gave notes.')); spend(3); p.sop = clamp(p.sop + 15); p.sopSteps.push('mentor'); s.flags.sopRevised = true; log(s, t('Your strongest recommender returned the statement with 40 comments and one “nice.”')); break;
+    case 'sop_specific': {
+      if (!p.sopSteps.includes('draft')) throw new Error(t('Draft it first.'));
+      if (p.sopSteps.includes('specific')) throw new Error(t('The statement already names a question. Naming two would be worse.'));
+      spend(5);
+      const read = Object.keys(p.researched).length;
+      const gain = read >= 3 ? 14 : 6;
+      p.sop = clamp(p.sop + gain);
+      p.sopSteps.push('specific');
+      log(s, read >= 3
+        ? t('You cut “I am passionate about artificial intelligence” and wrote the actual question you want to answer, naming two people who are already answering it. Researching those programs is what made that paragraph possible.')
+        : t('You replaced the passion sentence with a research question. It is a real question, but it is not aimed at anyone in particular yet — you have not read enough programs to aim it.'));
+      break;
+    }
+    case 'sop_cut': {
+      if (!p.sopSteps.includes('draft')) throw new Error(t('There is nothing to cut yet.'));
+      if (p.sopSteps.includes('cut')) throw new Error(t('It is two pages. Cutting further would remove the argument.'));
+      spend(4); p.sop = clamp(p.sop + 12); p.sopSteps.push('cut');
+      log(s, t('Cut it from four pages to two. Everything you deleted was true, and none of it was doing any work.'));
+      break;
+    }
+    case 'sop_reread': {
+      if (!p.sopSteps.includes('draft')) throw new Error(t('Draft it first.'));
+      const n = p.sopSteps.filter(x => x === 'reread').length;
+      if (n >= 3) throw new Error(t('You have read it aloud three times. It is finished, and re-reading it now is a way of not sending it.'));
+      spend(3); p.sop = clamp(p.sop + [8, 5, 3][n]); p.sopSteps.push('reread');
+      log(s, [
+        t('You read it aloud and heard the two sentences that were doing nothing. They are gone.'),
+        t('You left it for a week and came back. One paragraph had been in the wrong place the entire time.'),
+        t('Another pass. You changed four words and put one of them back.'),
+      ][n]);
+      break;
+    }
     case 'gre': if (p.gre !== null) throw new Error(t('Already decided.')); if (target === 'skip') { p.gre = 'skipped'; log(s, t('Skipped the GRE. “Optional” is a word with a range of meanings.')); break; } spend(8, 220); { const score = clamp(Math.round(145 + s.player.skills.math / 5 + (random(s) - .5) * 8), 130, 170); p.gre = score; log(s, t('GRE done. Quant {score}. The test center chair was designed by a rival.', { score })); } break;
     case 'waiver': if (p.waiverRolled) throw new Error(t('Already requested.')); spend(3); p.waiverRolled = true; p.waivers = roll(s, .45 + (s.player.skills.communication - 50) / 150 + (st.money < 2500 ? .2 : 0)); log(s, p.waivers ? t('Fee waivers approved for most programs. A rare kindness from a portal.') : t('Fee waiver denied: your “demonstrated need” was not demonstrated on the right form.')); break;
     case 'letter_ask': { const l = p.letters.find(x => x.id === target); if (!l || l.asked) throw new Error(t('Already asked.')); spend(2); l.asked = true; log(s, t('Asked {name} ({relation}) for a letter. They said “of course,” which is a promise in a tone.', { name: l.name, relation: t(l.relation) })); } break;
     case 'letter_remind': { const l = p.letters.find(x => x.id === target); if (!l || !l.asked || l.reminded) throw new Error(t('Ask first; remind once.')); spend(2); l.reminded = true; l.reliability = clamp(l.reliability + 25); log(s, t('Reminded {name}. Politely. Twice, in one email.', { name: l.name })); } break;
-    case 'research': { const school = schools.find(x => x.id === target); if (!school || p.researched[target]) throw new Error(t('Already researched.')); spend(1); p.researched[target] = true; log(s, t('Read every page of {school}’s website. Two are from 2019.', { school: school.name })); } break;
+    case 'research': {
+      const school = schools.find(x => x.id === target);
+      if (!school || p.researched[target]) throw new Error(t('Already researched.'));
+      spend(1);
+      // Three notes drawn from the pools this school's own numbers put it in. Two people can
+      // describe the same department differently and both be telling the truth.
+      const pools = poolsFor(school);
+      const seen = new Set();
+      const notes = [];
+      for (let i = 0; i < 3; i++) {
+        const pool = pools[Math.floor(random(s) * pools.length)];
+        const avail = insiderNotes[pool].filter(x => !seen.has(x));
+        if (!avail.length) continue;
+        const line = pick(s, avail);
+        seen.add(line);
+        notes.push({ line, from: pick(s, NOTE_SOURCES) });
+      }
+      p.researched[target] = { notes };
+      log(s, t('Read up on {school}: the website, a forum thread, and someone who actually goes there.', { school: school.name }));
+      break;
+    }
     case 'proceed': if (!p.letters.some(l => l.asked)) throw new Error(t('Ask at least one recommender first. Letters do not write themselves; recommenders barely do.')); p.proceeded = true; s.phase = 'application'; effects(s, { energy: 15 }); log(s, t('December. The portals open. The portals are slow.')); message(s, 'GradApply', t('Application season is open'), t('Deadlines are December 15 for most programs. Fees are $75 unless waived. Name a professor of interest in each application; it routes your file.'), null); break;
     default: throw new Error(t('Unknown preparation step.'));
   }
+}
+
+// ---- Guidance ----------------------------------------------------------------
+// The single next thing worth doing, named plainly, with the button that does it. A new player
+// should never have to guess what this screen wants; the difficulty is meant to be the choices,
+// not the interface.
+export function nextStep(s) {
+  const p = s.prep;
+  if (s.phase === 'prep') {
+    if (!p.sopSteps.includes('draft'))
+      return { title: t('Start by drafting your statement of purpose'), detail: t('It is the one document every program reads. Everything else on this screen improves it or supports it.'), action: 'prep', id: 'sop_draft', label: t('Draft the statement (−6 Energy)') };
+    if (!p.letters.some(l => l.asked))
+      return { title: t('Ask someone for a recommendation letter'), detail: t('Programs want three. Pick people who actually remember your work — the note under each name is a real hint.'), action: null, label: t('Use the “Ask for a letter” buttons on the right') };
+    if (Object.keys(p.researched).length < 3)
+      return { title: t('Research a few programs before you write about them'), detail: t('One Energy each, and it tells you what people who are actually there say. It also makes your statement specific, which is worth more than anything else you can do to it.'), action: null, label: t('Pick a school on the right, then “Research this program”') };
+    if (!p.sopSteps.includes('specific'))
+      return { title: t('Name the actual research question in your statement'), detail: t('You have read enough programs to aim it now. This is the single largest improvement left.'), action: 'prep', id: 'sop_specific', label: t('Name the question (−5 Energy)') };
+    if (p.letters.filter(l => l.asked).length < LETTERS_EXPECTED)
+      return { title: t('You are short of letters'), detail: t('Most programs want three. Two is a file with a hole in it.'), action: null, label: t('Ask another recommender on the right') };
+    if (p.gre === null)
+      return { title: t('Decide about the GRE'), detail: t('“Optional” is a word with a range of meanings. Exam-style programs still peek at it; everyone else genuinely does not care.'), action: null, label: t('Take it or skip it, in the middle column') };
+    if (s.player.stats.energy > 12)
+      return { title: t('Keep improving the statement, or go to the programs'), detail: t('Every remaining Energy point is worth more in the statement than it is in December. But you can leave now if you would rather spread the applications wider.'), action: 'prep', id: 'proceed', label: t('Proceed to applications →') };
+    return { title: t('You are nearly out of Energy. Go to the programs.'), detail: t('Nothing left here is worth the last of it. December is where the money goes.'), action: 'prep', id: 'proceed', label: t('Proceed to applications →') };
+  }
+  if (s.phase === 'application') {
+    if (!s.applications.length)
+      return { title: t('Apply to your first program'), detail: t('Pick a professor of interest in the row, then press Apply. Aim for four to eight programs across the odds range — some you should get, some you probably will not.'), action: null, label: t('Choose a professor in a row below, then Apply') };
+    if (s.applications.length < 4)
+      return { title: t('Apply to a few more'), detail: t('{n} so far. One acceptance is all you need, and nobody can tell you in advance which one it will be.', { n: s.applications.length }), action: null, label: t('Keep applying, or submit what you have') };
+    return { title: t('Submit, and then wait'), detail: t('{n} applications is a reasonable spread. After this it is out of your hands until March, which is the hardest part.', { n: s.applications.length }), action: 'admissions', id: null, label: t('Submit and wait →') };
+  }
+  if (s.phase === 'interviews') {
+    const pending = s.applications.filter(a => a.interview && !a.interview.done);
+    if (pending.length)
+      return { title: t('You have {n} interview(s) waiting', { n: pending.length }), detail: t('A short video call with your professor of interest: three questions. Answer honestly — they are better at spotting a rehearsed answer than you are at giving one.'), action: null, label: t('Press “Join the call” on a row below') };
+    return { title: t('Nothing to do but wait'), detail: t('Decisions arrive in March. Waitlists move in April. The portal has one button and it is Refresh.'), action: 'decisions', id: null, label: t('Refresh the portal →') };
+  }
+  if (s.phase === 'admissions') {
+    if (!s.offers.length)
+      return { title: t('No offers yet'), detail: t('If anything is waitlisted, April can still move. If not, this is a year that did not work, and that is a far more common story than the internet suggests.'), action: null, label: '' };
+    return { title: t('Visit, ask questions, then choose'), detail: t('An advisor matters more than a ranking, and you cannot tell which is which from a website. Ask the professor, and ask their students — the students are the ones who will tell you the truth, tiredly.'), action: null, label: t('Use “Talk to the professor” and “Ask a current student”') };
+  }
+  return null;
 }
 
 // ---- Email threads with prospective advisors ----

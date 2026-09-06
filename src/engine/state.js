@@ -161,6 +161,15 @@ export const labmateById = (s, id) => s.labmates.find(l => l.id === id) || s.pee
 const src = text => provenanceOf(text);
 // Substitute {tokens} into a catalog line while keeping the reference, so the line can be
 // re-read in another language and re-substituted rather than freezing.
+// Concatenating two translated strings produces a third that no catalog knows, so the result
+// would freeze in whatever language it was built in. Join through here instead: each piece keeps
+// its own provenance and the line is rebuilt, in order, on a language switch.
+export function joined(...parts) {
+  const out = parts.join('');
+  const j = parts.map(p => { const pv = typeof p === 'string' ? provenanceOf(p) : null; return pv ? { r: pv } : String(p); });
+  if (j.some(x => x && x.r)) rememberSource(out, { j });
+  return out;
+}
 export function vars(text, map) {
   let out = text;
   for (const [k, v] of Object.entries(map)) out = out.split(`{${k}}`).join(String(v));
@@ -198,6 +207,8 @@ export function say(s, text, meta) {
       return t('{title} — {choice}. {result}', { title: fill(s, e.title), choice: fill(s, c.text), result: fill(s, tail || '') }).trim();
     }
   }
+  // A line built by concatenating translated pieces: rebuild it piece by piece.
+  if (meta.j) return meta.j.map(x => (x && x.r) ? say(s, '', x.r) : String(x)).join('');
   if (meta.d !== undefined) return calendarLabel(meta.d);
   if (meta.s) out = t(meta.s, meta.v ? Object.fromEntries(Object.entries(meta.v).map(([k, v]) => [k, v && v.r ? say(s, '', v.r) : v])) : undefined);
   else if (meta.p) out = readSlot(meta.p);

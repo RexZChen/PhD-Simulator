@@ -6,7 +6,7 @@ import { employers, employerById, slateOdds, gateFor, drawWeather } from './mark
 import { ACADEMIC } from '../data/tracks.js';
 import { monthOf } from '../data/calendar.js';
 import { random, roll, clamp, pick, shuffle, pickWeighted } from './probability.js';
-import { effects, log, message, chat, award, absWeek, lastName, firstName } from './state.js';
+import { effects, log, message, chat, award, absWeek, lastName, firstName, joined } from './state.js';
 import { buildCV } from './epilogue.js';
 import { letterGate, needsLetters, letterCount } from './letters.js';
 
@@ -231,8 +231,8 @@ function discovered(s) {
     + (s.jobs.apps.some(x => x.stage === 'offer') ? 12 : -6)
     + (random(s) * 16 - 8));
   sec.reaction = score >= 62 ? 'ally' : score >= 44 ? 'professional' : score >= 26 ? 'chill' : 'punitive';
-  log(s, `${t(tells[sec.tell])} ${t(reactions[sec.reaction])}`);
-  chat(s, 'advisor', s.advisor.name, t(reactions[sec.reaction]).slice(0, 180));
+  log(s, joined(t(tells[sec.tell]), ' ', t(reactions[sec.reaction])));
+  chat(s, 'advisor', s.advisor.name, t(reactions[sec.reaction]));
   const fx = {
     ally: { trust: 4, satisfaction: 2, hope: 6 },
     professional: { satisfaction: -2 },
@@ -256,7 +256,7 @@ export function discloseSearch(s) {
   for (const a of s.jobs.apps) a.quiet = false;
   const kind = s.advisor.caring > 55 ? 'ally' : s.advisor.toxicity > 60 ? 'chill' : 'professional';
   s.jobs.secret.reaction = kind;
-  log(s, `${t(DISCLOSE_LINE)} ${t(reactions[kind])}`);
+  log(s, joined(t(DISCLOSE_LINE), ' ', t(reactions[kind])));
   effects(s, kind === 'ally' ? { trust: 6, satisfaction: 4, hope: 8 } : kind === 'chill' ? { satisfaction: -4 } : { satisfaction: 2 });
   award(s, 'saidit');
   return kind;

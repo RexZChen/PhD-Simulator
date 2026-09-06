@@ -38,7 +38,7 @@ const order = Object.keys(pillMeta);
 export function effectPills(effects = {}, extra = {}, limit = 5) {
   const all = { ...effects };
   if (extra.bond) all.bond = extra.bond; if (extra.labBond) all.labBond = extra.labBond; if (extra.peerBond) all.peerBond = extra.peerBond;
-  const items = order.filter(k => all[k]).map(k => { const [label, sign] = pillMeta[k]; const v = all[k]; const good = sign === 0 ? null : (v > 0) === (sign > 0); const mag = Math.abs(v) >= 15 ? '+++' : Math.abs(v) >= 6 ? '++' : '+'; return `<span class="pill ${good === null ? 'neutral' : good ? 'up' : 'down'}">${v > 0 ? '▲' : '▼'} ${t(label)} ${mag}</span>`; });
+  const items = order.filter(k => all[k]).map(k => { const [label, sign] = pillMeta[k]; const v = all[k]; const good = sign === 0 ? null : (v > 0) === (sign > 0); const unit = v > 0 ? '+' : '−'; const mag = unit.repeat(Math.abs(v) >= 15 ? 3 : Math.abs(v) >= 6 ? 2 : 1); return `<span class="pill ${good === null ? 'neutral' : good ? 'up' : 'down'}">${v > 0 ? '▲' : '▼'} ${t(label)} ${mag}</span>`; });
   const pills = items.slice(0, limit).join('');
   const check = extra.check ? `<span class="pill neutral" title="${esc(t('Rolls against this'))}">🎲 ${esc(t(extra.check.skill || extra.check.stat || extra.check.advisor || 'bond'))}</span>` : '';
   const more = extra.leave ? `<span class="pill up">▲ ${t('Leave')}</span>` : '';

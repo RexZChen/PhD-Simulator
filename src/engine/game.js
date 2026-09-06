@@ -5,7 +5,7 @@ import { chatphdLines, chatphdReplies } from '../data/chatter.js';
 import { repliesFor } from '../data/replies.js';
 import { channelActionById } from '../data/social.js';
 import { clamp, random, roll, pick } from './probability.js';
-import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, TOTAL_MONTHS } from './state.js';
+import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS } from './state.js';
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
 import { createProject, createThesis, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
@@ -302,7 +302,7 @@ function popIn(s) {
   const p = activeProject(s);
   if (p && beat.quality) p.novelty = clamp(p.novelty + beat.quality * .6);
   s.meetingStats.held++;
-  log(s, `${t('Popped into {advisor}’s office.', { advisor: lastName(s.advisor.name) })} ${fill(s, t(beat.line))}`);
+  log(s, joined(t('Popped into {advisor}’s office.', { advisor: lastName(s.advisor.name) }), ' ', fill(s, t(beat.line))));
   return { found: true, line: fill(s, t(beat.line)), good: set === popIns.good };
 }
 
@@ -551,7 +551,7 @@ export function dispatch(state, action) {
     if (opt.personality) s.player.personality[opt.personality]++;
     mail.replied = opt.id;
     if (!opt.silent) sentMail(s, mail.sender, `${t('Re:')} ${mail.subject}`, fill(s, opt.draft));
-    log(s, `${t('Replied to {sender}: {label}', { sender: mail.sender, label: t(opt.label) })}${outcome ? ' ' + outcome : ''}`);
+    log(s, outcome ? joined(t('Replied to {sender}: {label}', { sender: mail.sender, label: t(opt.label) }), ' ', outcome) : t('Replied to {sender}: {label}', { sender: mail.sender, label: t(opt.label) }));
     if (outcome) s.mailOutcome = outcome;
     return s;
   }

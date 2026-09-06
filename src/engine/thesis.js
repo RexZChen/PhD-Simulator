@@ -3,7 +3,7 @@ import { t } from '../i18n/index.js';
 import { revisionItems, formatFaults, postDefensePings, hooding } from '../data/thesis.js';
 import { monthOf, nextIndexFor, dateLabel } from '../data/calendar.js';
 import { random, roll, clamp, pick, pickWeighted, shuffle } from './probability.js';
-import { effects, log, message, chat, award, lastName, vars } from './state.js';
+import { effects, log, message, chat, award, lastName, vars, joined } from './state.js';
 
 export const COMMENCEMENT_MONTH = 5;   // May, when the robes come out
 
@@ -57,7 +57,7 @@ export function revise(s, itemId) {
   item.done += gain || 1;                                     // it always moves; sometimes it moves worse
   th.done = th.items.reduce((a, x) => a + Math.min(x.done, x.effort), 0);
   effects(s, { energy: -6, stress: gain ? -1 : 3, hope: gain ? 1 : -1 });
-  log(s, `${t(item.label)}. ${t(item.line)}`);
+  log(s, joined(t(item.label), '. ', t(item.line)));
   if (canDeposit(s)) {
     log(s, t('Every item on the list is crossed off. There is a moment of nothing where the relief should be.'));
     chat(s, 'advisor', s.advisor.name, t('That is all of them. Deposit it. Do not read it again — you will only find things.'));
@@ -76,7 +76,7 @@ export function deposit(s) {
   if (th.formatFails < 2 && roll(s, th.formatFails === 0 ? .62 : .35)) {
     th.formatFails++;
     const fault = pick(s, formatFaults);
-    log(s, `${t('Format review: rejected.')} ${t(fault)}`);
+    log(s, joined(t('Format review: rejected.'), ' ', t(fault)));
     message(s, t('Thesis Office'), t('Format review: revisions required'),
       t('Your submission did not pass format review. {fault} Please correct and resubmit. This review concerns formatting only; the content of your dissertation is not evaluated here, and we would like to stress that we have not read it.', { fault: t(fault) }),
       'portal', 'inbox', 'policies');

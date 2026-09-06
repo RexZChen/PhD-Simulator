@@ -56,8 +56,8 @@ test('application phase: prepare, email a professor, apply, interview, decide', 
   await page.check('#eula');
   await page.getByRole('button', { name: /Generate applicant/ }).click();
   await closeDialogs(page);
-  await page.locator('[data-action="prep"][data-id="sop_draft"]').click();
-  await page.locator('[data-action="prep"][data-id="letter_ask"]').first().click();
+  await page.locator('[data-action="prep"]:not([data-guide])[data-id="sop_draft"]').click();
+  await page.locator('[data-action="prep"]:not([data-guide])[data-id="letter_ask"]').first().click();
   await page.locator('[data-action="ga-school"]').first().click();
   const wrappedAdvisorRatings = await page.locator('.advisor-card .traits b').evaluateAll(nodes => nodes.filter(node => {
     const range = document.createRange();
@@ -70,17 +70,17 @@ test('application phase: prepare, email a professor, apply, interview, decide', 
   await page.locator('.modal [data-action="email"]').first().click();
   await expect(page.locator('.thread-log .msg')).toHaveCount(2);
   await closeDialogs(page);
-  await page.locator('[data-action="prep"][data-id="proceed"]').click();
+  await page.locator('[data-action="prep"]:not([data-guide])[data-id="proceed"]').click();
   await expect(page.getByRole('heading', { name: /GradApply — Programs/ })).toBeVisible();
   for (let i = 0; i < 5; i++) { await page.locator('[data-action="apply"]:not([disabled])').first().click(); await resolveScenes(page); }
-  await page.locator('[data-action="admissions"]').click();
+  await page.locator('[data-action="admissions"]:not([data-guide])').click();
   await expect(page.getByRole('heading', { name: /GradApply — Status/ })).toBeVisible();
   while (await page.locator('[data-action="ga-thread"][data-id$=":interview"].primary').count()) {
     await page.locator('[data-action="ga-thread"][data-id$=":interview"].primary').first().click();
     for (let i = 0; i < 3; i++) await page.locator('.modal [data-action="interview"]').first().click();
     await closeDialogs(page);
   }
-  await page.locator('[data-action="decisions"]').click();
+  await page.locator('[data-action="decisions"]:not([data-guide])').click();
   await expect(page.getByText(/Offers|Not This Cycle/).first()).toBeVisible();
 });
 
@@ -651,4 +651,78 @@ test('the job board: a normal application waits, and the advisor can be told bef
   expect(told.heat).toBe(0);
   expect(told.disclosed).toBe(true);
   expect(told.reaction).toBe('ally');
+});
+
+test('GradApply guides a new player, shows Energy as a meter, and marks what they have done', async ({ page }) => {
+  await fresh(page);
+  await page.getByRole('button', { name: /New applicant/ }).click();
+  await page.getByRole('button', { name: /Next >/ }).click();
+  await page.check('#eula');
+  await page.getByRole('button', { name: /Next >/ }).click();
+  await page.getByLabel('Your name').fill('Morgan Test');
+  await page.selectOption('select[name="background"]', 'undergrad');
+  await page.getByRole('button', { name: /Create applicant/ }).click();
+
+  // The startup tips must be about the screen in front of them, not a phase they cannot reach.
+  await expect(page.getByText(/You are applying to graduate school/)).toBeVisible();
+  await closeDialogs(page);
+
+  // Energy is a meter, not a footnote.
+  const meter = page.locator('.energy-meter');
+  await expect(meter).toBeVisible();
+  await expect(meter.locator('.em-track i')).toBeVisible();
+
+  // The guide names the first move and provides the button that makes it.
+  const guide = page.locator('.guide');
+  await expect(guide).toContainText(/statement of purpose/i);
+  await guide.locator('[data-action="prep"]').click();
+  await resolveScenes(page);
+  await expect(guide).toContainText(/recommendation letter/i);
+
+  // Seven recommenders to choose between, each with a hint about what they would write.
+  const recs = page.locator('.request');
+  expect(await recs.count()).toBeGreaterThan(4);
+  await expect(recs.first().locator('.rec-note')).not.toBeEmpty();
+
+  // Researching a school yields real insider notes, and the school is then visibly done.
+  await page.locator('.school-pick button').first().click();
+  await page.locator('[data-action="prep"]:not([data-guide])[data-id="research"]').first().click();
+  await resolveScenes(page);
+  const insider = page.locator('.insider li');
+  expect(await insider.count()).toBeGreaterThan(0);
+  await expect(insider.first()).not.toBeEmpty();
+  await expect(page.locator('.school-pick button.researched, .school-pick button.primary').first()).toBeVisible();
+
+  // The statement can now be pushed past the old ceiling of 63.
+  const sopAfter = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const r = loadSave(localStorage).run;
+    return { steps: r.prep.sopSteps, sop: r.prep.sop, letters: r.prep.letters.length };
+  });
+  expect(sopAfter.letters).toBe(7);
+  expect(sopAfter.steps).toContain('draft');
+});
+
+test('the achievements screen can always be left again', async ({ page }) => {
+  await seedPlay(page, `s.month = 12;`);
+  await page.locator('[data-action="collection"]').first().click();
+  await expect(page.getByRole('heading', { name: /Things you.{1,3}ve survived/ })).toBeVisible();
+  const back = page.locator('[data-action="back-to-game"]');
+  await expect(back).toBeVisible();
+  await back.click();
+  await expect(page.locator('.topstrip')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Things you.{1,3}ve survived/ })).toHaveCount(0);
+});
+
+test('an effect that costs money reads as a loss, not a gain', async ({ page }) => {
+  await seedPlay(page, `s.month = 12;`);
+  // The Networking plan costs $60. It must not render as "Money +++".
+  const net = page.locator('.option', { hasText: /Networking/ }).first();
+  await expect(net).toBeVisible();
+  const pills = await net.locator('.pill').allInnerTexts();
+  const moneyPill = pills.find(p => /Money/i.test(p));
+  expect(moneyPill).toBeTruthy();
+  expect(moneyPill).toMatch(/▼/);
+  expect(moneyPill).toContain('−');
+  expect(moneyPill).not.toContain('+');
 });

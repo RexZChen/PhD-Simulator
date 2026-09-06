@@ -186,6 +186,8 @@ root.addEventListener('click', event => {
     case 'boot-skip': ui.screen = 'home'; render(); return;
     case 'home': ui.screen = 'home'; ui.minimized = false; ui.confirm = null; ui.dialog = null; ui.wizardStep = 0; render({ preserveScroll: false }); return;
     case 'collection': ui.screen = 'collection'; ui.minimized = false; render({ preserveScroll: false }); return;
+    case 'back-to-game': ui.screen = 'game'; ui.minimized = false; render({ preserveScroll: false }); return;
+    case 'guide-off': ui.guideOff = true; render(); return;
     case 'wiz-choice': ui.wizardChoice = id; render(); return;
     case 'wiz-next': wizardNext(); return;
     case 'wiz-back': ui.wizardStep = Math.max(0, ui.wizardStep - 1); render(); return;

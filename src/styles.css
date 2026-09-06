@@ -914,3 +914,42 @@ body.lang-zh .editor-source pre, body.lang-zh .typing-zone { font-family: "Menlo
 table.mini { width: 100%; border-collapse: collapse; font-size: 12px; }
 table.mini th, table.mini td { border: 1px solid var(--shadow); padding: 2px 5px; text-align: center; }
 table.mini th { background: var(--face); }
+
+/* GradApply: Energy is the budget for the whole phase, so it gets a meter. */
+.energy-meter { display: flex; align-items: center; gap: 6px; min-width: 260px; padding: 3px 6px; border: 1px solid var(--shadow); background: var(--face); box-shadow: inset 1px 1px var(--face-light); }
+.energy-meter .em-label { display: flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.energy-meter .em-track { flex: 1; height: 12px; min-width: 70px; border: 1px solid var(--dark); background: var(--hi); box-shadow: inset 1px 1px rgba(0,0,0,.25); overflow: hidden; }
+.energy-meter .em-track i { display: block; height: 100%; transition: width .25s ease, background .25s ease; background: linear-gradient(180deg, #7ec97e, #3f8f3f); }
+.energy-meter.warn .em-track i { background: linear-gradient(180deg, #e8c766, #b98b1e); }
+.energy-meter.low .em-track i { background: linear-gradient(180deg, #e09a5a, #b55f18); }
+.energy-meter.spent .em-track i { background: linear-gradient(180deg, #d97070, #9c2020); }
+.energy-meter .em-val { font-size: 12px; font-weight: 700; min-width: 22px; text-align: right; }
+.energy-meter .em-word { font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 78px; }
+.energy-meter.spent .em-word, .energy-meter.low .em-word { color: var(--bad); font-weight: 700; }
+
+/* Schools you have already looked at, and ones you have written to. */
+.school-pick .btn.researched { opacity: .72; }
+.school-pick .btn.visited { opacity: .55; text-decoration: none; border-style: dotted; }
+.school-pick .btn.visited::after { content: "✓"; margin-left: 4px; font-weight: 700; }
+.school-pick .btn.primary { opacity: 1; }
+.insider { margin: 6px 0; padding: 6px 8px; background: #fbf8e6; border: 1px solid #c9bd7a; }
+.insider ul { margin: 4px 0 0; padding-left: 16px; }
+.insider li { margin: 3px 0; font-size: 12px; line-height: 1.35; }
+.insider .src { color: var(--muted); font-size: 11px; }
+.rec-note { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; }
+.contacted { display: inline-flex; align-items: center; gap: 3px; }
+.poi-pick .contacted-on { border-color: var(--sel); }
+.poi-pick .wrote { color: #2f6d2f; font-size: 11px; }
+.poi-pick .thread-peek { padding: 1px 3px; }
+.row.wrap { flex-wrap: wrap; gap: 4px; }
+.request.done { opacity: .82; background: #f6faf6; }
+
+/* "Do this next" — the difficulty should be the choices, not the interface. */
+.guide { display: flex; align-items: flex-start; gap: 8px; padding: 7px 9px; margin-bottom: 8px; background: #eef4ff; border: 1px solid #7d9dd0; box-shadow: inset 1px 1px #fff; }
+.guide-mark { color: #2a4f8f; flex: none; margin-top: 1px; }
+.guide-body { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.guide-body b { font-size: 13px; }
+.guide-body .small { color: #333; line-height: 1.35; }
+.guide-cta { display: flex; align-items: center; gap: 4px; flex: none; flex-wrap: wrap; justify-content: flex-end; max-width: 260px; }
+.guide-hint { font-size: 11px; color: #2a4f8f; font-weight: 700; text-align: right; }
+@media (max-width: 900px) { .guide { flex-wrap: wrap; } .guide-cta { max-width: none; width: 100%; justify-content: flex-start; } }

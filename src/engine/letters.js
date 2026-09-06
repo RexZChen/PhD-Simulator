@@ -4,7 +4,7 @@ import { t } from '../i18n/index.js';
 import { LETTERS_REQUIRED, writerKinds, askLines, packetVerdicts, darkHorseLines, RANK_NOTE } from '../data/letters.js';
 import { ACADEMIC } from '../data/tracks.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, award, lastName, firstName } from './state.js';
+import { effects, log, message, award, lastName, firstName, joined } from './state.js';
 
 export const ensureLetters = s => (s.letters = s.letters || { asked: [], closed: false });
 export const letterCount = s => (s.letters?.asked || []).filter(l => l.status === 'yes').length;
@@ -62,7 +62,7 @@ export function askLetter(s, writerId) {
   if (roll(s, declines)) {
     const line = t(pick(s, askLines.refused));
     s.letters.asked.push({ id: w.id, kind: w.kind, name: w.name, status: 'no', quality: 0, reach: w.reach, line });
-    log(s, `${t('You asked {who} for a letter.', { who: w.name })} ${line}`);
+    log(s, joined(t('You asked {who} for a letter.', { who: w.name }), ' ', line));
     effects(s, { hope: -3 });
     if (w.kind === 'senior') award(s, 'saidno');
     return { status: 'no', line };
@@ -78,7 +78,7 @@ export function askLetter(s, writerId) {
     darkHorse, register, line,
     hint: darkHorse ? t(pick(s, darkHorseLines)) : null,   // stored, never shown before the outcome
   });
-  log(s, `${t('You asked {who} for a letter.', { who: w.name })} ${line}`);
+  log(s, joined(t('You asked {who} for a letter.', { who: w.name }), ' ', line));
   if (register === 'hedged') effects(s, { hope: -2 });
   if (letterCount(s) === LETTERS_REQUIRED) {
     log(s, t('Four letters. That is the minimum, and the minimum is the number most people file.'));
