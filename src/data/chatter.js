@@ -78,6 +78,25 @@ export const cohortLines = {
   generic: ['Study group tonight, 9pm, the room that smells like 9pm.', 'Who else has coursework due the same week as a deadline? (Everyone.)', 'Reading group: this week’s paper is 60 pages. We will discuss whether anyone read it.'],
 };
 export const advisorPings = {
+  // No venue on the board. This is where a lot of real stress actually comes from: not the
+  // deadline, but the absence of one, and a person asking you weekly which one it is going to be.
+  untargeted: [
+    'Which venue are we aiming at? I keep asking and you keep saying “I need to check the dates.”',
+    'Pick one. A bad venue with a date beats a good venue in the abstract, and this has been in the abstract since spring.',
+    'Work without a deadline expands. I have watched it expand for two months now.',
+    'What is the target? I am not going to pretend this is a neutral question.',
+    'Give me a date and I will structure the next eight weeks around it. Give me nothing and I cannot help you.',
+    'You are waiting to feel ready. Nobody in this field has ever felt ready. The date is what makes you ready.',
+    'There are three venues open in your area this cycle. I can name all three. Can you?',
+    'I am going to keep asking about this, because the alternative is that in October we both pretend we did not know.',
+  ],
+  // After you miss one. Different from the drought lines: this is disappointment, not absence.
+  afterMiss: [
+    'We missed {venue}. I want to talk about what happened, not to make you feel worse, but because I do not want to be here again in four months.',
+    'That one is gone. The next one is in the spring, which is a long time to hold a paper that was nearly finished.',
+    'I have been thinking about why that slipped. I have a theory and I would rather hear yours first.',
+    'You did not tell me it was in trouble. That is the part I mind — not the deadline, the not telling.',
+  ],
   // Nothing has arrived in months. These escalate, and they are the only pings that cost stress.
   drought: [
     "It has been eleven weeks since I saw a plot from you. I am not angry, I am trying to work out what I'm looking at.",

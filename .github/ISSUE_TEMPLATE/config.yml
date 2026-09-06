@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Play it
+    url: https://rexzchen.github.io/PhD-Simulator/
+    about: The live build, no install required.
+  - name: How to contribute
+    url: https://github.com/RexZChen/PhD-Simulator/blob/main/CONTRIBUTING.md
+    about: Content, translation, balance reports, and the five rules that matter.

@@ -1,0 +1,15 @@
+name: Balance
+description: Something is too easy, too punishing, or happens too often
+labels: [balance]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What feels wrong
+    validations: { required: true }
+  - type: textarea
+    id: harness
+    attributes:
+      label: npm run balance output
+      description: Paste it if you can. Numbers beat impressions, and impressions are still useful.
+      render: text

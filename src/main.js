@@ -23,7 +23,21 @@ let notices = [loaded.notice, loaded.error].filter(Boolean);
 let ui = { screen: 'boot', wizardStep: 0, wizardChoice: run && run.phase !== 'ending' ? 'continue' : 'new', eula: false, app: 'dashboard', browserTab: 'overgrief', mailFolder: 'inbox', selectedMail: null, chatChannel: 'advisor', startMenu: false, minimized: false, confirm: null, dialog: null, balloons: [], saveError: loaded.error, effort: 'generic', contact: false };
 let balloonId = 0;
 setSound(meta.settings.sound);
-document.body.classList.toggle('large-text', !!meta.settings.largeText);
+// Text size is a scale now, not a switch. Old saves carry a boolean; read it once and forget it.
+if (meta.settings.textSize === undefined) meta.settings.textSize = meta.settings.largeText ? 2 : 1;   // 1 is Normal, not the floor
+export const TEXT_SIZES = [
+  { id: 0, label: 'Small', px: 13 },
+  { id: 1, label: 'Normal', px: 14 },
+  { id: 2, label: 'Large', px: 16 },
+  { id: 3, label: 'Larger', px: 18 },
+  { id: 4, label: 'Largest', px: 21 },
+];
+function applyTextSize() {
+  const step = TEXT_SIZES.find(x => x.id === meta.settings.textSize) || TEXT_SIZES[1];
+  document.documentElement.style.setProperty('--base-font', `${step.px}px`);
+  document.body.classList.toggle('large-text', step.px >= 16);
+}
+applyTextSize();
 const initialLanguage = meta.settings.lang || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
 setAppLanguage(initialLanguage);
 if (!meta.settings.lang) meta.settings.lang = initialLanguage;
@@ -118,6 +132,12 @@ function perform(action, options = {}) {
     const before = run;
     run = dispatch(run, action);
     if (before.phase === 'playing' || run.phase === 'playing') afterDispatch(before, run);
+    // Anything that arrived in the channel you are currently looking at has been seen. Without
+    // this the badge counts messages that are already on the screen in front of you.
+    if (run?.phase === 'playing' && ui.screen === 'game' && ui.app === 'chat' && !ui.minimized && action.type !== 'READ_CHAT') {
+      const open = ui.chatChannel || 'advisor';
+      if (run.chatMessages.some(m => m.channel === open && !m.read && !m.mine)) run = dispatch(run, { type: 'READ_CHAT', channel: open });
+    }
     persist();
     render(options);
   } catch (error) { notify(error.message || t('That action is unavailable.')); render(); }
@@ -213,7 +233,11 @@ root.addEventListener('click', event => {
     case 'close-window': if (run?.phase === 'playing') ui.minimized = true; else ui.screen = 'home'; render(); return;
     case 'sound': meta.settings.sound = !meta.settings.sound; setSound(meta.settings.sound); saveMeta(); if (meta.settings.sound) play('notify'); render(); return;
     case 'quiet': meta.settings.quiet = !meta.settings.quiet; saveMeta(); render(); return;
-    case 'large-text': meta.settings.largeText = !meta.settings.largeText; document.body.classList.toggle('large-text', meta.settings.largeText); saveMeta(); render(); return;
+    case 'text-size': {
+      const dir = id === 'down' ? -1 : 1;
+      meta.settings.textSize = Math.max(0, Math.min(TEXT_SIZES.length - 1, (meta.settings.textSize ?? 1) + dir));
+      applyTextSize(); saveMeta(); render(); return;
+    }
     case 'open': if (!run || run.phase !== 'playing') return; closeCompose(); ui.screen = 'game'; ui.app = target.dataset.app; ui.minimized = false; if (ui.app === 'mail' && !ui.selectedMail) ui.selectedMail = run.inbox[0]?.id; if (ui.app === 'chat') perform({ type: 'READ_CHAT', channel: ui.chatChannel }, { preserveScroll: false }); else render({ preserveScroll: false }); return;
     case 'browser-tab': closeCompose(); ui.browserTab = id; render({ preserveScroll: false }); return;
     case 'job-portal': ui.jobPortal = id; render({ preserveScroll: false }); return;

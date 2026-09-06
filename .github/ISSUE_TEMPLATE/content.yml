@@ -1,0 +1,23 @@
+name: Content — something that rings false, or something missing
+description: You did a PhD and the game got it wrong, or left something out
+labels: [content]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What the game does now
+      description: Quote it if you can. "The advisor says X when Y" is perfect.
+    validations: { required: true }
+  - type: textarea
+    id: real
+    attributes:
+      label: What it is actually like
+      description: >
+        The useful part. Specific beats general — a month, a number, a sentence someone said.
+        No real names, please: this stays fictional.
+    validations: { required: true }
+  - type: input
+    id: context
+    attributes:
+      label: Your vantage point (optional)
+      placeholder: e.g. "US CS PhD, finished 2021" — helps weigh it, entirely optional

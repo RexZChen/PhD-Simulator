@@ -10,7 +10,9 @@
 * { box-sizing: border-box; }
 html, body, #app { min-height: 100%; margin: 0; }
 body { font: var(--font); color: var(--text); background: var(--desk); overflow: hidden; min-width: 320px; }
-body.large-text { font-size: 16px; }
+:root { --base-font: 14px; }
+body { font-size: var(--base-font); }
+body.large-text { font-size: var(--base-font); }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 1px dotted #000; outline-offset: -3px; }
@@ -997,3 +999,12 @@ table.mini th { background: var(--face); }
 .sl-role { font-size: 10px; color: var(--muted); margin-left: auto; }
 .dm-openers { display: grid; gap: 3px; padding: 6px; max-height: 190px; overflow: auto; }
 .dm-openers .say-item em { display: block; font-style: normal; font-size: 10px; color: var(--muted); margin-top: 2px; }
+.desk-icon .badge.req { background: #b5651d; }
+
+/* Text size lives in the tray, where a person can find it, and in the Start menu. */
+.tray-text { display: inline-flex; gap: 1px; }
+.tray-text button { font: 700 11px/1 inherit; padding: 3px 4px; min-width: 22px; }
+.tray-text button:disabled { opacity: .4; }
+.menu-stepper { display: flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 13px; }
+.menu-stepper b { margin-left: auto; font-size: 12px; }
+.menu-stepper button { font: 700 11px/1 inherit; padding: 3px 6px; border: 1px solid var(--shadow); background: var(--face); }

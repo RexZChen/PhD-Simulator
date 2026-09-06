@@ -495,8 +495,16 @@ test('mail, chat and the log follow the language, mid-run', async ({ page }) => 
   await page.locator('.boot').click();
   await page.getByRole('button', { name: /Continue the saved run/ }).click();
   await page.locator('[data-action="wiz-next"]').click();
-  for (let i = 0; i < 4; i++) { const c = page.locator('[data-action="close-dialog"]').first(); if (await c.count()) await c.click(); else break; }
-  for (let i = 0; i < 10; i++) { const d = page.locator('.modal [data-action="choice"]').first(); if (await d.count()) await d.click(); else break; }
+  // Clear whatever is on screen: a scene, a report, a pushback, a tips dialog. Anything modal
+  // blocks the desktop icons underneath it, so this has to be thorough rather than specific.
+  for (let i = 0; i < 20; i++) {
+    const modal = page.locator('.modal').first();
+    if (!(await modal.count())) break;
+    const btn = modal.locator('[data-action="choice"]:not([disabled]), [data-action="pushback"]:not([disabled]), [data-action="dismiss-report"], [data-action="close-dialog"], [data-action="close-thread"], .buttons button:not([disabled])').first();
+    if (!(await btn.count())) break;
+    await btn.click();
+    await page.waitForTimeout(60);
+  }
 
   const grab = async () => {
     await page.locator('.desk-icon[data-app="mail"]').click();
@@ -796,4 +804,26 @@ test('Slack: you can react, answer one person, and take it to a DM', async ({ pa
     return r.chatMessages.filter(m => (m.channel || '').startsWith('dm:')).length;
   });
   expect(dm).toBeGreaterThanOrEqual(2);
+});
+
+test('text size is adjustable from the tray and it sticks', async ({ page }) => {
+  await seedPlay(page, `s.month = 6;`);
+  const read = () => page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize));
+  const base = await read();
+  await page.locator('.tray-text [data-id="up"]').click();
+  const bigger = await read();
+  expect(bigger).toBeGreaterThan(base);
+  await page.locator('.tray-text [data-id="up"]').click();
+  expect(await read()).toBeGreaterThan(bigger);
+  await page.locator('.tray-text [data-id="down"]').click();
+  await page.locator('.tray-text [data-id="down"]').click();
+  await page.locator('.tray-text [data-id="down"]').click();
+  const smaller = await read();
+  expect(smaller).toBeLessThan(base);
+  // It survives a reload, because a text-size preference that resets is not a preference.
+  await page.reload();
+  await page.locator('.boot').click();
+  expect(await read()).toBe(smaller);
+  // And the ends of the scale disable rather than doing nothing.
+  await expect(page.locator('.tray-text [data-id="down"]')).toBeDisabled();
 });

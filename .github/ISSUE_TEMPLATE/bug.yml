@@ -1,0 +1,25 @@
+name: Bug
+description: Something is broken, or the game refuses an action without saying why
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations: { required: true }
+  - type: input
+    id: seed
+    attributes:
+      label: Seed and month
+      description: The seed is in the status bar at the bottom. "Seed 9001, month 34" is enough.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options: [Applications, The monthly loop, Papers and venues, Advisor and LabChat, Life and money, Conference trip, Job search, Endings and epilogue, Somewhere else]
+  - type: input
+    id: env
+    attributes:
+      label: Browser and language
+      placeholder: Chrome 141, English

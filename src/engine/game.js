@@ -1,11 +1,11 @@
 import { schools, focuses } from '../data/catalog.js';
 import { t } from '../i18n/index.js';
 import { monthOf, isSummer, nextIndexFor, dateLabel as calLabel } from '../data/calendar.js';
-import { chatphdLines, chatphdReplies } from '../data/chatter.js';
+import { chatphdLines, chatphdReplies, advisorPings } from '../data/chatter.js';
 import { repliesFor } from '../data/replies.js';
 import { channelActionById } from '../data/social.js';
 import { clamp, random, roll, pick } from './probability.js';
-import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS } from './state.js';
+import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS, vars } from './state.js';
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
 import { createProject, createThesis, benchSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
@@ -149,7 +149,17 @@ function monthStart(s, first = false, intermediate = false) {
       log(s, t('Missed the {venue} deadline. The venue did not notice. Your advisor did.', { venue: p.targetVenue }));
       clearTarget(s, p);
       if (s.advisor.ambition > 45) { s.activeProjectId = p.id; pushEvent(s, 'missed_deadline'); }
-      effects(s, { pressure: 10, hope: -5, satisfaction: -6 });
+      // A missed deadline costs trust, not only goodwill, and the second one costs more than the
+      // first — that is what it is like to be the student who said it would be ready.
+      const n = s.counts.deadlinesMissed;
+      effects(s, {
+        pressure: 10, hope: -5,
+        satisfaction: -6 - Math.min(6, (n - 1) * 3),
+        trust: -(4 + Math.min(6, (n - 1) * 3)),
+        stress: 6 + Math.min(4, (n - 1) * 2),
+      });
+      s.missedRecently = s.month;
+      if (advisorPings.afterMiss?.length) chat(s, 'advisor', s.advisor.name, vars(t(pick(s, advisorPings.afterMiss)), { venue: p.targetVenue || t('it') }));
     }
   }
   if (s.month === 12 && s.player.stats.hope > 60) award(s, 'survivor');

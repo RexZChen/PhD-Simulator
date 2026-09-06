@@ -158,6 +158,18 @@ Vanilla ES modules and Vite. No framework. About 16k lines.
 Every random draw goes through a seeded generator, so a run is reproducible from its seed and the
 balance harness measures real distributions rather than vibes.
 
+## Contributing
+
+**Contributions are welcome, including small ones** — and the most valuable ones are usually not
+code. If you did a PhD and something in here rings false, or something real is missing, that is
+worth an issue. Content, translations and balance reports are all genuinely useful.
+
+- [**Open an issue**](https://github.com/RexZChen/PhD-Simulator/issues/new/choose) — bug, something
+  that rings false, or a balance report
+- [**CONTRIBUTING.md**](CONTRIBUTING.md) — how to get set up, how to write an event, how to add a
+  language, and the five rules that matter (chiefly: nothing real, and no `Math.random()`)
+- [**CHANGELOG.md**](CHANGELOG.md) — what changed and when
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Use it, fork it, rewrite the jokes.
@@ -166,8 +178,3 @@ The licence covers the code and the writing in this repository. It is not a lice
 game, or anything generated from it, as being about a real person or institution — see the
 disclaimer above, which is the part that actually matters.
 
-## Contributing
-
-Issues and PRs welcome, especially: content that rings true, translation fixes, and balance reports
-from `npm run balance` with a seed. Please keep the tone in the disclaimer above — punch at
-situations, never at people or real institutions.

@@ -262,11 +262,34 @@ function freshPing(s, pool) {
   return line;
 }
 
+
+// A project mature enough to aim, with nothing to aim at. The absence of a deadline is its own
+// pressure, and an advisor who keeps asking which venue is a large part of where it comes from.
+export function untargetedMonths(s) {
+  const p = activeProject(s);
+  if (!p || p.kind === 'thesis') return 0;
+  if (p.targetVenueId || ['Submitted', 'Rebuttal', 'Accepted', 'Abandoned', 'Ready'].includes(p.status)) { s.untargetedSince = null; return 0; }
+  if (p.progress < 35) { s.untargetedSince = null; return 0; }
+  if (s.untargetedSince === null || s.untargetedSince === undefined) { s.untargetedSince = s.month; return 0; }
+  return Math.max(0, s.month - s.untargetedSince);
+}
+
 export function advisorPing(s) {
   const mode = s.advisorMode?.id || 'normal';
   const a = s.advisor;
   let pool = advisorPings.calm;
   let chance = .45;
+  // Nagging about a venue takes priority over nagging about silence: there is work, it just has
+  // nowhere to go, and that is the more useful conversation.
+  const adrift = untargetedMonths(s);
+  if (adrift >= 2 && advisorPings.untargeted?.length && roll(s, clamp(.3 + adrift * .1, .3, .8))) {
+    chat(s, 'advisor', a.name, fill(s, freshPing(s, advisorPings.untargeted)));
+    // Nagging is pressure, not damage. The cost of drifting is that the deadline gets closer,
+    // not that the student is ground down by being asked.
+    effects(s, { stress: Math.min(4, 1 + adrift), pressure: 3 });
+    if (adrift >= 6) effects(s, { satisfaction: -2 });
+    return;
+  }
   const band = droughtBand(s);
   if (band !== 'none' && advisorPings.drought?.length) {
     // Nothing has arrived in months. They notice, and they say so before they say anything else.
