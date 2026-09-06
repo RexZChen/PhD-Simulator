@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRun, populateLab } from '../src/engine/state.js';
 import { dispatch, prelimChance, focusOptions } from '../src/engine/game.js';
 import { admissionChance } from '../src/engine/apply.js';
-import { schools, mutators } from '../src/data/catalog.js';
+import { schools, mutators, achievements } from '../src/data/catalog.js';
 import { venues, venueReferences, nextDeadline, timelineFor, acceptsThisMonth } from '../src/data/venues.js';
 import { monthOf, dateLabel, holidays } from '../src/data/calendar.js';
 import { events, eventById } from '../src/data/events.js';
@@ -1241,4 +1241,31 @@ test('every advisor line and every player move is written, tokenised, and answer
     if (!['go', 'decline', 'ask_labmate'].includes(id)) assert.ok(mv.good && mv.bad, `${id} has no outcomes`);
   }
   for (const k of ['blessedPaper', 'blessedNothing', 'hijackedPaper', 'hijackedNothing', 'forbidden', 'rough']) assert.ok(returnLines[k], `no return line for ${k}`);
+});
+
+test('every achievement the engine awards exists in the catalog, and every catalog entry is reachable', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const dir = new URL('../src/engine/', import.meta.url).pathname;
+  const awarded = new Set();
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.endsWith('.js')) continue;
+    for (const m of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/\baward\(\s*\w+\s*,\s*'([a-zA-Z_][\w]*)'/g)) awarded.add(m[1]);
+  }
+  assert.ok(awarded.size > 30, `only found ${awarded.size} award sites — did the call shape change?`);
+  for (const id of awarded) assert.ok(achievements[id], `award('${id}') has no catalog entry — it would unlock a blank`);
+  for (const [id, a] of Object.entries(achievements)) {
+    assert.ok(a.name && a.desc, `${id} is not written`);
+    assert.ok(a.desc.length > 20, `${id} needs a real description`);
+  }
+});
+
+test('every achievement is translated, so no unlock arrives half in English', async () => {
+  const { setAppLanguage } = await import('../src/i18n/apply.js');
+  const before = JSON.parse(JSON.stringify(achievements));
+  setAppLanguage('zh');
+  const untranslated = Object.keys(achievements).filter(k => achievements[k].desc === before[k].desc);
+  setAppLanguage('en');
+  assert.deepEqual(untranslated, [], `untranslated achievement descriptions: ${untranslated.join(', ')}`);
+  for (const [id, a] of Object.entries(before)) assert.deepEqual(achievements[id], a, `${id} did not restore to English`);
 });
