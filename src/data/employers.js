@@ -3,8 +3,7 @@
 export const SECTION_MAX = {
   // The real point ceiling buildCV can emit per section, AFTER the widening in §3.2.
   // This is NOT cvSections[].weight, which is a display weight for the commencement animation.
-  education: 7, publications: 30, citations: 24, talks: 18, teaching: 15, awards: 21, people: 19,
-};
+  education: 7, publications: 30, citations: 24, talks: 18, teaching: 15, awards: 21, people: 19, funding: 28 };
 
 export const employers = [
   // ── FACULTY, tenure-track ──────────────────────────────────────────────────

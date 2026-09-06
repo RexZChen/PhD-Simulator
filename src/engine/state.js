@@ -1,4 +1,4 @@
-import { backgrounds, skillNames, advisorArchetypes, traitNames, schools, mutators, personalityTitles, topics } from '../data/catalog.js';
+import { backgrounds, skillNames, advisorArchetypes, traitNames, stageWeights, schools, mutators, personalityTitles, topics } from '../data/catalog.js';
 import { t, provenanceOf, rememberSource, readSlot } from '../i18n/index.js';
 import { firstNames, surnames, labmateRoles, labmateTraits, companies } from '../data/names.js';
 import { dateLabel as calendarLabel, phdYear } from '../data/calendar.js';
@@ -62,6 +62,8 @@ function makeAdvisors(s) {
       id: `${school.id}-${n}`, schoolId: school.id, name: personName(s, used), archetype: archetype.id, topic: school.topics[n] || school.topics[0],
       comment: pick(s, archetype.comments), labSize: labSize[0] + Math.floor(random(s) * (labSize[1] - labSize[0] + 1)),
       ...Object.fromEntries(traitNames.map((t, j) => [t, jitter(s, archetype.traits[j])])),
+      // Their own clock, so the pressure standing behind them is a property of every run.
+      stage: pickWeighted(s, Object.keys(stageWeights[archetype.id] || stageWeights.parent), k => (stageWeights[archetype.id] || stageWeights.parent)[k]) || 'mid_career',
       fellowship: random(s) < .2, hints: [], revealed: 0,
     };
     a.hints = advisorHints(s, a);
@@ -291,7 +293,7 @@ export function finish(s, id, title, text) {
   log(s, title);
   if (id === 'pass') award(s, 'prelim');
   if (id.startsWith('phd_')) award(s, 'doctor');
-  if (id === 'phd_faculty') award(s, 'cycle');
+  if (['phd_tenure_track', 'phd_teaching_faculty', 'phd_abroad'].includes(id)) award(s, 'cycle');
   if (id === 'master' && s.career >= 50) award(s, 'escape');
 }
 

@@ -1,6 +1,7 @@
 // What you leave with, what it is worth on a market, and the twenty years after.
 import { t } from '../i18n/index.js';
 import { internTypes } from '../data/internships.js';
+import { fundingLines, fundingScore } from './funding.js';
 import { cvSections, epilogueBeats, advisorNews } from '../data/epilogue.js';
 import { SECTION_MAX } from '../data/employers.js';
 import { employers, employersFor, slateOdds, gateFor, drawWeather, weatherLine } from './market.js';
@@ -50,7 +51,10 @@ export function buildCV(s) {
   }
   const intern = !(s.intern?.history || []).length && (s.internship || s.lastInternship);
   if (intern) lines.push({ section: 'awards', text: t('Research internship, {company}', { company: intern.company || s.company }), points: 5 });
-  if (s.flags.fellow) lines.push({ section: 'awards', text: t('Departmental fellowship'), points: 6 });
+  // Money is its own section. On an academic search it is the line read first; in industry
+  // nobody opens it. Lumping it in with awards made a grant compete with a best-paper.
+  for (const f of fundingLines(s)) lines.push({ section: 'funding', ...f });
+  if (s.flags.fellow && !fundingLines(s).length) lines.push({ section: 'funding', text: t('Departmental fellowship'), points: 6 });
   if (s.achievements.includes('accepted') && tier1 >= 2) lines.push({ section: 'awards', text: t('Two top-venue papers, which is the whole ballgame on this market'), points: 6 });
   if (s.flags.collabOffer) lines.push({ section: 'awards', text: t('External collaboration, begun at a coffee break'), points: 4 });
 
@@ -173,7 +177,7 @@ export function startEpilogue(s, chosen) {
 function pickBeats(s) {
   const has = {
     abandoned: s.projects.some(p => p.status === 'Abandoned' || (p.status !== 'Accepted' && p.kind === 'side')),
-    faculty: s.jobs.chosen === 'faculty',
+    faculty: ACADEMIC.includes(s.jobs.chosen),   // 'faculty' is not a track id; the real ones are tenure_track etc.
     deferredCeremony: !!(s.thesis && s.thesis.deferred),
   };
   const pool = epilogueBeats.filter(b => !b.needs || has[b.needs]);

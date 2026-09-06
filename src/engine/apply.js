@@ -205,19 +205,29 @@ export function applicationQuality(s, application) {
   const p = s.prep;
   const letters = p.letters.filter(l => l.asked);
   const letterScore = letters.length ? letters.reduce((a, l) => a + l.strength, 0) / Math.max(3, letters.length) : 20;
-  return clamp(.75 + (p.sop - 50) / 250 + (letterScore - 55) / 300 + (application.effort === 'tailored' ? .12 : 0) + (s.flags.sopRevised ? .04 : 0), .5, 1.3);
+  return clamp(.75 + (p.sop - 50) / 220 + (letterScore - 55) / 260 + (application.effort === 'tailored' ? .08 : 0) + (s.flags.sopRevised ? .05 : 0), .5, 1.30);
 }
 export function admissionChance(s, school, application = { effort: 'generic', contact: false, poiId: null }) {
   const skills = s.player.skills;
-  const strength = (skills.research * .4 + skills.writing * .25 + skills.math * .2 + skills.communication * .15) / 60;
+  // Compressed deliberately: who you already were matters less than what you did with the autumn.
+  // With a wide range here, raw starting skill drowned out preparation and the optimal play was to
+  // skip the whole prep phase and spray applications, which is the opposite of the point.
+  const raw = (skills.research * .4 + skills.writing * .25 + skills.math * .2 + skills.communication * .15);
+  const strength = .82 + clamp(raw, 0, 100) / 250;
   const topic = s.player.profile.topic;
   const fit = school.topics[0] === topic ? 1.3 : school.topics.includes(topic) ? 1.1 : .85;
   const poi = application.poiId ? s.advisors.find(a => a.id === application.poiId) : null;
   const demand = poi ? (poi.openings === 0 ? .55 : poi.openings === 1 ? 1 : 1.1) * (1 + (poi.fitBonus || 0)) : .95;
   const gre = s.prep?.gre && s.prep.gre !== 'skipped' ? (school.structure === 'exam' ? 1 + (s.prep.gre - 158) / 100 : 1) : (school.structure === 'exam' ? .96 : 1);
-  return clamp(school.baseline * strength * fit * applicationQuality(s, application) * demand * gre * (application.contact ? 1.02 : 1) * (s.flags.interviewed ? 1.03 : 1) * (s.flags.backupLetter ? .95 : 1), .03, .9);
+  // Tailoring is how you get into a selective programme and wasted effort on a safety: a committee
+  // reading three hundred files for eight places is the only one looking for whether you read them.
+  const tailored = application.effort === 'tailored'
+    ? 1 + Math.max(0, school.prestige - 68) / 80
+    : 1 - Math.max(0, school.prestige - 80) / 260;
+  return clamp(school.baseline * strength * fit * applicationQuality(s, application) * demand * gre * tailored
+    * (application.contact ? 1.04 : 1) * (s.flags.interviewed ? 1.03 : 1) * (s.flags.backupLetter ? .95 : 1), .02, .9);
 }
-export const applicationCost = (s, effort, contact) => ({ money: s.prep?.waivers ? 0 : 75, energy: (effort === 'tailored' ? 7 : 3) + (contact ? 3 : 0) });
+export const applicationCost = (s, effort, contact) => ({ money: s.prep?.waivers ? 0 : 90, energy: (effort === 'tailored' ? 6 : 4) + (contact ? 2 : 0) });
 export function apply(s, a) {
   const school = schools.find(x => x.id === a.schoolId);
   if (!school || !['generic', 'tailored'].includes(a.effort) || s.applications.some(x => x.schoolId === school.id)) throw new Error(t('Choose a school you have not applied to.'));

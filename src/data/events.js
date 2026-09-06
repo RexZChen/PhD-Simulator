@@ -1,4 +1,6 @@
 import more from './events/more.js';
+import funding from './events/funding.js';
+import cage from './events/cage.js';
 import application from './events/application.js';
 import holiday from './events/holiday.js';
 import life from './events/life.js';
@@ -15,6 +17,6 @@ import conference from './events/conference.js';
 import late from './events/late.js';
 import divergence from './events/divergence.js';
 
-export const events = [...application, ...holiday, ...life, ...research, ...advisor, ...review, ...department, ...career, ...lab, ...peer, ...crunch, ...urgent, ...conference, ...late, ...divergence, ...more]
+export const events = [...application, ...holiday, ...life, ...research, ...advisor, ...review, ...department, ...career, ...lab, ...peer, ...crunch, ...urgent, ...conference, ...late, ...divergence, ...more, ...funding, ...cage]
   .map(e => ({ cooldown: 99, probability: .5, weight: 1, conditions: {}, ...e }));
 export const eventById = Object.fromEntries(events.map(e => [e.id, e]));

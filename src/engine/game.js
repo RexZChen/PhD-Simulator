@@ -24,6 +24,8 @@ import { beginRevisions, revise, deposit, canDeposit, revisionMonth, revisionsLe
 import { openTimeline, playTimelineMove, canAskTimeline, timelineDrift } from './timeline.js';
 import { crunchOf, tempoOf, focusOptions, focusById, crunchSnapshot, milestoneOf, seasonEligible, dayEligible, DAYS_PER_WEEK } from './time.js';
 import { applyInternships, canApplyIntern, openInternTalk, playInternMove, endInternship, ensureIntern, internWindow } from './internship.js';
+import { addFunding } from './funding.js';
+import { fundingSources } from '../data/fundingSources.js';
 import { react, replyTo, sendDm, dmPeople, dmOptions, replyOptionsFor } from './slack.js';
 import { askLetter, availableWriters, letterCount, lettersReady, packetStrength, closeLetters, needsLetters } from './letters.js';
 import { applyJob, jobsMonth, discloseSearch, withdrawApp, setWorkAuth, listingsFor, openPortals, funnel, liveOffers, ensureJobs } from './jobsearch.js';
@@ -76,6 +78,12 @@ hooks.jobOffers = s => {
 };
 hooks.addCollaborator = s => { const p = activeProject(s); const mate = s.labmates.find(l => !p?.collaborators.includes(l.name)); if (p && mate) { p.collaborators.push(mate.name); mate.bond = clamp(mate.bond + 8); } };
 // The recruiter path: an unsolicited offer, taken inside an event rather than negotiated.
+// Award events record real money against the CV. Kind and source come from the event.
+hooks.funding = (s, spec) => {
+  const src = fundingSources[spec.source];
+  if (!src) return;
+  addFunding(s, spec.kind, { source: spec.source, name: src.name, amount: spec.amount ?? src.amount });
+};
 hooks.acceptInternship = s => {
   const start = nextIndexFor(6, s.month + 1);
   if (start > 22 || s.internship) return;
@@ -602,7 +610,11 @@ export function dispatch(state, action) {
       const earliest = target === 5 ? 54 : 60;
       if (!s.grad?.settled && s.month < 54) throw new Error(t('Agree a finishing year with your advisor first. Ask them in the PhD Manager.'));
       // Leave room for revisions and the deposit; a defense with no room after it is not a favour.
+      // The outer max used to defeat this cap, so a defense booked past month 66 was scheduled
+      // anyway and could not possibly finish — the run ended ABD with a passed defense behind it.
       const latest = TOTAL_MONTHS - 5;
+      // A cramped defense still beats no defense: refusing to schedule one past month 66 turned
+      // a run that sometimes made it into a run that never could.
       s.milestones.defenseMonth = Math.max(s.month + 1, Math.min(latest, Math.max(s.month + 2, earliest)));
       log(s, t('Defense scheduled for {month}. The room has a projector. The projector has opinions.', { month: calLabel(s.milestones.defenseMonth) }));
       message(s, t('Graduate Studies'), t('Dissertation defense scheduled'), t('Your defense is scheduled for {month}. Please submit the formatted dissertation two weeks prior. Margins will be checked by a machine that does not love you.', { month: calLabel(s.milestones.defenseMonth) }), 'portal', 'inbox', 'defenseScheduled');

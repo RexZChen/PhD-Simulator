@@ -8,7 +8,8 @@ export const cvSections = [
   { id: 'citations', label: 'Citations', weight: 16 },
   { id: 'talks', label: 'Talks and service', weight: 12 },
   { id: 'teaching', label: 'Teaching', weight: 10 },
-  { id: 'awards', label: 'Awards and funding', weight: 10 },
+  { id: 'awards', label: 'Awards', weight: 8 },
+  { id: 'funding', label: 'Funding', weight: 12 },
   { id: 'people', label: 'References', weight: 12 },
 ];
 

@@ -2,29 +2,49 @@
 export const topics = { ml: 'Machine learning', nlp: 'Natural language processing', systems: 'Systems', theory: 'Theory', hci: 'Human–computer interaction', robotics: 'Robotics' };
 
 export const schools = [
-  ['stanfurd', 'Stanfurd', 'The startup with a university attached.', 96, .19, 2600, 4000, 80, ['ml', 'hci'], 'project', 'warm', { symbol: 'tree', motto: 'Disrupt, Then Cite', c1: 'red', c2: 'cream' }],
-  ['mitt', 'MITT', 'Sleep is an implementation detail.', 98, .17, 2300, 3900, 85, ['theory', 'systems'], 'exam', 'cold', { symbol: 'gear', motto: 'Mens et Manus et GPU', c1: 'slate', c2: 'gold' }],
-  ['brrkeley', 'UC Brrrkeley', 'Public mission. Private rental market.', 92, .23, 2400, 3700, 76, ['systems', 'ml'], 'project', 'mild', { symbol: 'bear', motto: 'Fiat Lux, Fiat Rent', c1: 'navy', c2: 'gold' }],
-  ['melon', 'Carnegie Melon', 'The robots have better work–life balance.', 91, .25, 1500, 3100, 82, ['robotics', 'ml'], 'project', 'cold', { symbol: 'melon', motto: 'My Heart Is in the Lab', c1: 'red', c2: 'cream' }],
-  ['princetron', 'Princetron', 'Ivy on the walls, bounds on the whiteboard.', 93, .22, 1700, 3600, 78, ['theory', 'ml'], 'exam', 'cold', { symbol: 'tiger', motto: 'Bounded, Eventually', c1: 'gold', c2: 'slate' }],
-  ['harvarsity', 'Harvarsity', 'Old money. Older buildings. Newer GPUs.', 94, .21, 2500, 3800, 78, ['ml', 'theory'], 'project', 'cold', { symbol: 'book', motto: 'Veritas, Pending Review', c1: 'red', c2: 'cream' }],
-  ['udub', 'University of Washingtown', 'Rain-cooled GPUs.', 88, .27, 2000, 3400, 74, ['nlp', 'hci'], 'project', 'mild', { symbol: 'drop', motto: 'Lux Sit, Rain Persists', c1: 'slate', c2: 'gold' }],
-  ['yail', 'Yail', 'The gothic architecture is load-bearing.', 88, .28, 1700, 3700, 74, ['theory', 'hci'], 'exam', 'cold', { symbol: 'owl', motto: 'Lux et Veritas et Forms', c1: 'navy', c2: 'cream' }],
-  ['columbiad', 'Columbiad', 'The city never sleeps. Neither will you.', 86, .30, 2600, 3700, 72, ['nlp', 'ml'], 'project', 'cold', { symbol: 'skyline', motto: 'In Lumine Tuo, Overtime', c1: 'navy', c2: 'gold' }],
-  ['nyuniverse', 'NYUniverse', 'Rent is the research problem.', 85, .31, 2700, 3700, 70, ['ml', 'nlp'], 'project', 'cold', { symbol: 'torch', motto: 'Perstare et Pay Rent', c1: 'slate', c2: 'gold' }],
-  ['cornhell', 'Cornhell', 'A beautiful place to be indoors.', 84, .35, 1400, 3000, 70, ['theory', 'nlp'], 'exam', 'cold', { symbol: 'tower', motto: 'Any Person, Any Study, No Sun', c1: 'red', c2: 'cream' }],
-  ['uclost', 'UC Lost Angeles', 'Traffic is a distributed systems problem.', 84, .33, 2300, 3400, 70, ['ml', 'systems'], 'project', 'warm', { symbol: 'palm', motto: 'Fiat Lux, Fiat Freeway', c1: 'navy', c2: 'gold' }],
-  ['ucsandiego', 'UC Sandiego', 'Sunny, funded, forty minutes from anything.', 82, .36, 2100, 3300, 69, ['systems', 'ml'], 'project', 'warm', { symbol: 'anchor', motto: 'Fiat Lux, Fiat Surf', c1: 'navy', c2: 'gold' }],
-  ['utawesome', 'UT Awesome', 'Everything is bigger, including the cluster queue.', 80, .40, 1500, 2950, 68, ['ml', 'robotics'], 'project', 'warm', { symbol: 'horn', motto: 'Disciplina Praesidium Queueus', c1: 'gold', c2: 'cream' }],
-  ['michigoon', 'Michigoon', 'Go Blue. Go home, eventually.', 79, .41, 1300, 2900, 70, ['robotics', 'hci'], 'project', 'cold', { symbol: 'block', motto: 'Artes, Scientia, Snow', c1: 'navy', c2: 'gold' }],
-  ['uscry', 'USCry', 'Palm trees, tuition, and film students asking about your GPU.', 78, .44, 2200, 3300, 66, ['robotics', 'hci'], 'project', 'warm', { symbol: 'palm', motto: 'Fight On, Pay More', c1: 'red', c2: 'gold' }],
-  ['twerk', 'Georgia Twerk', 'High throughput. Occasional sunlight.', 78, .42, 1350, 2850, 66, ['systems', 'robotics'], 'project', 'warm', { symbol: 'bee', motto: 'Progress, Service, Throughput', c1: 'gold', c2: 'slate' }],
-  ['uiucorn', 'UIUCorn', 'Outstanding in several fields.', 76, .46, 1000, 2650, 72, ['systems', 'nlp'], 'exam', 'cold', { symbol: 'corn', motto: 'Learning and Labor and Corn', c1: 'navy', c2: 'gold' }],
-  ['wiscornsin', 'Wiscornsin', 'Cheese, systems, and a lake that freezes.', 74, .48, 1100, 2700, 66, ['systems', 'theory'], 'exam', 'cold', { symbol: 'cheese', motto: 'Numen Lumen Fromage', c1: 'red', c2: 'cream' }],
-  ['umassive', 'UMassive', 'Small town. Large language models.', 72, .50, 1200, 2650, 64, ['nlp', 'ml'], 'project', 'cold', { symbol: 'lake', motto: 'Ense Petit Placidam Tokens', c1: 'red', c2: 'cream' }],
-  ['purdont', 'Purdon’t', 'Engineering. Boilerplate. Boilermakers.', 70, .52, 950, 2600, 63, ['systems', 'robotics'], 'exam', 'cold', { symbol: 'gear', motto: 'Education, Research, Steam', c1: 'gold', c2: 'slate' }],
-  ['state', 'Midwestern State', 'Good science. Reasonable parking.', 55, .66, 900, 2450, 57, ['hci', 'systems'], 'project', 'cold', { symbol: 'star', motto: 'Parking Available', c1: 'teal', c2: 'cream' }],
+  ['stanfurd', 'Stanfurd', 'The startup with a university attached.', 96, 0.038, 2600, 4000, 80, ['ml', 'hci'], 'project', 'warm', { symbol: 'tree', motto: 'Disrupt, Then Cite', c1: 'red', c2: 'cream' }],
+  ['mitt', 'MITT', 'Sleep is an implementation detail.', 98, 0.030, 2300, 3900, 85, ['theory', 'systems'], 'exam', 'cold', { symbol: 'gear', motto: 'Mens et Manus et GPU', c1: 'slate', c2: 'gold' }],
+  ['brrkeley', 'UC Brrrkeley', 'Public mission. Private rental market.', 92, 0.063, 2400, 3700, 76, ['systems', 'ml'], 'project', 'mild', { symbol: 'bear', motto: 'Fiat Lux, Fiat Rent', c1: 'navy', c2: 'gold' }],
+  ['melon', 'Carnegie Melon', 'The robots have better work–life balance.', 91, 0.070, 1500, 3100, 82, ['robotics', 'ml'], 'project', 'cold', { symbol: 'melon', motto: 'My Heart Is in the Lab', c1: 'red', c2: 'cream' }],
+  ['princetron', 'Princetron', 'Ivy on the walls, bounds on the whiteboard.', 93, 0.057, 1700, 3600, 78, ['theory', 'ml'], 'exam', 'cold', { symbol: 'tiger', motto: 'Bounded, Eventually', c1: 'gold', c2: 'slate' }],
+  ['harvarsity', 'Harvarsity', 'Old money. Older buildings. Newer GPUs.', 94, 0.050, 2500, 3800, 78, ['ml', 'theory'], 'project', 'cold', { symbol: 'book', motto: 'Veritas, Pending Review', c1: 'red', c2: 'cream' }],
+  ['udub', 'University of Washingtown', 'Rain-cooled GPUs.', 88, 0.089, 2000, 3400, 74, ['nlp', 'hci'], 'project', 'mild', { symbol: 'drop', motto: 'Lux Sit, Rain Persists', c1: 'slate', c2: 'gold' }],
+  ['yail', 'Yail', 'The gothic architecture is load-bearing.', 88, 0.089, 1700, 3700, 74, ['theory', 'hci'], 'exam', 'cold', { symbol: 'owl', motto: 'Lux et Veritas et Forms', c1: 'navy', c2: 'cream' }],
+  ['columbiad', 'Columbiad', 'The city never sleeps. Neither will you.', 86, 0.102, 2600, 3700, 72, ['nlp', 'ml'], 'project', 'cold', { symbol: 'skyline', motto: 'In Lumine Tuo, Overtime', c1: 'navy', c2: 'gold' }],
+  ['nyuniverse', 'NYUniverse', 'Rent is the research problem.', 85, 0.108, 2700, 3700, 70, ['ml', 'nlp'], 'project', 'cold', { symbol: 'torch', motto: 'Perstare et Pay Rent', c1: 'slate', c2: 'gold' }],
+  ['cornhell', 'Cornhell', 'A beautiful place to be indoors.', 84, 0.114, 1400, 3000, 70, ['theory', 'nlp'], 'exam', 'cold', { symbol: 'tower', motto: 'Any Person, Any Study, No Sun', c1: 'red', c2: 'cream' }],
+  ['uclost', 'UC Lost Angeles', 'Traffic is a distributed systems problem.', 84, 0.114, 2300, 3400, 70, ['ml', 'systems'], 'project', 'warm', { symbol: 'palm', motto: 'Fiat Lux, Fiat Freeway', c1: 'navy', c2: 'gold' }],
+  ['ucsandiego', 'UC Sandiego', 'Sunny, funded, forty minutes from anything.', 82, 0.127, 2100, 3300, 69, ['systems', 'ml'], 'project', 'warm', { symbol: 'anchor', motto: 'Fiat Lux, Fiat Surf', c1: 'navy', c2: 'gold' }],
+  ['utawesome', 'UT Awesome', 'Everything is bigger, including the cluster queue.', 80, 0.140, 1500, 2950, 68, ['ml', 'robotics'], 'project', 'warm', { symbol: 'horn', motto: 'Disciplina Praesidium Queueus', c1: 'gold', c2: 'cream' }],
+  ['michigoon', 'Michigoon', 'Go Blue. Go home, eventually.', 79, 0.146, 1300, 2900, 70, ['robotics', 'hci'], 'project', 'cold', { symbol: 'block', motto: 'Artes, Scientia, Snow', c1: 'navy', c2: 'gold' }],
+  ['uscry', 'USCry', 'Palm trees, tuition, and film students asking about your GPU.', 78, 0.153, 2200, 3300, 66, ['robotics', 'hci'], 'project', 'warm', { symbol: 'palm', motto: 'Fight On, Pay More', c1: 'red', c2: 'gold' }],
+  ['twerk', 'Georgia Twerk', 'High throughput. Occasional sunlight.', 78, 0.153, 1350, 2850, 66, ['systems', 'robotics'], 'project', 'warm', { symbol: 'bee', motto: 'Progress, Service, Throughput', c1: 'gold', c2: 'slate' }],
+  ['uiucorn', 'UIUCorn', 'Outstanding in several fields.', 76, 0.166, 1000, 2650, 72, ['systems', 'nlp'], 'exam', 'cold', { symbol: 'corn', motto: 'Learning and Labor and Corn', c1: 'navy', c2: 'gold' }],
+  ['wiscornsin', 'Wiscornsin', 'Cheese, systems, and a lake that freezes.', 74, 0.178, 1100, 2700, 66, ['systems', 'theory'], 'exam', 'cold', { symbol: 'cheese', motto: 'Numen Lumen Fromage', c1: 'red', c2: 'cream' }],
+  ['umassive', 'UMassive', 'Small town. Large language models.', 72, 0.191, 1200, 2650, 64, ['nlp', 'ml'], 'project', 'cold', { symbol: 'lake', motto: 'Ense Petit Placidam Tokens', c1: 'red', c2: 'cream' }],
+  ['purdont', 'Purdon’t', 'Engineering. Boilerplate. Boilermakers.', 70, 0.204, 950, 2600, 63, ['systems', 'robotics'], 'exam', 'cold', { symbol: 'gear', motto: 'Education, Research, Steam', c1: 'gold', c2: 'slate' }],
+  ['state', 'Midwestern State', 'Good science. Reasonable parking.', 55, 0.300, 900, 2450, 57, ['hci', 'systems'], 'project', 'cold', { symbol: 'star', motto: 'Parking Available', c1: 'teal', c2: 'cream' }],
 ].map(([id, name, tagline, prestige, baseline, rent, stipend, difficulty, topics, structure, climate, crest]) => ({ id, name, tagline, prestige, baseline, rent, stipend, difficulty, topics, topic: topics[0], structure, climate, crest, fee: 75 }));
+
+
+// Where your advisor is on their own clock. This is the cage: the reason a person behaves the way
+// they do is usually the thing standing behind them, and the game was only ever showing it for
+// advisors who happened to be poor — which is to say, for the kind ones.
+export const advisorStages = {
+  pre_tenure: { id: 'pre_tenure', label: 'Pre-tenure', note: 'Their case goes up in a few years. Everything you do is in it.' },
+  newly_tenured: { id: 'newly_tenured', label: 'Newly tenured', note: 'They just got through it and have not yet worked out what they wanted it for.' },
+  mid_career: { id: 'mid_career', label: 'Mid-career', note: 'A lab to keep fed, and a subfield that keeps moving.' },
+  late: { id: 'late', label: 'Late-career', note: 'Secure, and increasingly outside the conversation they used to run.' },
+};
+// Weighted by archetype: a Rising Star is usually going up; a Tenured Warlord already went.
+export const stageWeights = {
+  star: { pre_tenure: 6, newly_tenured: 3, mid_career: 1, late: 0 },
+  chaos: { pre_tenure: 4, newly_tenured: 2, mid_career: 3, late: 1 },
+  parent: { pre_tenure: 1, newly_tenured: 2, mid_career: 4, late: 3 },
+  empire: { pre_tenure: 0, newly_tenured: 1, mid_career: 6, late: 3 },
+  warlord: { pre_tenure: 1, newly_tenured: 1, mid_career: 3, late: 5 },
+  ghost: { pre_tenure: 0, newly_tenured: 1, mid_career: 3, late: 6 },
+};
 
 export const traitNames = ['ambition', 'prestige', 'connections', 'funding', 'caring', 'toxicity', 'management', 'availability'];
 export const advisorArchetypes = [
@@ -68,6 +88,10 @@ export const rebuttals = [
 ];
 
 export const achievements = {
+  fundedyourself: { name: 'Your Own Money', desc: 'Win a fellowship. It is yours, it moves with you, and it changes how every room reads you.' },
+  namedonit: { name: 'Named Personnel', desc: 'Be named on an awarded grant. One line, and search committees read it first.' },
+  thefundedone: { name: 'Brings Money In', desc: 'Put three pieces of funding on the CV. This is the thing that makes a file competitive.' },
+  threescores: { name: 'Just Below the Line', desc: 'Have three proposals declined. You have started reading the score before the reviews.' },
   cleanrun: { name: 'Four Clean Catches', desc: 'Take a session at the bench and get four of the five moments exactly right.' },
   reactor: { name: 'Twenty-Five Reactions', desc: 'React to twenty-five messages. It costs nothing and it is not nothing.' },
   sidebar: { name: 'Taking It To A DM', desc: 'Say something to one person instead of to the room. That is where the real conversations are.' },

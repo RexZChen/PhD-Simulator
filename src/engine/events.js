@@ -69,6 +69,7 @@ export function eligible(s, e, ctx = {}) {
     if (c.minLabSize !== undefined && a.labSize < c.minLabSize) return false;
     if (c.maxAvailability !== undefined && a.availability > c.maxAvailability) return false;
     if (c.archetype && !c.archetype.includes(a.archetype)) return false;
+    if (c.stage && !c.stage.includes(a.stage || 'mid_career')) return false;
   }
   if (c.mutator && !s.mutators.includes(c.mutator)) return false;
   if (c.flag && !s.flags[c.flag]) return false;
@@ -281,6 +282,7 @@ export function resolveChoice(s, id) {
   if (c.ta === true || (c.ta === 'onFail' && success === false)) s.ta = true;
   if (c.fellowship && success) { s.flags.fellow = true; s.ta = false; }
   if (c.internship && (c.internship === 'accept' || conditional(c.internship)) && hooks.acceptInternship) hooks.acceptInternship(s);
+  if (c.funding && hooks.funding) hooks.funding(s, c.funding);
   if (c.target && hooks.setTarget && activeProject(s)) hooks.setTarget(s, activeProject(s), c.target);
   if (c.startMain && hooks.startMain) hooks.startMain(s);
   if (c.startSide && hooks.startSide) hooks.startSide(s, c.startSide.with === 'actor' && s.eventActor ? labmateById(s, s.eventActor.id)?.name : null);

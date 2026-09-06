@@ -2,6 +2,7 @@
 // so nothing the game tells you in year five is contradicted at commencement.
 import { t } from '../i18n/index.js';
 import { packetStrength, letterGate } from './letters.js';
+import { fundingBoost } from './funding.js';
 import { employers, SECTION_MAX } from '../data/employers.js';
 import { trackById, ACADEMIC } from '../data/tracks.js';
 import { random, roll, clamp, jitter, pick } from './probability.js';
@@ -62,6 +63,9 @@ export function boosts(s, e, effort = 'standard') {
       ? (s.advisor.connections > 70 && s.relationship.trust > 60 ? -.04 : -.12) : 0)
     // A dark horse is fatal where letters are read closely, and invisible where they are not.
     + (packet.darkHorse ? -.09 * (e.letterMatters ?? 0) : 0)
+    // Funding is the ace on an academic search — a candidate who already brings money costs the
+    // department less — and is close to invisible everywhere else.
+    + fundingBoost(s, e)
     + Math.min(.05, (s.conferenceConnections || 0) * .004)
     + skillGap
     + (e.internPref && s.flags.internDone ? .07 : 0)

@@ -30,7 +30,7 @@ export function outputDrought(s) {
     s.lastOutputMonth ?? -99,
     s.milestones?.prelim === 'pass' ? (s.milestones.prelimMonth ?? -99) : -99,
     s.milestones?.proposal === 'pass' ? (s.milestones.proposalMonth ?? -99) : -99,
-    s.counts.accepted ? s.month - 1 : -99,
+    s.lastAcceptMonth ?? -99,          // the month a paper landed, not "any time you have one"
   );
   if (s.month < GRACE_MONTHS) return 0;
   return Math.max(0, s.month - Math.max(last, GRACE_MONTHS - 1));
@@ -299,6 +299,13 @@ export function advisorPing(s) {
       if (band !== 'noticed') effects(s, { stress: band === 'severe' ? 5 : 3 });
       return;
     }
+  }
+  // Even a warlord has a tired Tuesday. Without this the harsh archetypes are one note for six
+  // years, and the ironic gratitude the game is aiming for has nothing to attach to.
+  if (a.toxicity > 55 && advisorPings.thaw?.length && roll(s, .12)) {
+    chat(s, 'advisor', a.name, fill(s, freshPing(s, advisorPings.thaw)));
+    effects(s, { hope: 4, satisfaction: 2, stress: -3 });
+    return;
   }
   if (mode === 'pressed') { pool = a.toxicity > 55 ? [...advisorPings.pressed, ...advisorPings.toxic] : advisorPings.pressed; chance = .8; }
   else if (mode === 'attentive') { pool = advisorPings.calm; chance = .85; }

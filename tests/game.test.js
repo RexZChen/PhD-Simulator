@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRun, populateLab } from '../src/engine/state.js';
 import { dispatch, prelimChance, focusOptions } from '../src/engine/game.js';
-import { admissionChance } from '../src/engine/apply.js';
+import { admissionChance, applicationCost } from '../src/engine/apply.js';
 import { schools, mutators, achievements } from '../src/data/catalog.js';
 import { venues, venueReferences, nextDeadline, timelineFor, acceptsThisMonth } from '../src/data/venues.js';
 import { monthOf, dateLabel, holidays } from '../src/data/calendar.js';
@@ -37,7 +37,14 @@ function resolveAll(state) {
 }
 const act = (s, a) => resolveAll(dispatch(s, a));
 
+// Getting in is no longer a formality — that is goal #1 of the design — so a fixture that needs
+// an enrolled student asks for one rather than asserting that this particular seed got lucky.
 function enterProgram(seed = 1) {
+  for (let bump = 0; bump < 12; bump++) {
+    try { return enterProgramOnce(seed + bump * 1000); } catch (e) { if (bump === 11) throw e; }
+  }
+}
+function enterProgramOnce(seed = 1) {
   let s = createRun(seed, { background: 'masters', topic: 'systems', international: false });
   s = act(s, { type: 'PREP', id: 'sop_draft' });
   s = act(s, { type: 'PREP', id: 'letter_ask', target: 'rec-0' });
@@ -133,7 +140,10 @@ test('application preparation, interviews, and decisions form a coherent phase m
   const before = structuredClone(s.player.stats);
   s = act(s, { type: 'APPLY', schoolId: matching.id, effort: 'tailored', contact: false, poiId: s.advisors.find(a => a.schoolId === matching.id).id });
   assert.ok(s.player.stats.money <= before.money - 75, 'the application fee was charged');
-  assert.ok(s.player.stats.energy <= before.energy - 7, 'a tailored application costs energy');
+  const tailoredCost = applicationCost(s, 'tailored', false).energy;
+  const genericCost = applicationCost(s, 'generic', false).energy;
+  assert.ok(tailoredCost > genericCost, 'tailoring costs more than spraying');
+  assert.ok(s.player.stats.energy <= before.energy - tailoredCost, 'a tailored application costs energy');
   s = act(s, { type: 'ADMISSIONS' });
   assert.equal(s.phase, 'interviews');
   assert.throws(() => dispatch(s, { type: 'ENROLL', id: 'x' }), /March/);
@@ -1635,4 +1645,155 @@ test('a line built from two translated pieces still follows the language', async
   }
   // Joining plain strings with no provenance must not invent any.
   assert.equal(joined('abc', ' ', 'def'), 'abc def');
+});
+
+// ── Funding: the academic ace ──────────────────────────────────────────────────
+import { addFunding, fundingScore, fundingTotal, fundingBoost, fundingLines, researchStanding, canBeAskedToHelp, grantOdds, resolveHelp, ASK_BAR, GRANT_BASE, claimable, hasMajorFunding } from '../src/engine/funding.js';
+
+const withRecord = (s, { papers = 0, tier1 = 0, proposal = false, trust = 65 } = {}) => {
+  s.counts.accepted = papers; s.projects = [];
+  for (let i = 0; i < papers; i++) { const p = createProject(s); p.status = 'Accepted'; p.venueId = i < tier1 ? 'neuripsy' : 'kddish'; }
+  s.milestones.prelim = 'pass';
+  s.milestones.proposal = proposal ? 'pass' : null;
+  s.relationship.trust = trust;
+  s.month = Math.max(s.month, 30);
+  return s;
+};
+
+test('a mediocre student is never asked to help write a grant, and the bar rises with the money', () => {
+  const nothing = withRecord(enterProgram(90));
+  assert.equal(canBeAskedToHelp(nothing, 'small').ok, false, 'no record, no invitation');
+  assert.ok(canBeAskedToHelp(nothing, 'small').why.length > 20, 'and it says why');
+
+  const thin = withRecord(enterProgram(90), { papers: 1 });
+  assert.ok(canBeAskedToHelp(thin, 'small').ok, 'one paper opens the small one');
+  assert.equal(canBeAskedToHelp(thin, 'large').ok, false, 'and not the large one');
+
+  const strong = withRecord(enterProgram(90), { papers: 3, tier1: 2, proposal: true });
+  for (const size of ['small', 'single', 'large']) assert.ok(canBeAskedToHelp(strong, size).ok, `a real record opens ${size}`);
+  assert.ok(researchStanding(strong) > researchStanding(thin) + 20);
+
+  // Too early is too early, whatever the record.
+  const early = withRecord(enterProgram(90), { papers: 3, tier1: 2, proposal: true });
+  early.month = 9;
+  assert.equal(canBeAskedToHelp(early, 'small').ok, false);
+
+  // And a broken relationship closes it regardless.
+  const estranged = withRecord(enterProgram(90), { papers: 3, tier1: 2, proposal: true, trust: 25 });
+  assert.equal(canBeAskedToHelp(estranged, 'single').ok, false);
+
+  assert.ok(ASK_BAR.small < ASK_BAR.single && ASK_BAR.single < ASK_BAR.large);
+});
+
+test('even a top student’s help does not land the grant', () => {
+  const s = withRecord(enterProgram(91), { papers: 4, tier1: 3, proposal: true });
+  s.advisor.prestige = 95; s.advisor.connections = 92; s.advisor.funding = 90;
+  for (const size of ['small', 'single', 'large']) {
+    const none = grantOdds(s, { size, help: 'none' });
+    const heroic = grantOdds(s, { size, help: 'heroic' });
+    assert.ok(heroic > none, `help should move ${size}`);
+    assert.ok(heroic - none < .09, `but not by much (${size}: ${(heroic - none).toFixed(3)})`);
+    assert.ok(heroic < .5, `and never to a coin flip (${size}: ${heroic.toFixed(2)})`);
+  }
+  // A weaker lab is a worse bet, whatever the student does.
+  const weak = withRecord(enterProgram(91), { papers: 4, tier1: 3, proposal: true });
+  weak.advisor.prestige = 45; weak.advisor.connections = 40; weak.advisor.funding = 30;
+  assert.ok(grantOdds(weak, { size: 'large', help: 'heroic' }) < grantOdds(s, { size: 'large', help: 'heroic' }));
+  assert.ok(GRANT_BASE.large < GRANT_BASE.single && GRANT_BASE.single < GRANT_BASE.small);
+});
+
+test('helping is mostly a rejection, and being named needs the work and the award', () => {
+  const rejected = withRecord(enterProgram(92), { papers: 3, tier1: 2, proposal: true });
+  const r = resolveHelp(rejected, { size: 'single', help: 'heroic', awarded: false, name: 'X', amount: 480000 });
+  assert.equal(r.awarded, false);
+  assert.equal(r.kind, null, 'a declined proposal puts nothing on your CV');
+  assert.equal(fundingLines(rejected).length, 0);
+  assert.equal(rejected.funding.rejected, 1);
+
+  const named = withRecord(enterProgram(92), { papers: 3, tier1: 2, proposal: true });
+  const n = resolveHelp(named, { size: 'single', help: 'heroic', awarded: true, name: 'Emerging Systems', amount: 480000 });
+  assert.equal(n.kind, 'named');
+  assert.ok(hasMajorFunding(named));
+
+  const thanked = withRecord(enterProgram(92), { papers: 3, tier1: 2, proposal: true });
+  const a = resolveHelp(thanked, { size: 'small', help: 'minimal', awarded: true, name: 'Y', amount: 40000 });
+  assert.equal(a.kind, 'acknowledged', 'minimal help on a small grant is the acknowledgements');
+  assert.ok(claimable(thanked.funding.records[0]) < 40000, 'and you cannot claim the whole sum');
+});
+
+test('funding is an ace on an academic search and invisible in industry', () => {
+  const funded = graduand(93, s => { withPapers(s, 3); });
+  addFunding(funded, 'fellowship', { name: 'Graduate Research Fellowship', amount: 111000 });
+  addFunding(funded, 'named', { name: 'Emerging Systems', amount: 480000 });
+  assert.ok(fundingScore(funded) > 50);
+  assert.ok(fundingTotal(funded) > 500000);
+
+  const academic = employersFor('tenure_track')[0];
+  const industry = employersFor('product_eng')[0];
+  assert.ok(fundingBoost(funded, academic) > 0.1, 'it must actually move an academic search');
+  assert.equal(fundingBoost(funded, industry), 0, 'and do nothing in industry');
+  assert.ok(fundingBoost(funded, academic) > fundingBoost(funded, employersFor('quant')[0]));
+
+  // Diminishing: the first grant changes how the file reads, the fourth barely registers.
+  const one = graduand(93, s => { withPapers(s, 3); });
+  addFunding(one, 'named', { name: 'A', amount: 400000 });
+  const four = graduand(93, s => { withPapers(s, 3); });
+  for (const n of ['A', 'B', 'C', 'D']) addFunding(four, 'named', { name: n, amount: 400000 });
+  assert.ok(fundingScore(four) > fundingScore(one));
+  assert.ok(fundingScore(four) - fundingScore(one) < fundingScore(one), 'three more grants add less than the first');
+
+  // And it reaches the CV as its own section, not lumped in with awards.
+  const cv = buildCV(funded);
+  assert.ok(cv.lines.some(l => l.section === 'funding'), 'funding is a section');
+  assert.ok(!cv.lines.some(l => l.section === 'awards' && /fellowship/i.test(l.text)), 'and not in awards');
+  assert.ok(cv.axes.funding > 0);
+});
+
+test('every jobTrack an event can set is a real track id', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const dir = new URL('../src/data/events/', import.meta.url).pathname;
+  const valid = new Set([...tracks.map(t => t.id), 'null']);
+  const found = new Set();
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.endsWith('.js')) continue;
+    for (const m of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/jobTrack:\s*'([a-z_]+)'/g)) found.add(m[1]);
+  }
+  assert.ok(found.size > 3, `only found ${found.size} jobTrack values — did the shape change?`);
+  for (const id of found) assert.ok(valid.has(id), `jobTrack '${id}' is not a track — it would set a track nothing can look up`);
+});
+
+test('the advisor has a career clock, and the tenure arc is keyed to it rather than to a rare mutator', () => {
+  const stages = {};
+  for (let seed = 1; seed <= 120; seed++) {
+    const s = createRun(seed);
+    for (const a of s.advisors) { assert.ok(a.stage, 'every advisor has a stage'); stages[a.stage] = (stages[a.stage] || 0) + 1; }
+  }
+  for (const k of ['pre_tenure', 'newly_tenured', 'mid_career', 'late']) assert.ok(stages[k] > 0, `${k} never occurs`);
+  // The clearest statement of the game's thesis must not need a 5% mutator to be reachable.
+  const push = eventById.tenure_push;
+  assert.ok(push, 'tenure_push exists');
+  assert.deepEqual(push.conditions.stage, ['pre_tenure']);
+  assert.equal(push.conditions.mutator, undefined, 'no longer gated on the tenure mutator');
+  // And the condition key actually filters.
+  const s = enterProgram(1);
+  s.advisor.stage = 'late';
+  assert.equal(eligible(s, push, {}), false, 'a late-career advisor has no tenure case');
+  s.advisor.stage = 'pre_tenure';
+  s.month = 6;
+  assert.ok(eligible(s, push, {}) || push.conditions.minMonth > 6);
+});
+
+test('a rich advisor can show a cage too, not only a poor one', async () => {
+  // The precarity scenes were gated on low funding, and the archetype table anti-correlates
+  // funding with warmth — so the two harshest advisors could never fire one.
+  const { advisorArchetypes: arch, traitNames: names } = await import('../src/data/catalog.js');
+  const fundingOf = a => a.traits[names.indexOf('funding')];
+  const toxOf = a => a.traits[names.indexOf('toxicity')];
+  const harshest = [...arch].sort((a, b) => toxOf(b) - toxOf(a))[0];
+  assert.ok(fundingOf(harshest) > 70, 'the harshest archetype is a well-funded one — that is the premise');
+  // Something in the catalogue must be able to show that advisor being squeezed.
+  const reachable = events.filter(e => e.conditions?.archetype?.includes(harshest.id)
+    || (e.conditions?.stage && !e.conditions.maxFunding));
+  assert.ok(reachable.length > 0, `nothing in the catalogue can show a ${harshest.id} under pressure`);
 });

@@ -139,7 +139,31 @@ export const advisorPings = {
     "I am rewriting the intro tonight. Do not touch that file until I tell you.",
     "Rebuttal is capped at a thousand words and we have thirty-two hundred. Cut yours first, I will cut mine after.",
    'Where are we on the draft?', 'Any update? Deadline is close.', 'Did you see my comments? All of them?', 'We need to move faster on this.'],
-  toxic: ['I expected this done already.', 'Other students in the lab are further along.', 'Let’s talk about your priorities.', '?'],
+  // Cruelty with a visible cause. The engine serves this pool exactly when the player is at
+  // their worst, so these are the lines that land hardest — they used to say nothing.
+  toxic: [
+    "Two people decide whether the renewal is funded and both of them heard my last talk. Give me one number I can say out loud.",
+    "The March report lists eleven names. Yours is the line I still cannot write a sentence for.",
+    "{labmateFirst} sent me results at eleven last night. I did not ask them to.",
+    "They gave the keynote to someone who was a postdoc the year I got tenure. That is the speed of this. Match it or tell me you cannot.",
+    "My advisor sent drafts back bleeding, from airports, with no greeting. You are getting the gentler version and you are still behind.",
+    "I have written your name into two proposals. If neither has a result in it by spring, that becomes a conversation with the chair instead of with me.",
+    "You have had four cards on the cluster since September. I can see the hours. Tell me what they bought.",
+    "{venue} closes Wednesday. Three of the four names on that paper have sent me something.",
+    "I am not travelling for pleasure. The money is out there and it does not walk in here on its own. Have something for me when I land.",
+    "My advisor kept a list of everyone who came through and what they had by year four. I keep one. You are on it either way.",
+    "A student of mine is cited more than I am now. He worked the way I am asking you to work.",
+    "Do not send me ‘nearly.’ ‘Nearly’ is what I said at your stage, and the man across the desk was right not to believe it.",
+  ],
+  // The same person, tired enough to be honest for one message. Not an apology.
+  thaw: [
+    "I read your draft on the flight back. The middle section is better than I said it was in front of the group.",
+    "Go home. The report is due on the ninth and not one of us can move the ninth.",
+    "Three grants end inside the same eighteen months. I have been doing that arithmetic since April, and most of what you get from me is the arithmetic.",
+    "{labmateFirst} did not do it better. She did it earlier. I should not have let the room hear it the other way.",
+    "You asked me what I was reading and I could not answer. I have not been able to answer that for a few years.",
+    "Take Friday. I will not remember saying this, so write it down somewhere I can see it.",
+  ],
   holiday: ['Enjoy the break. Some thoughts on the draft attached, for when you are back. Or before.', 'Happy holidays! Quick one: can you rerun the ablation before January?'],
   afterSubmit: ['Submitted. Good. Now: what is next?', 'It’s in. Take a day. One.'],
   afterAccept: ['Accepted! Congratulations. Camera-ready by Friday.', 'Great news. Let’s aim for the next one before the conference.'],

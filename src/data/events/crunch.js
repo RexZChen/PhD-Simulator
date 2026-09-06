@@ -55,7 +55,7 @@ export default [
   { id: 'prelim_dream', title: 'A dream about the committee', category: 'crunch', scene: 'home', probability: .35, cooldown: 99, once: true, conditions: { tempo: 'week', crunch: 'prelim' },
     text: 'In the dream, the committee is three copies of Reviewer 2 and the projector shows your bank balance. You wake up and check both.',
     choices: [c('laugh', 'Laugh about it in the lab', 'Stress down; bonds', { stress: -5, hope: 2 }, { labBond: 3 }), c('prep', 'Prepare for the projector failing', 'Readiness', { readiness: 4, energy: -2 }, { personality: 'perfectionist' })] },
-  { id: 'week_after', title: 'The week after', category: 'crunch', scene: 'home', probability: 1, scheduledOnly: true, cooldown: 99,
+  { id: 'week_after', title: 'The week after', category: 'crunch', scene: 'home', probability: 1, scheduledOnly: true, cooldown: 4,
     text: ['The paper is in. The apartment is a crime scene. You open the fridge and close it out of respect.', 'Submitted. Your body sends the invoice: a cold, a back thing, and an inability to read.'],
     choices: [c('rest', 'Do nothing, aggressively', 'Energy; Hope; Stress', { energy: 16, stress: -14, hope: 6 }, { personality: 'boundarySetter' }),
       c('next', 'Start the next thing immediately', 'Progress; the invoice compounds', { progress: 6, energy: -4, stress: 4 }, { personality: 'grinder' })] },
