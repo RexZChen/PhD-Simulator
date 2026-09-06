@@ -24,6 +24,8 @@ import { beginRevisions, revise, deposit, canDeposit, revisionMonth, revisionsLe
 import { openTimeline, playTimelineMove, canAskTimeline, timelineDrift } from './timeline.js';
 import { crunchOf, tempoOf, focusOptions, focusById, crunchSnapshot, milestoneOf, seasonEligible, dayEligible, DAYS_PER_WEEK } from './time.js';
 import { applyInternships, canApplyIntern, openInternTalk, playInternMove, endInternship, ensureIntern, internWindow } from './internship.js';
+import { askLetter, availableWriters, letterCount, lettersReady, packetStrength, closeLetters, needsLetters } from './letters.js';
+import { applyJob, jobsMonth, discloseSearch, withdrawApp, setWorkAuth, listingsFor, openPortals, funnel, liveOffers, ensureJobs } from './jobsearch.js';
 import * as applyEngine from './apply.js';
 
 hooks.setTarget = (s, p, mode) => setTarget(s, p, mode);
@@ -138,7 +140,7 @@ function monthStart(s, first = false, intermediate = false) {
   if (s.burnoutMonths > 0) s.burnoutMonths--;
   if (s.flags.recovery) { s.burnoutMonths = Math.max(0, s.burnoutMonths - 1); s.flags.recovery = false; }
   updateAdvisorMode(s);
-  if (!first) { updatePressure(s); advisorPing(s); monthlyChatter(s); monthlyMail(s); monthlyLife(s); accrueCitations(s); updateStanding(s); updateQuitPressure(s); revisionMonth(s); timelineDrift(s); }
+  if (!first) { updatePressure(s); advisorPing(s); monthlyChatter(s); monthlyMail(s); monthlyLife(s); accrueCitations(s); updateStanding(s); updateQuitPressure(s); revisionMonth(s); timelineDrift(s); jobsMonth(s); }
   closeRebuttals(s);
   for (const p of s.projects) {
     if (p.targetVenueId && p.targetMonth === s.month - 1 && !['Submitted', 'Rebuttal', 'Accepted', 'Abandoned'].includes(p.status)) {
@@ -671,6 +673,11 @@ export function dispatch(state, action) {
     case 'PAY_DEBT': payDebt(s, a.amount === 'all' ? s.debt : Number(a.amount) || 0); break;
     case 'ASK_TIMELINE': openTimeline(s); break;
     case 'TIMELINE_MOVE': playTimelineMove(s, a.id); break;
+    case 'ASK_LETTER': askLetter(s, a.id); break;
+    case 'JOB_APPLY': applyJob(s, a.id, a.effort || 'standard'); break;
+    case 'JOB_WITHDRAW': withdrawApp(s, a.id); break;
+    case 'JOB_DISCLOSE': discloseSearch(s); break;
+    case 'WORK_AUTH': setWorkAuth(s, a.id); break;
     case 'INTERN_APPLY': applyInternships(s); break;
     case 'INTERN_TALK': openInternTalk(s, a.id); break;
     case 'INTERN_MOVE': playInternMove(s, a.id); break;

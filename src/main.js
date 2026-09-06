@@ -214,6 +214,7 @@ root.addEventListener('click', event => {
     case 'large-text': meta.settings.largeText = !meta.settings.largeText; document.body.classList.toggle('large-text', meta.settings.largeText); saveMeta(); render(); return;
     case 'open': if (!run || run.phase !== 'playing') return; closeCompose(); ui.screen = 'game'; ui.app = target.dataset.app; ui.minimized = false; if (ui.app === 'mail' && !ui.selectedMail) ui.selectedMail = run.inbox[0]?.id; if (ui.app === 'chat') perform({ type: 'READ_CHAT', channel: ui.chatChannel }, { preserveScroll: false }); else render({ preserveScroll: false }); return;
     case 'browser-tab': closeCompose(); ui.browserTab = id; render({ preserveScroll: false }); return;
+    case 'job-portal': ui.jobPortal = id; render({ preserveScroll: false }); return;
     case 'life-tab': ui.lifeTab = id; render({ preserveScroll: false }); return;
     case 'trip-visa': perform({ type: 'TRIP_VISA', id }, { preserveScroll: false }); return;
     case 'talk-intro': ui.talkStage = 'intro'; render({ preserveScroll: false }); return;
@@ -255,6 +256,11 @@ root.addEventListener('click', event => {
     case 'reflect': perform({ type: 'REFLECT' }); return;
     case 'ask-timeline': perform({ type: 'ASK_TIMELINE' }, { preserveScroll: false }); return;
     case 'timeline-move': perform({ type: 'TIMELINE_MOVE', id }); return;
+    case 'ask-letter': perform({ type: 'ASK_LETTER', id }); return;
+    case 'job-apply': perform({ type: 'JOB_APPLY', id, effort: target.dataset.effort }); return;
+    case 'job-withdraw': perform({ type: 'JOB_WITHDRAW', id }); return;
+    case 'job-disclose': perform({ type: 'JOB_DISCLOSE' }, { preserveScroll: false }); return;
+    case 'work-auth': perform({ type: 'WORK_AUTH', id }); return;
     case 'intern-apply': perform({ type: 'INTERN_APPLY' }, { preserveScroll: false }); return;
     case 'intern-talk': perform({ type: 'INTERN_TALK', id }, { preserveScroll: false }); return;
     case 'intern-move': perform({ type: 'INTERN_MOVE', id }); return;

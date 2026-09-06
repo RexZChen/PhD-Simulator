@@ -6,6 +6,10 @@ import { dateLabel, monthOf } from '../../data/calendar.js';
 import { activeProject, absWeek, lastName, editable } from '../../engine/state.js';
 import { writeBudget, canSubmitNow } from '../../engine/paper.js';
 import { composedText, isStreaming } from '../compose.js';
+import { portals, efforts, AUTH_QUESTION, SPONSOR_QUESTION, SPONSOR_NOTE } from '../../data/portals.js';
+import { listingsFor, portalOpen, openPortals, funnel, heatBand, ensureJobs, sponsorBlocked } from '../../engine/jobsearch.js';
+import { letterCount, needsLetters } from '../../engine/letters.js';
+import { LETTERS_REQUIRED } from '../../data/letters.js';
 import { t } from '../../i18n/index.js';
 
 const projectTabs = (s, p) => s.projects.length > 1 ? `<div class="row small" style="margin-bottom:8px">${s.projects.map(x => btn(esc(x.title), 'select-project', { id: x.id, cls: `small ${x.id === p?.id ? 'primary' : ''}` })).join('')}</div>` : '';
@@ -142,11 +146,73 @@ function arxive(s, ui) {
   const pre = s.projects.filter(p => p.preprint);
   return `<div class="webpage"><h1>arXive</h1><p class="muted">${t('Timestamps for people who fear being scooped.')} ${pre.length ? '' : t('You have not posted anything. Neither has your competitor, probably.')}</p>${pre.length ? `<ul>${pre.map(p => `<li><b>${esc(p.title)}</b> — ${esc(s.player.name)} et al. <span class="muted small">(v1; ${t('v2 will fix the typo in the title')})</span></li>`).join('')}</ul>` : ''}<p class="small muted">${t('Post from Overgrief when a draft is at 85% or more.')}</p></div>`;
 }
+
+// Three boards, one tab, because the tab strip is not infinite and neither is the field's patience.
+function jobsPage(s, ui) {
+  ensureJobs(s);
+  const open = openPortals(s);
+  const pid = open.includes(ui.jobPortal) ? ui.jobPortal : (open[0] || 'linkedout');
+  const p = portals[pid];
+  const f = funnel(s);
+  const intl = s.player.profile.international;
+  const band = heatBand(s);
+  const listings = portalOpen(s, pid) ? listingsFor(s, pid) : [];
+
+  const auth = intl ? `<fieldset class="group jobs-auth"><legend>${t('Work authorisation')}</legend>
+    <p class="small">${t(AUTH_QUESTION)} <b>${t('Yes')}</b> <span class="muted tiny">${t('(with a document that expires)')}</span></p>
+    <p class="small">${t(SPONSOR_QUESTION)}</p>
+    <div class="row">${['yes', 'no'].map(v => `<button class="btn small ${s.jobs.form.sponsorship === v ? 'primary' : ''}" data-action="work-auth" data-id="${v}" ${s.stage !== 'plan' ? 'disabled' : ''}>${t(v === 'yes' ? 'Yes' : 'No')}</button>`).join('')}</div>
+    <p class="tiny muted">${t(SPONSOR_NOTE)}</p>
+    ${s.jobs.form.sponsorship === 'no' ? `<p class="tiny truth-bad">${t('Answering no clears the screen and surfaces again at the I-9, in a room, with a folder.')}</p>` : ''}
+  </fieldset>` : '';
+
+  const tracker = f.sent ? `<fieldset class="group"><legend>${t('applications.xls')}</legend>
+    <table class="mini"><tr><th>${t('Sent')}</th><th>${t('Screens')}</th><th>${t('Visits')}</th><th>${t('Offers')}</th><th>${t('Rejected')}</th><th>${t('Silent')}</th></tr>
+    <tr><td>${f.sent}</td><td>${f.screens}</td><td>${f.onsites}</td><td>${f.offers}</td><td>${f.rejected}</td><td>${f.silent}</td></tr></table>
+    ${f.auto ? `<p class="tiny muted">${t('{n} of those closed inside the hour on work authorisation.', { n: f.auto })}</p>` : ''}
+    <div class="app-rows">${s.jobs.apps.slice(-8).reverse().map(a => `<div class="app-row"><b>${esc(a.name)}</b><span class="tag ${a.stage === 'offer' ? 'ok' : ['rejected', 'ghosted', 'withdrawn'].includes(a.stage) ? 'bad' : 'warn'}">${esc(t(a.stage))}</span>${!['rejected', 'ghosted', 'withdrawn', 'offer'].includes(a.stage) ? btn(t('Withdraw'), 'job-withdraw', { id: a.id, cls: 'small link', disabled: s.stage !== 'plan' }) : ''}</div>`).join('')}</div>
+  </fieldset>` : '';
+
+  const quiet = !s.jobs.secret.disclosed && !s.jobs.secret.discovered && s.jobs.apps.some(a => a.quiet)
+    ? `<div class="note ${band === 'loud' || band === 'obvious' ? 'warn' : ''}"><b>${t('Your advisor does not know.')}</b> ${esc(t({
+        quiet: 'Nothing has come up. Nobody has mentioned anything.',
+        noticeable: 'A recruiter used your university address once. It is probably nothing.',
+        obvious: 'Two people have asked, separately, whether you are around this spring.',
+        loud: 'It is going to come out. The only question left is who says it.',
+      }[band]))} ${btn(t('Tell them yourself'), 'job-disclose', { cls: 'small', disabled: s.stage !== 'plan' })}</div>` : '';
+
+  const body = !portalOpen(s, pid)
+    ? `<p class="muted">${esc(t(p.empty))}</p>${s.month < p.minMonth ? `<p class="tiny muted">${t('Opens from year {n}.', { n: Math.floor(p.minMonth / 12) + 1 })}</p>` : ''}`
+    : p.needsLetters && letterCount(s) < LETTERS_REQUIRED
+      ? `<p class="truth-bad">${t('{have} of {need} letters. The portal will not transmit an incomplete file, and it says so before it takes the fee.', { have: letterCount(s), need: LETTERS_REQUIRED })}</p>`
+      : listings.length
+        ? `<div class="listings">${listings.slice(0, 8).map(e => {
+            const blocked = e.gate.blocked || e.sponsorBlocked;
+            return `<div class="listing ${blocked ? 'blocked' : ''}">
+              <div class="row between"><b>${esc(e.name)}</b>${tag(t(e.kind), '')}</div>
+              <p class="small muted">${esc(t(e.where))}</p>
+              ${e.applicants ? `<p class="tiny muted">${t('{n} applicants', { n: e.applicants[0] })}+</p>` : ''}
+              ${e.sponsorBlocked ? `<p class="tiny truth-bad">${t('Does not sponsor. You may still apply, and you will hear back the same afternoon.')}</p>` : ''}
+              ${e.gate.blocked ? `<p class="tiny truth-bad">${esc(e.gate.why)}</p>`
+                : `<div class="row">${Object.values(efforts).map(x => `<button class="btn small" data-action="job-apply" data-id="${esc(e.id)}" data-effort="${x.id}" ${s.stage !== 'plan' || s.player.stats.energy < x.energy ? 'disabled' : ''} title="${esc(t(x.hint))}">${esc(t(x.label))} <span class="muted">−${x.energy}</span></button>`).join('')}</div>`}
+            </div>`;
+          }).join('')}</div>`
+        : `<p class="muted">${esc(t(p.empty))}</p>`;
+
+  return `<div class="webpage jobs-page">
+    <div class="row">${Object.values(portals).map(x => btn(x.name.split(' —')[0], 'job-portal', { id: x.id, cls: `small ${pid === x.id ? 'primary' : ''}` })).join('')}</div>
+    <h1>${esc(p.name)}</h1><p class="muted">${esc(t(p.tagline))}</p>
+    <p class="small">${esc(t(p.chrome))}</p>
+    ${quiet}${auth}${body}${tracker}
+  </div>`;
+}
+
 export function browserApp(s, ui) {
   const tab = ui.browserTab || 'overgrief';
   const tabs = [['overgrief', 'Overgrief'], ['openregret', 'OpenRegret'], ['chatphd', 'ChatPHD'], ['deadlines', t('Deadlines')], ['arxive', 'arXive']];
-  const url = { overgrief: 'https://overgrief.academic/project/main.tex', openregret: 'https://openregret.net/author/console', chatphd: 'https://chatphd.ai/', deadlines: 'https://whenisthedeadline.es/', arxive: 'https://arxive.org/list/new' }[tab];
-  const page = { overgrief, openregret, chatphd, deadlines: deadlinesPage, arxive }[tab](s, ui);
+  if (s.month >= 30 && s.phase === 'playing') tabs.push(['jobs', t('Jobs')]);
+  const url = { overgrief: 'https://overgrief.academic/project/main.tex', openregret: 'https://openregret.net/author/console', chatphd: 'https://chatphd.ai/', deadlines: 'https://whenisthedeadline.es/', arxive: 'https://arxive.org/list/new', jobs: 'https://www.linkedout.com/jobs/search?keywords=phd' }[tab];
+  const page = ({ overgrief, openregret, chatphd, deadlines: deadlinesPage, arxive, jobs: jobsPage }[tab] || overgrief)(s, ui);
   return `<div class="browser-chrome"><div class="tabs">${tabs.map(([id, label]) => btn(label, 'browser-tab', { id, cls: tab === id ? 'active' : '' })).join('')}</div><div class="address"><span class="muted">◀ ▶ ↻</span><span class="url sunken">${url}</span><span class="muted">☆</span></div></div>${page}`;
 }
 

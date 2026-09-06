@@ -83,6 +83,36 @@ function salary(s, range) {
 export function generateOffers(s, cv) {
   s.jobs = s.jobs || {};
   if (!s.jobs.weather) drawWeather(s);
+
+  // If you actually ran a search, the ending is the search. Nothing is re-rolled at the end:
+  // what you got is what you got, and the applications tab already told you.
+  const landed = (s.jobs.apps || []).filter(a => a.stage === 'offer');
+  if (landed.length) {
+    const offers = landed.map(a => {
+      const e = employers.find(x => x.id === a.employerId);
+      return { kind: e.track, employerId: e.id, name: e.name, org: t(e.kind), where: t(e.where),
+        salary: salary(s, e.salary), months: e.months ?? 12, equity: e.equity || 'none',
+        catch: t(e.catch), hook: t(e.hook), prestige: e.prestige, permanence: e.permanence, ceiling: e.ceiling };
+    }).slice(0, 4);
+    s.jobs.market = offers;
+    s.jobs.offers = [...new Set(offers.map(o => o.kind))];
+    s.jobs.weatherLine = weatherLine(s);
+    s.jobs.fromSearch = true;
+    return offers;
+  }
+  // A search that produced nothing is not the same as never having searched. Say which.
+  if ((s.jobs.apps || []).length >= 5) {
+    const gap = employers.find(e => e.id === 'open_cycle');
+    const offers = [{ kind: 'unplaced', employerId: gap ? gap.id : null, name: gap ? gap.name : t('nothing signed yet'),
+      org: t(gap ? gap.kind : 'the cycle, still open'), where: t(gap ? gap.where : 'your apartment, your inbox'),
+      salary: 0, months: 12, equity: 'none', catch: t(gap ? gap.catch : ''), hook: t(gap ? gap.hook : ''),
+      prestige: 1, permanence: 0, ceiling: 5 }];
+    s.jobs.market = offers;
+    s.jobs.offers = ['unplaced'];
+    s.jobs.weatherLine = weatherLine(s);
+    s.jobs.fromSearch = true;
+    return offers;
+  }
   const track = s.jobs.track || (s.player.profile.ambition === 'academic' ? 'tenure_track' : 'product_eng');
   const hedge = s.jobs.hedge || null;
   // Each catalog entry stands for a class of employer, not one posting — the applicant counts

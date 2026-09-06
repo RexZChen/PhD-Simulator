@@ -79,6 +79,13 @@ export const moves = {
     line: 'You find the student who graduated two years ago and ask the only question that matters: was it about the work?',
     good: null, bad: null,
   },
+  offer: {
+    id: 'offer', label: 'Put the offer on the table',
+    hint: 'The strongest move available and the one with a shadow. Once per run.',
+    line: 'You do not threaten. You say the date on the offer letter out loud, and then you stop talking, which is the whole move.',
+    good: 'Something reorders itself behind their eyes. “Right. Then we make it work for spring.” The year you have been asking for arrives in nine seconds, having refused to arrive in nine months.',
+    bad: '“Then you should take it.” Said evenly, and meant as an ending. The room is very quiet and you have spent something you cannot get back.',
+  },
   accept: {
     id: 'accept', label: 'Accept the extra year',
     hint: 'The common answer. A year is a year.',

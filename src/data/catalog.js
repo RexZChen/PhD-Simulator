@@ -68,6 +68,14 @@ export const rebuttals = [
 ];
 
 export const achievements = {
+  tenapps: { name: 'Ten Out', desc: 'Send ten applications. The spreadsheet is now a document you maintain.' },
+  tenrejections: { name: 'A Folder For Them', desc: 'Collect ten rejections. You stopped reading past the first line, which is the line that tells you.' },
+  anoffer: { name: 'Someone Said Yes', desc: 'Receive a job offer. After all of that, an email that begins differently.' },
+  saidit: { name: 'Told Them First', desc: 'Tell your advisor you are on the market before the corridor does it for you.' },
+  toldthem: { name: 'They Made Calls', desc: 'Be found out, and discover your advisor was on your side the whole time.' },
+  leverage: { name: 'The Date On The Letter', desc: 'Put a job offer on the table to move your graduation. It works, or it does not, and either way it is remembered.' },
+  fourletters: { name: 'The Minimum, Filed', desc: 'Line up four letter writers. The number is the easy part and it did not feel easy.' },
+  saidno: { name: 'The Kindest No', desc: 'Be turned down for a letter by someone who explains, correctly, that a lukewarm one is worse.' },
   blessedsummer: { name: 'Permission Not Required', desc: 'Tell your advisor about an internship and have them simply say go. It happens.' },
   talkedthemround: { name: 'Answered the Real Objection', desc: 'Change your advisor’s mind about a summer, using the thing they actually said.' },
   wentanyway: { name: 'Fine.', desc: 'Take the internship after being told not to. It works. It always works. It is never free.' },

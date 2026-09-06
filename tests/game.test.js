@@ -897,10 +897,22 @@ import { tracks, trackById, ACADEMIC } from '../src/data/tracks.js';
 import { trackEndings } from '../src/data/endings.js';
 import { axesOf } from '../src/engine/epilogue.js';
 
+// A candidate who did the ordinary thing and lined up letters. Tests that care about the
+// letter gate build their own packet instead.
+const withLetters = (s, n = 4, quality = 62, darkHorse = false) => {
+  s.letters = { asked: [], closed: false };
+  const kinds = ['advisor', 'committee', 'collaborator', 'mentor', 'senior'];
+  for (let i = 0; i < n; i++) s.letters.asked.push({
+    id: `w-${i}`, kind: kinds[i % kinds.length], name: `Writer ${i}`, status: 'yes',
+    reach: i === 0 ? 0 : 2, quality, darkHorse: darkHorse && i === 1, register: 'warm', line: '',
+  });
+  return s;
+};
 function graduand(seed, mutate = () => {}) {
   let s = enterProgram(seed);
   s.month = 58;
   s.milestones.prelim = 'pass'; s.milestones.proposal = 'pass'; s.milestones.graduated = true;
+  withLetters(s);
   mutate(s);
   return s;
 }
@@ -1268,4 +1280,320 @@ test('every achievement is translated, so no unlock arrives half in English', as
   setAppLanguage('en');
   assert.deepEqual(untranslated, [], `untranslated achievement descriptions: ${untranslated.join(', ')}`);
   for (const [id, a] of Object.entries(before)) assert.deepEqual(achievements[id], a, `${id} did not restore to English`);
+});
+
+// ── Recommendation letters ─────────────────────────────────────────────────────
+import { LETTERS_REQUIRED, writerKinds, askLines, packetVerdicts, darkHorseLines } from '../src/data/letters.js';
+import { availableWriters, askLetter, letterCount, hasAdvisorLetter, lettersReady, packetStrength, letterGate, needsLetters, darkHorseReveal, closeLetters } from '../src/engine/letters.js';
+
+test('letters are required for faculty and postdocs, and never for industry', () => {
+  assert.ok(needsLetters('tenure_track') && needsLetters('postdoc') && needsLetters('teaching_faculty'));
+  assert.ok(!needsLetters('product_eng') && !needsLetters('quant') && !needsLetters('founder'));
+  const s = graduand(60, x => { x.letters = { asked: [], closed: false }; });
+  assert.ok(letterGate(s, 'tenure_track').blocked, 'no letters, no faculty file');
+  assert.ok(!letterGate(s, 'product_eng').blocked, 'industry asks for referees it never calls');
+  assert.ok(letterGate(s, 'tenure_track').why.length > 20, 'and it says why');
+  // Three is not four.
+  withLetters(s, 3);
+  assert.ok(letterGate(s, 'tenure_track').blocked, `${LETTERS_REQUIRED} is the minimum and three is not it`);
+  withLetters(s, 4);
+  assert.ok(!letterGate(s, 'tenure_track').blocked);
+  // A packet without the advisor is not a packet, whatever the count.
+  s.letters.asked = s.letters.asked.map(l => ({ ...l, kind: 'committee' }));
+  assert.ok(!hasAdvisorLetter(s));
+  assert.ok(letterGate(s, 'tenure_track').blocked, 'a faculty file without the advisor is not a file');
+});
+
+test('who you can ask comes from people the run actually produced', () => {
+  const bare = graduand(61);
+  const ids = availableWriters(bare).map(w => w.kind);
+  assert.ok(ids.includes('advisor'), 'the advisor is always available');
+  assert.ok(ids.includes('committee'), 'the committee exists by now');
+  assert.ok(!ids.includes('collaborator'), 'no collaboration happened in this run');
+
+  const connected = graduand(61, x => { x.flags.collabOffer = true; x.collabFrom = 'a group in Lisbon'; x.conferenceConnections = 9; x.lastInternship = { company: 'Cloudvale', end: 30 }; });
+  const rich = availableWriters(connected).map(w => w.kind);
+  for (const k of ['collaborator', 'mentor', 'senior']) assert.ok(rich.includes(k), `${k} should be available to a connected candidate`);
+  assert.ok(rich.length > ids.length, 'a bigger world means more people to ask');
+  // Asking someone twice is not a way to get five letters from four people.
+  const s = graduand(61);
+  const first = availableWriters(s)[0];
+  askLetter(s, first.id);
+  assert.ok(!availableWriters(s).some(w => w.id === first.id));
+  assert.throws(() => askLetter(s, first.id));
+});
+
+test('a big name who barely knows you is how you acquire a dark horse', () => {
+  let seniorDark = 0, postdocDark = 0, seniorN = 0, postdocN = 0;
+  for (let seed = 700; seed < 780; seed++) {
+    const a = graduand(seed, x => { x.letters = { asked: [], closed: false }; x.conferenceConnections = 9; });
+    const senior = availableWriters(a).find(w => w.kind === 'senior');
+    if (senior) { const r = askLetter(a, senior.id); if (r.status === 'yes') { seniorN++; if (a.letters.asked.at(-1).darkHorse) seniorDark++; } }
+    const b = graduand(seed, x => { x.letters = { asked: [], closed: false }; });
+    const pd = availableWriters(b).find(w => w.kind === 'postdocmate');
+    if (pd) { const r = askLetter(b, pd.id); if (r.status === 'yes') { postdocN++; if (b.letters.asked.at(-1).darkHorse) postdocDark++; } }
+  }
+  assert.ok(seniorN > 10 && postdocN > 10, `not enough samples (${seniorN}/${postdocN})`);
+  const seniorRate = seniorDark / seniorN, postdocRate = postdocDark / postdocN;
+  assert.ok(seniorRate > postdocRate, `the prestigious stranger should be riskier (${seniorRate.toFixed(2)} vs ${postdocRate.toFixed(2)})`);
+  assert.ok(postdocRate < .3, 'someone who supervised you daily rarely writes a quiet letter');
+});
+
+test('one dark horse is not averaged away by three good letters', () => {
+  const clean = graduand(62, x => withLetters(x, 4, 72, false));
+  const doomed = graduand(62, x => withLetters(x, 4, 72, true));
+  const a = packetStrength(clean), b = packetStrength(doomed);
+  assert.ok(b.score < a.score - 10, `the dark horse must bite (${a.score} vs ${b.score})`);
+  assert.ok(b.darkHorse === true && a.darkHorse === false);
+  assert.ok(darkHorseReveal(doomed), 'and it is explained afterwards, once it cannot be fixed');
+  assert.equal(darkHorseReveal(clean), null, 'nothing to reveal when there was nothing');
+});
+
+test('letters from outside the lab are worth more than letters from inside it', () => {
+  const inside = graduand(63);
+  inside.letters = { asked: [0, 1, 2, 3].map(i => ({ id: `i${i}`, kind: i ? 'postdocmate' : 'advisor', name: `A${i}`, status: 'yes', reach: 0, quality: 65, darkHorse: false })) };
+  const outside = graduand(63);
+  outside.letters = { asked: [0, 1, 2, 3].map(i => ({ id: `o${i}`, kind: i ? 'collaborator' : 'advisor', name: `B${i}`, status: 'yes', reach: i ? 3 : 0, quality: 65, darkHorse: false })) };
+  assert.ok(packetStrength(outside).score > packetStrength(inside).score);
+  assert.equal(packetStrength(inside).verdict, 'inside', 'a file entirely from one lab reads as a smaller world');
+  assert.ok(packetVerdicts[packetStrength(outside).verdict]);
+});
+
+test('the packet moves the market, and closes when the applications go out', () => {
+  const strong = graduand(64, x => { withPapers(x, 3); withLetters(x, 5, 88); x.jobs.track = 'tenure_track'; });
+  const weak = graduand(64, x => { withPapers(x, 3); withLetters(x, 4, 34); x.jobs.track = 'tenure_track'; });
+  const e = employersFor('tenure_track')[0];
+  const cv = buildCV(strong);
+  assert.ok(slateOdds(strong, cv, e).per > slateOdds(weak, buildCV(weak), e).per, 'better letters, better odds');
+  const closed = closeLetters(strong);
+  assert.ok(closed.score > 0 && strong.letters.closed);
+  assert.throws(() => askLetter(strong, availableWriters(strong)[0]?.id || 'w-chair'), /closed/i);
+});
+
+test('every writer kind and every register is written', () => {
+  assert.equal(Object.keys(writerKinds).length, 7);
+  for (const [id, w] of Object.entries(writerKinds)) {
+    assert.equal(w.id, id);
+    assert.ok(w.label && w.blurb && w.note, `${id} is not written`);
+    assert.ok(Number.isFinite(w.reach));
+  }
+  for (const k of ['warm', 'dutiful', 'hedged', 'refused']) assert.ok(askLines[k]?.length >= 2, `${k} needs lines`);
+  for (const k of ['strong', 'solid', 'thin', 'inside', 'short']) assert.ok(packetVerdicts[k], `no verdict copy for ${k}`);
+  assert.ok(darkHorseLines.length >= 4);
+  assert.ok(darkHorseLines.every(l => !/[.!?]$/.test(l)), 'dark horse lines are fragments, quoted mid-sentence');
+});
+
+// ── The job search ─────────────────────────────────────────────────────────────
+import { portals, efforts, rejections, reactions, tells } from '../src/data/portals.js';
+import { absWeek as jobAbsWeek } from '../src/engine/state.js';
+import { applyJob, jobsMonth, listingsFor, portalOpen, openPortals, funnel, discloseSearch, withdrawApp, setWorkAuth, sponsorBlocked, ensureJobs, heatBand, liveOffers } from '../src/engine/jobsearch.js';
+
+const marketReady = (seed, mutate = () => {}) => graduand(seed, s => {
+  s.month = 44; s.milestones.graduated = false; s.phase = 'playing'; s.stage = 'plan';
+  s.player.stats.energy = 100;
+  withPapers(s, 3);
+  mutate(s);
+});
+
+test('the boards are seasonal, and the faculty season is the short one', () => {
+  const s = marketReady(800);
+  for (const [id, p] of Object.entries(portals)) {
+    assert.ok(p.name && p.tagline && p.chrome && p.empty && p.applyNote, `${id} is not written`);
+    assert.ok(p.tracks.length, `${id} lists no tracks`);
+    assert.ok(p.opens.every(m => m >= 1 && m <= 12));
+  }
+  assert.ok(portals.linkedout.opens.length === 12, 'industry hires all year');
+  assert.ok(portals.crab.opens.length <= 4, 'the faculty season is short');
+  assert.ok(portals.crab.needsLetters && portals.pipeline.needsLetters && !portals.linkedout.needsLetters);
+  // No track is served by two portals, or the same job appears twice.
+  const seen = new Set();
+  for (const p of Object.values(portals)) for (const tr of p.tracks) { assert.ok(!seen.has(tr), `${tr} is on two boards`); seen.add(tr); }
+});
+
+test('the board is stable within a month, reshuffles across months, and never touches the RNG', () => {
+  const s = marketReady(801);
+  const before = s.rng;
+  const a = listingsFor(s, 'linkedout').map(x => x.id);
+  const b = listingsFor(s, 'linkedout').map(x => x.id);
+  assert.deepEqual(a, b, 'two renders in one month must agree');
+  assert.equal(s.rng, before, 'rendering a board must not consume randomness');
+  s.month += 1;
+  assert.notDeepEqual(listingsFor(s, 'linkedout').map(x => x.id), a, 'a new month is a new board');
+  // And it is not sorted by prestige, or everyone applies to the same five places.
+  s.month = 44;
+  const diffs = listingsFor(s, 'linkedout').slice(0, 6).map(e => e.difficulty);
+  assert.ok(new Set(diffs).size > 1, 'the top of the board must not be one difficulty band');
+});
+
+test('the sponsorship checkbox closes the application in the same afternoon', () => {
+  const intl = marketReady(802, s => { s.player.profile.international = true; });
+  ensureJobs(intl);
+  // Sponsorship only, not one that is also closed on citizenship — those are a different gate.
+  const closed = listingsFor(intl, 'linkedout').find(e => e.sponsorBlocked && !e.gate.blocked);
+  assert.ok(closed, 'some employer must not sponsor');
+  const app = applyJob(intl, closed.id, 'standard');
+  assert.equal(app.stage, 'rejected');
+  assert.equal(app.why, 'sponsorship');
+  assert.equal(funnel(intl).auto, 1, 'the tracker counts it separately');
+  const mail = intl.inbox.find(m => m.sender === closed.name);
+  assert.ok(mail, 'and there is a mail, sent by something that did not read the rest');
+
+  // A domestic candidate never sees the question at all.
+  const dom = marketReady(802, s => { s.player.profile.international = false; });
+  ensureJobs(dom);
+  assert.ok(!listingsFor(dom, 'linkedout').some(e => e.sponsorBlocked));
+  assert.throws(() => setWorkAuth(dom, 'no'), /does not apply/i);
+  // Answering "no" clears the screen. It does not make the clause go away.
+  setWorkAuth(intl, 'no');
+  assert.ok(!sponsorBlocked(intl, closed));
+  assert.ok(intl.flags.sawTheBox);
+});
+
+test('an application freezes its odds and its committee, and resolves later', () => {
+  const s = marketReady(803);
+  const e = listingsFor(s, 'linkedout').find(x => !x.gate.blocked && !x.sponsorBlocked);
+  const before = s.player.stats.energy;
+  const app = applyJob(s, e.id, 'tailored');
+  assert.equal(app.stage, 'submitted');
+  assert.ok(app.odds.screen > 0 && app.odds.invite > 0 && app.odds.offer > 0);
+  assert.ok(app.mood >= .35 && app.mood <= 1.85, 'the committee is drawn once and frozen');
+  assert.ok(s.player.stats.energy < before, 'a tailored application costs more than a click');
+  assert.ok(app.nextAt > 0, 'you find out later, which is the only honest way to model it');
+  assert.throws(() => applyJob(s, e.id, 'standard'), /already applied/i);
+  // Effort is a real lever with a real price.
+  assert.ok(efforts.tailored.energy > efforts.standard.energy && efforts.standard.energy > efforts.easy.energy);
+  assert.ok(efforts.tailored.delta > efforts.easy.delta);
+});
+
+test('most applications do not become jobs, and some never resolve at all', () => {
+  let sent = 0, offers = 0, ghosted = 0, landed = 0, runs = 0;
+  for (let seed = 810; seed < 840; seed++) {
+    const s = marketReady(seed);
+    for (let m = 0; m < 14 && s.month < 66; m++) {
+      for (const pid of openPortals(s)) {
+        for (const e of listingsFor(s, pid).filter(x => !x.gate.blocked && !x.sponsorBlocked).slice(0, 3)) {
+          if ((s.jobs?.apps?.length || 0) >= 18) break;
+          s.player.stats.energy = 100;
+          try { applyJob(s, e.id, 'standard'); } catch {}
+        }
+      }
+      s.month++; jobsMonth(s);
+    }
+    const f = funnel(s);
+    sent += f.sent; offers += f.offers; ghosted += f.silent; runs++;
+    if (f.offers) landed++;
+  }
+  assert.ok(sent / runs > 8, `the bot should send a real slate (${(sent / runs).toFixed(1)})`);
+  assert.ok(offers < sent * .25, 'most applications must not become offers');
+  assert.ok(ghosted > runs, 'silence is a normal outcome, not an edge case');
+  assert.ok(landed < runs, 'not everyone lands something');
+  assert.ok(landed > runs * .1, 'and it is not hopeless either');
+});
+
+test('applying quietly builds heat, and being found out has four different advisors in it', () => {
+  const s = marketReady(850, x => { x.advisor.connections = 85; x.advisorMode = { id: 'attentive' }; });
+  for (const pid of openPortals(s)) for (const e of listingsFor(s, pid).filter(x => !x.gate.blocked).slice(0, 3)) {
+    s.player.stats.energy = 100; try { applyJob(s, e.id, 'standard'); } catch {}
+  }
+  assert.ok(s.jobs.apps.every(a => a.quiet), 'nothing has been said, so everything is quiet');
+  const h0 = s.jobs.heat;
+  jobsMonth(s);
+  assert.ok(s.jobs.heat > h0, 'an unexplained absence accumulates');
+  assert.ok(['quiet', 'noticeable', 'obvious', 'loud'].includes(heatBand(s)));
+
+  // Every reaction is written and every tell is written.
+  for (const k of ['ally', 'professional', 'chill', 'punitive']) assert.ok(reactions[k]?.length > 40, `${k} is not written`);
+  for (const k of Object.keys(tells)) assert.ok(tells[k].length > 30, `${k} is not written`);
+
+  // Saying it yourself costs a bad ten minutes and buys the heat back.
+  const told = marketReady(851, x => { x.advisor.caring = 80; });
+  applyJob(told, listingsFor(told, 'linkedout').find(e => !e.gate.blocked && !e.sponsorBlocked).id, 'standard');
+  told.jobs.heat = 50;
+  const kind = discloseSearch(told);
+  assert.equal(told.jobs.heat, 0);
+  assert.ok(told.jobs.secret.disclosed);
+  assert.ok(told.jobs.apps.every(a => !a.quiet));
+  assert.equal(kind, 'ally', 'a caring advisor makes calls');
+  assert.throws(() => discloseSearch(told), /already know/i);
+});
+
+test('a punitive discovery is remembered when the letters are written, and never shown', () => {
+  const s = marketReady(852, x => { x.advisor.caring = 5; x.advisor.toxicity = 95; x.advisor.ambition = 95; x.relationship.trust = 10; x.relationship.satisfaction = 10; x.relationship.dependency = 60; x.advisor.connections = 95; x.advisorMode = { id: 'attentive' }; });
+  for (const pid of openPortals(s)) for (const e of listingsFor(s, pid).filter(x => !x.gate.blocked).slice(0, 3)) {
+    s.player.stats.energy = 100; try { applyJob(s, e.id, 'standard'); } catch {}
+  }
+  const drag0 = s.letterDrag || 0;
+  // Keep the search live: discovery is about an ongoing absence, not a closed one.
+  for (let i = 0; i < 40 && !s.jobs.secret.discovered; i++) {
+    s.month++;
+    for (const a of s.jobs.apps) if (!['rejected', 'ghosted', 'withdrawn', 'offer'].includes(a.stage)) a.nextAt = jobAbsWeek(s) + 8;
+    s.jobs.heat = 100;
+    jobsMonth(s);
+  }
+  assert.ok(s.jobs.secret.discovered, 'with that advisor and that heat it comes out');
+  assert.ok(['chill', 'punitive'].includes(s.jobs.secret.reaction), `expected a cold reaction, got ${s.jobs.secret.reaction}`);
+  assert.ok((s.letterDrag || 0) > drag0, 'the mood the letter is written in is recorded');
+  assert.ok(s.jobs.secret.tell && tells[s.jobs.secret.tell], 'something specific gave it away');
+});
+
+test('the ending is the search you ran, not a fresh roll at the end', () => {
+  const s = marketReady(860);
+  const e = listingsFor(s, 'linkedout').find(x => !x.gate.blocked && !x.sponsorBlocked);
+  const app = applyJob(s, e.id, 'tailored');
+  app.stage = 'offer'; app.deadlineMonth = s.month + 2;
+  app.history.push({ stage: 'offer', month: s.month });
+  const offers = generateOffers(s, buildCV(s));
+  assert.ok(s.jobs.fromSearch, 'the market must read the applications');
+  assert.equal(offers.length, 1);
+  assert.equal(offers[0].employerId, e.id, 'the offer you got is the offer you get');
+  assert.ok(liveOffers(s).length === 1);
+
+  // A search that produced nothing says so, rather than quietly rolling you a job.
+  const empty = marketReady(861);
+  for (const x of listingsFor(empty, 'linkedout').filter(y => !y.gate.blocked && !y.sponsorBlocked).slice(0, 6)) {
+    empty.player.stats.energy = 100; try { applyJob(empty, x.id, 'standard'); } catch {}
+  }
+  for (const a of empty.jobs.apps) { a.stage = 'rejected'; a.why = 'form'; }
+  const none = generateOffers(empty, buildCV(empty));
+  assert.equal(none[0].kind, 'unplaced');
+  assert.ok(empty.jobs.fromSearch);
+});
+
+test('an offer moves the timeline once, and the move has a shadow you never see', () => {
+  let wins = 0, burns = 0, drags = 0, runs = 0;
+  for (let seed = 870; seed < 910; seed++) {
+    const s = marketReady(seed, x => { x.advisor.toxicity = 70; x.advisor.caring = 30; x.relationship.trust = 40; });
+    openTimeline(s);
+    if (s.grad.settled) continue;
+    const e = listingsFor(s, 'linkedout').find(x => !x.gate.blocked && !x.sponsorBlocked);
+    const app = applyJob(s, e.id, 'standard');
+    app.stage = 'offer'; app.deadlineMonth = s.month + 1;
+    const moves = timelineMoves(s).map(m => m.id);
+    assert.ok(moves.includes('offer'), 'a live offer unlocks the move');
+    const drag0 = s.letterDrag || 0;
+    const r = playTimelineMove(s, 'offer');
+    runs++;
+    if (r.won) wins++;
+    if (s.grad.burned) burns++;
+    if ((s.letterDrag || 0) > drag0) drags++;
+    assert.ok(s.flags.usedOfferAsLeverage);
+    // Once per run, whatever happened.
+    assert.ok(!timelineMoves(s).some(m => m.id === 'offer'));
+  }
+  assert.ok(runs > 20, `not enough samples (${runs})`);
+  assert.ok(wins > 2 && wins < runs, `the move must be able to win and to fail (${wins}/${runs})`);
+  assert.ok(burns > 0, 'losing it badly must be possible');
+  assert.ok(drags > 0 && drags < runs, 'the shadow falls sometimes, not always');
+  // With no offer in hand there is no move.
+  const nothing = marketReady(911);
+  openTimeline(nothing);
+  if (!nothing.grad.settled) assert.ok(!timelineMoves(nothing).some(m => m.id === 'offer'));
+});
+
+test('every rejection register is written, and the ghost has no mail by design', () => {
+  for (const k of ['sponsorship', 'form', 'screen', 'onsite', 'internal', 'cancelled']) {
+    assert.ok(rejections[k]?.length, `${k} has no copy`);
+    for (const line of rejections[k]) assert.ok(line.length > 60, `${k} is too thin to sting`);
+  }
+  assert.equal(rejections.ghost, null, 'silence has no letter; that is the mechanic');
 });

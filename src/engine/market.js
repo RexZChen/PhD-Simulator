@@ -1,6 +1,7 @@
 // How a file is read. One scorer, used by the market preview and by the offers screen,
 // so nothing the game tells you in year five is contradicted at commencement.
 import { t } from '../i18n/index.js';
+import { packetStrength, letterGate } from './letters.js';
 import { employers, SECTION_MAX } from '../data/employers.js';
 import { trackById, ACADEMIC } from '../data/tracks.js';
 import { random, roll, clamp, jitter, pick } from './probability.js';
@@ -46,8 +47,12 @@ export function boosts(s, e, effort = 'standard') {
   const skills = s.player.skills;
   const skillGap = Object.entries(e.skills || {})
     .reduce((a, [k, need]) => a + clamp(((skills[k] ?? 50) - need) / 60, -.5, .25), 0);
-  const letterTier = s.relationship.trust > 68 && s.relationship.satisfaction > 60 ? 1
-    : s.relationship.trust > 45 ? .5 : 0;
+  // Before you ask anyone, the advisor relationship is the only signal. After, it is the packet —
+  // and the packet can be quietly worse than the relationship suggested.
+  const packet = packetStrength(s);
+  const letterTier = packet.n ? clamp(packet.score / 70, 0, 1.25)
+    : s.relationship.trust > 68 && s.relationship.satisfaction > 60 ? 1
+      : s.relationship.trust > 45 ? .5 : 0;
   const prestige = Math.max(s.program.prestige, s.advisor.prestige);
   return (((s.jobs?.packet?.quality ?? 50) - 50) / 400)
     + letterTier * .10 * (e.letterMatters ?? 1)
@@ -55,6 +60,8 @@ export function boosts(s, e, effort = 'standard') {
     + ((prestige - 78) / 700) * (e.prestigeMatters ?? 0)
     + (e.prestigeFloor && prestige < e.prestigeFloor
       ? (s.advisor.connections > 70 && s.relationship.trust > 60 ? -.04 : -.12) : 0)
+    // A dark horse is fatal where letters are read closely, and invisible where they are not.
+    + (packet.darkHorse ? -.09 * (e.letterMatters ?? 0) : 0)
     + Math.min(.05, (s.conferenceConnections || 0) * .004)
     + skillGap
     + (e.internPref && s.flags.internDone ? .07 : 0)
@@ -74,6 +81,8 @@ export function gateFor(s, e) {
     return { blocked: true, why: t('This employer does not sponsor work visas. The form asks; the form is the whole conversation.') };
   if (e.gate === 'teachingProof' && (s.counts.taSemesters || 0) < 2 && !s.flags.extraTA)
     return { blocked: true, why: t('They want evidence you have taught. Two semesters of it, minimum, and you have none.') };
+  const lg = letterGate(s, e.track);
+  if (lg.blocked) return lg;
   if (e.gate === 'topVenue' && !s.projects.some(p => p.status === 'Accepted'))
     return { blocked: true, why: t('The search asks for a publication record. You do not have one yet.') };
   return { blocked: false, why: '' };

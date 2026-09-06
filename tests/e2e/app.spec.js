@@ -577,3 +577,78 @@ test('the summer: applying in August, an advisor who wants it back, and going an
   expect(after.drag).toBeGreaterThan(0);
   await expect(page.locator('.summertalk.settled')).toBeVisible();
 });
+
+test('the job board: the sponsorship checkbox closes an application in the same afternoon', async ({ page }) => {
+  // Year four, international, letters in hand.
+  await seedPlay(page, `s.month = 44;
+    s.milestones.prelim = 'pass'; s.milestones.proposal = 'pass';
+    s.counts.accepted = 3; s.readiness = 75; s.player.stats.energy = 100;
+    s.player.profile.international = true;
+    p.status = 'Accepted'; p.venueId = 'neuripsy';
+    s.letters = { asked: [0,1,2,3].map(i => ({ id: 'w'+i, kind: i ? 'committee' : 'advisor', name: 'Writer '+i, status: 'yes', reach: 2, quality: 66, darkHorse: false })), closed: false };`);
+
+  await page.locator('[data-action="open"][data-app="browser"]').first().click();
+  await page.locator('[data-action="browser-tab"][data-id="jobs"]').click();
+  await expect(page.getByRole('heading', { name: /LinkedOut/ })).toBeVisible();
+
+  // The question is on the page, and it has two boxes and no third one.
+  await expect(page.getByText(/require sponsorship/i)).toBeVisible();
+  await expect(page.getByText(/There is no third box/)).toBeVisible();
+
+  // A posting that does not sponsor still lets you apply, and answers the same afternoon.
+  const blocked = page.locator('.listing', { hasText: /Does not sponsor/ }).first();
+  await expect(blocked).toBeVisible();
+  const name = (await blocked.locator('b').first().innerText()).trim();
+  await blocked.locator('[data-action="job-apply"][data-effort="standard"]').click();
+  await resolveScenes(page);
+
+  const st = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const r = loadSave(localStorage).run;
+    return { apps: r.jobs.apps.map(a => ({ name: a.name, stage: a.stage, why: a.why })), inbox: r.inbox.length };
+  });
+  const app = st.apps.find(a => a.name === name);
+  expect(app).toBeTruthy();
+  expect(app.stage).toBe('rejected');
+  expect(app.why).toBe('sponsorship');
+  await expect(page.locator('.app-row', { hasText: name })).toBeVisible();
+  await expect(page.getByText(/closed inside the hour on work authorisation/)).toBeVisible();
+});
+
+test('the job board: a normal application waits, and the advisor can be told before they find out', async ({ page }) => {
+  await seedPlay(page, `s.month = 44;
+    s.milestones.prelim = 'pass'; s.milestones.proposal = 'pass';
+    s.counts.accepted = 3; s.readiness = 75; s.player.stats.energy = 100;
+    s.player.profile.international = false; s.advisor.caring = 80;
+    p.status = 'Accepted'; p.venueId = 'neuripsy';`);
+
+  await page.locator('[data-action="open"][data-app="browser"]').first().click();
+  await page.locator('[data-action="browser-tab"][data-id="jobs"]').click();
+  // Domestic candidates never see the work-authorisation fieldset at all.
+  await expect(page.getByText(/require sponsorship/i)).toHaveCount(0);
+
+  const first = page.locator('.listing:not(.blocked)').first();
+  await first.locator('[data-action="job-apply"][data-effort="standard"]').click();
+  await resolveScenes(page);
+  const after = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const r = loadSave(localStorage).run;
+    return { n: r.jobs.apps.length, stage: r.jobs.apps[0]?.stage, quiet: r.jobs.apps[0]?.quiet, heat: r.jobs.heat };
+  });
+  expect(after.n).toBe(1);
+  expect(after.stage).toBe('submitted');
+  expect(after.quiet).toBe(true);
+  expect(after.heat).toBeGreaterThan(0);
+
+  // Saying it yourself clears the heat and, with this advisor, buys you an ally.
+  await page.locator('[data-action="job-disclose"]').click();
+  await resolveScenes(page);
+  const told = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const r = loadSave(localStorage).run;
+    return { heat: r.jobs.heat, disclosed: r.jobs.secret.disclosed, reaction: r.jobs.secret.reaction };
+  });
+  expect(told.heat).toBe(0);
+  expect(told.disclosed).toBe(true);
+  expect(told.reaction).toBe('ally');
+});

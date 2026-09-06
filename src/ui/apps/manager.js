@@ -14,6 +14,8 @@ import { caffeineState, healthBand } from '../../engine/life.js';
 import { revisionsLeft, canDeposit } from '../../engine/thesis.js';
 import { canAskTimeline, askAgainIn, timelineMoves, gradRecord, gradWillingness } from '../../engine/timeline.js';
 import { canApplyIntern, internWindow, internTalkMoves, collisions } from '../../engine/internship.js';
+import { availableWriters, letterCount, packetStrength, packetVerdictText, needsLetters, hasAdvisorLetter } from '../../engine/letters.js';
+import { LETTERS_REQUIRED, RANK_NOTE } from '../../data/letters.js';
 import { internTypes } from '../../data/internships.js';
 import { conditions as gradConditions } from '../../data/timeline.js';
 import { STANDING_WARN, quitBand } from '../../engine/divergence.js';
@@ -172,6 +174,28 @@ export function internPanel(s) {
   </div>`;
 }
 
+// Four letters, for the academic file only, and you never find out what is in them.
+export function lettersPanel(s) {
+  if (s.month < 40 || s.phase !== 'playing') return '';
+  const track = s.jobs?.track;
+  if (track && !needsLetters(track)) return '';
+  const have = letterCount(s), pk = packetStrength(s), closed = s.letters?.closed;
+  const yes = (s.letters?.asked || []).filter(l => l.status === 'yes');
+  const no = (s.letters?.asked || []).filter(l => l.status === 'no');
+  const writers = closed ? [] : availableWriters(s);
+  const enough = have >= LETTERS_REQUIRED && hasAdvisorLetter(s);
+  return `<div class="summertalk ${enough ? 'settled' : 'ask'}">
+    <div class="row between"><b>${icon('mail', 14)} ${t('Letters')}</b>${tag(t('{have} of {need}', { have, need: LETTERS_REQUIRED }), enough ? 'ok' : have ? 'warn' : 'bad')}</div>
+    ${yes.length ? `<div class="letter-list">${yes.map(l => `<div class="letter-row"><b>${esc(l.name)}</b><small class="muted">${esc(t(writerKindLabel(l.kind)))}${l.reach >= 2 ? ` · ${t('outside the lab')}` : ''}</small></div>`).join('')}</div>` : ''}
+    ${no.length ? `<p class="tiny muted">${t('{n} said no.', { n: no.length })}</p>` : ''}
+    ${enough ? `<p class="small">${esc(packetVerdictText(s))}</p>` : `<p class="small">${t('Faculty searches and postdocs will not open a file with fewer than {n}. Industry asks for referees and never calls them.', { n: LETTERS_REQUIRED })}</p>`}
+    ${!hasAdvisorLetter(s) && have ? `<p class="small truth-bad">${t('None of these is your advisor. That is the one that cannot be missing.')}</p>` : ''}
+    ${writers.length ? `<div class="gradmoves">${writers.slice(0, 6).map(w => `<button class="gradmove" data-action="ask-letter" data-id="${esc(w.id)}" ${s.stage !== 'plan' || s.player.stats.energy < 4 ? 'disabled' : ''} title="${esc(t(w.note))}"><b>${esc(w.name)}</b><small class="muted">${esc(t(w.blurb))}</small></button>`).join('')}</div>` : ''}
+    <p class="tiny muted">${closed ? t('The packet is closed.') : t(RANK_NOTE)}</p>
+  </div>`;
+}
+const writerKindLabel = kind => ({ advisor: 'Your advisor', committee: 'A committee member', collaborator: 'An external collaborator', mentor: 'Your internship mentor', senior: 'A senior professor in the department', postdocmate: 'The postdoc who supervised you day to day', chair: 'The department chair' }[kind] || kind);
+
 export function planList(s) {
   const opts = focusOptions(s);
   return `<div class="radio-list">${opts.map(f => `<button class="option ${s.focus === f.id ? 'selected' : ''}" data-action="plan" data-id="${f.id}" ${f.disabled ? 'disabled' : ''} title="${esc(f.disabled || f.desc)}"><span class="radio"></span>${icon(f.icon, 22)}<span><b>${esc(f.name)}</b><span class="muted">${esc(f.disabled || f.desc)}</span><span class="eff">${f.disabled ? '' : effectPills(f.effects, {}, 4)}</span></span></button>`).join('')}</div>`;
@@ -261,7 +285,7 @@ export function managerApp(s, ui) {
   ${note(objective)}
   <div class="grid-3">
     <div>${tempo === 'day' ? group(t('Today'), dayStrip(s)) : ''}${group(tempo === 'day' ? t('Today goes to') : tempo === 'week' ? t('This week goes to') : t('Plan for the month'), planList(s) + (tempo === 'month' && s.week === 0 && !crunch && s.month < 24 ? `<div class="row" style="margin-top:6px">${btn(s.flags.zoomMonth === s.month ? t('Back to monthly') : t('Take this month week by week'), 'zoom', { cls: 'small link', title: t('Zoom in without a deadline. For control freaks.') })}</div>` : ''))}</div>
-    <div>${s.thesis && !s.thesis.deposited ? group(t('Almost'), revisionPanel(s)) : timelinePanel(s) ? group(t('The timeline'), timelinePanel(s)) : ''}${internPanel(s) ? group(t('Summer'), internPanel(s)) : ''}${group(t('Agenda'), readinessWidget(s) + agenda(s))}${group(`${t('Advisor requests')} ${s.requests.some(r => r.status === 'open') ? tag(String(s.requests.filter(r => r.status === 'open').length), 'warn') : ''}`, requestList(s))}</div>
+    <div>${s.thesis && !s.thesis.deposited ? group(t('Almost'), revisionPanel(s)) : timelinePanel(s) ? group(t('The timeline'), timelinePanel(s)) : ''}${internPanel(s) ? group(t('Summer'), internPanel(s)) : ''}${lettersPanel(s) ? group(t('Letters'), lettersPanel(s)) : ''}${group(t('Agenda'), readinessWidget(s) + agenda(s))}${group(`${t('Advisor requests')} ${s.requests.some(r => r.status === 'open') ? tag(String(s.requests.filter(r => r.status === 'open').length), 'warn') : ''}`, requestList(s))}</div>
     <div>${group(t('Projects'), projectList(s) + `<div class="row" style="margin-top:6px">${btn(t('Start main project'), 'start-project', { cls: 'small', disabled: s.stage !== 'plan' || !canStartMain(s), title: canStartMain(s) ? t('A new main project') : t('The current main project is still alive') })}${btn(t('Start side project'), 'start-side', { cls: 'small', disabled: s.stage !== 'plan' || !canStartSide(s), title: t('Month 5+, main project past 40%, one at a time. −5 Energy.') })}${s.milestones?.proposal === 'pass' && !s.milestones.thesisStarted ? btn(t('Start the dissertation'), 'start-thesis', { cls: 'small accent', disabled: s.stage !== 'plan' || s.month < 54, title: t('From September of year five. Accepted papers become chapters.') }) : ''}${s.projects.some(x => x.kind === 'thesis' && x.status === 'Ready') && (s.milestones.defenseMonth === null || s.milestones.defenseMonth === undefined) ? btn(t('Schedule the defense'), 'schedule-defense', { cls: 'small accent', disabled: s.stage !== 'plan' }) : ''}${btn(t('Open Overgrief'), 'open', { app: 'browser', cls: 'small link' })}</div>`)}
     ${group(t('Advisor'), advisorCard(s) + `<div style="margin-top:8px">${quickAsks(s, 3)}</div>`)}
     ${group(t('Field notes'), `<div class="notes-box">${esc(noticeText(s))}</div>`)}</div>

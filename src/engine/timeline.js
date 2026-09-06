@@ -30,8 +30,8 @@ export const objectionIsFair = s => gradRecord(s) < 45 || gradWillingness(s) >= 
 
 export const ASK_COOLDOWN = 3;   // you cannot ask every month; a term has to pass
 export const canAskTimeline = s => s.phase === 'playing' && s.month >= TALK_OPENS && !s.milestones.graduated
-  && !(s.grad && s.grad.settled) && (!s.grad || !s.grad.asked || s.month - s.grad.askedMonth >= ASK_COOLDOWN);
-export const askAgainIn = s => (s.grad && s.grad.asked && !s.grad.settled) ? Math.max(0, ASK_COOLDOWN - (s.month - s.grad.askedMonth)) : 0;
+  && !(s.grad && s.grad.settled) && (!s.grad || !s.grad.asked || s.month - s.grad.askedMonth >= (s.grad.burned ? ASK_COOLDOWN * 2 : ASK_COOLDOWN));
+export const askAgainIn = s => (s.grad && s.grad.asked && !s.grad.settled) ? Math.max(0, (s.grad.burned ? ASK_COOLDOWN * 2 : ASK_COOLDOWN) - (s.month - s.grad.askedMonth)) : 0;
 
 export function openTimeline(s) {
   if (!canAskTimeline(s)) throw new Error(t('Too early to ask, or already settled. The question keeps.'));
@@ -82,6 +82,9 @@ export function timelineMoves(s) {
     list.push({ ...moves.date, done: used.includes('date') });
     list.push({ ...moves.committee, done: used.includes('committee') });
   }
+  // The offer move only exists if there is an offer, and only once in a run.
+  if (!used.includes('offer') && (s.jobs?.apps || []).some(a => a.stage === 'offer' && (a.deadlineMonth ?? 99) >= s.month))
+    list.push({ ...moves.offer, done: false, danger: true });
   list.push({ ...moves.second, done: used.includes('second') });
   list.push({ ...moves.accept, done: false });
   return list;
@@ -90,6 +93,7 @@ export function timelineMoves(s) {
 export function playTimelineMove(s, id) {
   const g = s.grad;
   if (!g || g.settled) throw new Error(t('That conversation is over for now.'));
+  if (g.burned) throw new Error(t('Not after that. You will have to let a term pass and come back to it.'));
   const move = moves[id];
   if (!move) throw new Error(t('That is not something you could say.'));
   if ((g.used || []).includes(id) && id !== 'accept') throw new Error(t('You have tried that. Trying it again is just repeating yourself.'));
@@ -109,6 +113,36 @@ export function playTimelineMove(s, id) {
     award(s, 'askedaround');
     log(s, `${t(move.line)} ${line}`);
     return { id, line: `${t(move.line)} ${line}`, outcome: 'informed', fair };
+  }
+
+  if (id === 'offer') {
+    const o = (s.jobs?.apps || []).find(a => a.stage === 'offer' && (a.deadlineMonth ?? 99) >= s.month);
+    if (!o) throw new Error(t('You have no offer to put on the table.'));
+    const legible = { tenure_track: 1, teaching_faculty: .9, abroad: .8, postdoc: .8, national_lab: .7, soft_money: .7, policy: .6, industry_research: .6, quant: .45, product_eng: .5, founder: .35 }[o.track] ?? .6;
+    const clock = (o.deadlineMonth - s.month) <= 1 ? .18 : (o.deadlineMonth - s.month) <= 2 ? .10 : 0;
+    const strength = clamp(legible * (.45 + Math.min(100, gradRecord(s)) / 100 * .55) + clock, 0, 1);
+    const odds = clamp(.26 + strength * .40 + (gradWillingness(s) - 45) / 280 + gradRecord(s) / 600
+      - (gradRecord(s) < 35 ? .16 : 0) - (s.advisor.ambition - 50) / 280 - (s.advisor.toxicity - 40) / 220
+      - s.relationship.dependency / 500 + (s.flags.committeeBacking ? .07 : 0)
+      + (s.jobs?.secret?.disclosed ? .05 : -.05), .12, .86);
+    // One shadow roll, evaluated whether you win or lose. It is never shown.
+    const shadow = roll(s, clamp(.34 - (s.advisor.caring - 50) * .008 + (s.advisor.toxicity - 40) * .010
+      + (s.advisor.ambition - 50) * .006 - (s.relationship.trust - 50) * .006 + (s.relationship.dependency - 20) * .004
+      - (s.jobs?.secret?.disclosed ? .10 : 0) - (s.flags.committeeBacking ? .05 : 0), .04, .74));
+    const won = roll(s, odds);
+    const text = `${t(move.line)} ${t(won ? move.good : move.bad)}`;
+    log(s, text);
+    s.flags.usedOfferAsLeverage = true;
+    if (shadow) s.letterDrag = (s.letterDrag || 0) + (won ? 1 : 2);
+    award(s, 'leverage');
+    if (won) {
+      effects(s, { trust: shadow ? 0 : 4, hope: 16 });
+      settle(s, 5, t('You put an offer on the table and the table moved.'));
+      return { id, line: text, outcome: 'settled', won: true };
+    }
+    effects(s, { satisfaction: shadow ? -14 : -8, conflict: shadow ? 18 : 6, hope: -10, stress: shadow ? 12 : 4, ...(shadow ? { trust: -6 } : {}) });
+    if (shadow) { g.burned = true; s.standing = clamp((s.standing ?? 60) - 4); }
+    return { id, line: text, outcome: 'open', won: false };
   }
 
   const record = gradRecord(s), willing = gradWillingness(s);

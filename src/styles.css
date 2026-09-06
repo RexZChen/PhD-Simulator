@@ -900,3 +900,17 @@ body.lang-zh .editor-source pre, body.lang-zh .typing-zone { font-family: "Menlo
 .gradmove small { display: block; font-size: 11px; }
 .offer-track { font-size: 12px; font-weight: 700; color: var(--sel); }
 .offer-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--muted); font-style: italic; }
+.letter-list { display: grid; gap: 2px; }
+.letter-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; border-bottom: 1px dotted var(--shadow); padding-bottom: 2px; }
+.letter-row b { font-weight: 700; }
+.jobs-page .listings { display: grid; gap: 6px; margin: 8px 0; }
+.jobs-page .listing { border: 1px solid var(--shadow); background: var(--paper); padding: 6px 8px; }
+.jobs-page .listing.blocked { opacity: .72; background: #f7f4f4; }
+.jobs-page .listing p { margin: 2px 0; }
+.jobs-auth { background: #fffdf5; }
+.app-rows { display: grid; gap: 2px; margin-top: 6px; }
+.app-row { display: flex; align-items: center; gap: 8px; font-size: 12px; border-bottom: 1px dotted var(--shadow); padding-bottom: 2px; }
+.app-row b { flex: 1; }
+table.mini { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.mini th, table.mini td { border: 1px solid var(--shadow); padding: 2px 5px; text-align: center; }
+table.mini th { background: var(--face); }
