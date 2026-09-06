@@ -77,6 +77,39 @@ export const cohortLines = {
   leave: ['Interviewing at {company} next week. Don’t tell my advisor. (I told my advisor.)', 'Update: leaving with the master’s. Party on Thursday. Bring nothing, feel everything.', 'The offer has a signing bonus larger than my stipend. I did the math twice.'],
   generic: ['Study group tonight, 9pm, the room that smells like 9pm.', 'Who else has coursework due the same week as a deadline? (Everyone.)', 'Reading group: this week’s paper is 60 pages. We will discuss whether anyone read it.'],
 };
+
+// High-frequency log lines. A single fixed string for something that happens a dozen times in a
+// run is where tedium actually comes from — not from the event firing again, but from the same
+// sentence describing it.
+export const logLines = {
+  requestArrived: [
+    '{name} asked for something: {kind}. Due in {n} week(s).',
+    '{name} needs a {kind} from you. {n} week(s), which is the estimate, not the deadline.',
+    'A {kind} request, from {name}, with {n} week(s) on it and no ceremony.',
+    '{name}: “Can you do the {kind}?” It is not a question and it is due in {n} week(s).',
+    'Added to your week without discussion: the {kind}. {n} week(s).',
+  ],
+  requestExpired: [
+    'The {kind} request expired unanswered. It will come up.',
+    'The {kind} request quietly passed its date. Nobody mentioned it, which is worse.',
+    'You did not do the {kind}. There is no message about it, and there will be a meeting about it.',
+    'The {kind} is now late enough that doing it would be a statement.',
+    'Nothing was said about the {kind}. It is filed under the things that get remembered.',
+  ],
+  burnout: [
+    'Burnout has slowed things down. Recovery is part of the work, whatever the calendar says.',
+    'You are running on nothing. The work is still there and you are not, quite.',
+    'Something has gone flat. It is not sadness exactly; it is the absence of the thing that made this interesting.',
+    'The week goes by and you cannot account for it. This has happened before and it took a month.',
+  ],
+  missedDeadline: [
+    'Missed the {venue} deadline. The venue did not notice. Your advisor did.',
+    '{venue} closed without you. The submission site is still up, greyed out, showing the number of papers that made it.',
+    'The {venue} deadline passed at 3 p.m. and you found out at 6.',
+    'Not submitted to {venue}. The draft is still open on the desktop, four sections finished.',
+  ],
+};
+
 export const advisorPings = {
   // No venue on the board. This is where a lot of real stress actually comes from: not the
   // deadline, but the absence of one, and a person asking you weekly which one it is going to be.
@@ -187,11 +220,41 @@ export const chatphdLines = {
   experiment: ['Suggested experiment: the one your advisor already suggested, but with a confident title.', 'Try an ablation on the component that matters least. Reviewers love a good ablation of nothing.'],
   rebuttal: ['Drafted a rebuttal. It thanks the reviewers for their “insightful” comments, which is legally required.', 'Response drafted. I cited a paper that does not exist; please replace before submitting. Or don’t. I am not your advisor.'],
 };
+
+// Predatory-journal subject lines. This was one string for six years and arrived seven times.
+export const spamSubjects = [
+  'Invitation to publish (Impact Factor: pending)',
+  'Dear Esteemed Dr. — Special Issue Invitation',
+  'Your recent article inspired our editorial board',
+  'Call for Papers: International Journal of Applied Everything',
+  'Keynote invitation — 4th Global Summit on Computational Topics',
+  'We read your paper with great interest (we read the title)',
+  'Rapid peer review, 72 hours, nominal processing fee',
+  'Reminder: your manuscript slot expires Friday',
+  'Distinguished Speaker Award — nomination pending payment',
+  'Join our Editorial Board (no experience necessary)',
+];
+
 export const mailTemplates = {
   semesterStart: ['Welcome back. Please review the 14 updated policies attached. Failure to acknowledge is acknowledgment.', 'Registration is open. Registration is also required. These are different systems.'],
-  taAssignment: ['You have been assigned as a TA for Intro to Programming, section 4. The instructor will contact you. The instructor will not contact you.'],
-  raAssignment: ['Your appointment for the term is Research Assistant. Congratulations on your uninterrupted mornings.'],
-  closure: ['Campus will be closed for the holiday. The building remains accessible by card. We know you know this.'],
+  taAssignment: [
+    "Your teaching assignment for the coming term is attached. Section times may change. Section times will change.",
+    "You are assigned to the introductory course, two sections, ten hours a week. The ten is nominal. Enrolment is 340.",
+    "TA appointment confirmed. Please complete the eleven-minute training video, which is fifty-one minutes long.",
+    "Assignment: grading support. You will be paired with an instructor who has not been told this yet.",
+  'You have been assigned as a TA for Intro to Programming, section 4. The instructor will contact you. The instructor will not contact you.'],
+  raAssignment: [
+    "Your research assistantship is confirmed for the term, contingent on the continuation of the award named in the attachment.",
+    "RA appointment renewed. Effort is recorded at 50%, which is the number the form permits.",
+    "You are supported this term on the grant listed below. Please do not reply to this address.",
+    "Appointment processed. Payroll begins on the thirtieth; the lease began on the first.",
+  'Your appointment for the term is Research Assistant. Congratulations on your uninterrupted mornings.'],
+  closure: [
+    "The building will be locked over the break. Card access continues for those with approved after-hours status, which is everyone, which is why the policy exists.",
+    "Facilities will close the north entrance for the holiday. The south entrance will also be closed. The loading dock is not a door.",
+    "Heating will run at reduced capacity during the closure. The server room will not, and is the warmest place on campus.",
+    "Campus is closed. The cluster is not closed. Nothing is really closed.",
+  'Campus will be closed for the holiday. The building remains accessible by card. We know you know this.'],
   spam: ['Greetings, esteemed researcher! Your recent work is a perfect fit for the International Journal of Everything (Impact Factor: pending). Submit today; review by tomorrow.', 'A conference in a resort city invites you to keynote. The fee is $1,200. The keynote is you paying the fee.'],
   cfp: ['Call for papers: {venue}. Deadline {deadline}. We look forward to your contribution, and to rejecting most of them.', 'Reminder: {venue} submissions close {deadline}. The portal will be slow on the last day. It is always slow on the last day.'],
 };
@@ -220,7 +283,7 @@ export const chatphdReplies = {
   default: ['Great question. Here are five bullet points, two of which are true, and I will not say which.', 'Interesting. In the literature, this is called “an open problem,” which means nobody has been paid to solve it.', 'I would answer, but my training data ends at your deadline.', 'Let me summarize: yes, no, it depends, and see Section 4. Section 4 does not exist.', 'Confidently: absolutely. Less confidently: I have no idea what you are asking.'],
 };
 
-export const chatter = { labLines, roleLines, cohortLines, advisorPings, meetingDigests, fieldNotes, chatphdLines, chatphdReplies, mailTemplates };
+export const chatter = { labLines, roleLines, cohortLines, advisorPings, meetingDigests, fieldNotes, chatphdLines, chatphdReplies, mailTemplates, spamSubjects, logLines };
 
 // Indexed for translation: lines picked from here are stored in the run by reference.
 import { registerCatalog } from '../i18n/index.js';

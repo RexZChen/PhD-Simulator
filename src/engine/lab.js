@@ -1,8 +1,8 @@
-import { labLines, roleLines, cohortLines, mailTemplates, fieldNotes } from '../data/chatter.js';
+import { labLines, roleLines, cohortLines, mailTemplates, spamSubjects, fieldNotes } from '../data/chatter.js';
 import { t } from '../i18n/index.js';
 import { venues, nextDeadline, fitsTopic } from '../data/venues.js';
 import { monthOf, holidays, dateLabel, isTeachingTerm } from '../data/calendar.js';
-import { random, roll, pick, clamp } from './probability.js';
+import { random, roll, pick, clamp, pickFresh } from './probability.js';
 import { chat, message, effects, log, fill, vars } from './state.js';
 
 // Lab and cohort chatter for a new month, plus department mail. Called at month start.
@@ -49,17 +49,17 @@ export function monthlyChatter(s) {
 export function monthlyMail(s) {
   const m = monthOf(s.month);
   if (m === 9 || m === 1) {
-    message(s, t('Graduate Studies'), m === 9 ? t('Welcome back: 14 updated policies') : t('Spring registration is open (and required)'), pick(s, mailTemplates.semesterStart), 'portal', 'inbox', 'policies');
-    message(s, t('Department Payroll'), m === 9 ? t('Appointment for the fall term') : t('Appointment for the spring term'), s.ta ? mailTemplates.taAssignment[0] : mailTemplates.raAssignment[0], 'portal', 'inbox', 'payroll');
+    message(s, t('Graduate Studies'), m === 9 ? t('Welcome back: 14 updated policies') : t('Spring registration is open (and required)'), pickFresh(s, 'mail:semester', mailTemplates.semesterStart), 'portal', 'inbox', 'policies');
+    message(s, t('Department Payroll'), m === 9 ? t('Appointment for the fall term') : t('Appointment for the spring term'), pickFresh(s, 'mail:payroll', s.ta ? mailTemplates.taAssignment : mailTemplates.raAssignment), 'portal', 'inbox', 'payroll');
   }
-  for (const h of holidays(s.month)) if (['Thanksgiving', 'Winter break', 'Spring break'].includes(h.name) && roll(s, .8)) message(s, t('Facilities'), t('{holiday}: building hours', { holiday: h.name }), mailTemplates.closure[0]);
+  for (const h of holidays(s.month)) if (['Thanksgiving', 'Winter break', 'Spring break'].includes(h.name) && roll(s, .8)) message(s, t('Facilities'), t('{holiday}: building hours', { holiday: h.name }), pickFresh(s, 'mail:closure', mailTemplates.closure));
   // CFP reminders two months before a relevant deadline.
   for (const v of venues) {
     if (v.rolling || !fitsTopic(v, s.player.profile.topic) || v.topics.includes('any')) continue;
     const next = nextDeadline(v, s.month, monthOf);
-    if (next - s.month === 2 && roll(s, .7)) message(s, t('{venue} Program Chairs', { venue: v.name }), t('Call for papers: {venue}', { venue: v.name }), vars(pick(s, mailTemplates.cfp), { venue: v.name, deadline: dateLabel(next) }), 'browser', 'inbox', 'cfp');
+    if (next - s.month === 2 && roll(s, .7)) message(s, t('{venue} Program Chairs', { venue: v.name }), t('Call for papers: {venue}', { venue: v.name }), vars(pickFresh(s, 'mail:cfp', mailTemplates.cfp), { venue: v.name, deadline: dateLabel(next) }), 'browser', 'inbox', 'cfp');
   }
-  if (roll(s, .2)) message(s, t('Editorial Office'), t('Invitation to publish (Impact Factor: pending)'), pick(s, mailTemplates.spam), null, 'junk', 'spam');
+  if (roll(s, .2)) message(s, t('Editorial Office'), pickFresh(s, 'mail:spamsubject', spamSubjects), pickFresh(s, 'mail:spam', mailTemplates.spam), null, 'junk', 'spam');
 }
 
 export function fieldNote(s) {

@@ -2,11 +2,11 @@ import { requests as requestTemplates, requestById, pushbackLines, declineLines,
 import { t } from '../i18n/index.js';
 import { asks, askById } from '../data/asks.js';
 import { meetings } from '../data/meetings.js';
-import { advisorPings, meetingDigests } from '../data/chatter.js';
+import { advisorPings, meetingDigests, logLines } from '../data/chatter.js';
 import { venues } from '../data/venues.js';
 import { monthOf, isTeachingTerm } from '../data/calendar.js';
-import { random, roll, clamp, pick, pickWeighted } from './probability.js';
-import { effects, log, chat, award, activeProject, absWeek, meetingsPerMonth, lastName, firstName, fill, labmateById } from './state.js';
+import { random, roll, clamp, pick, pickFresh, pickWeighted } from './probability.js';
+import { effects, log, chat, award, activeProject, absWeek, meetingsPerMonth, lastName, firstName, fill, labmateById, vars } from './state.js';
 import { provenanceOf } from '../i18n/index.js';
 import { eligible, freshness, pushEvent } from './events.js';
 
@@ -117,8 +117,8 @@ export function monthlyMeetings(s, ctx) {
   let held = 0, cancelled = 0;
   const lines = [];
   for (let i = 0; i < expected; i++) {
-    if (roll(s, cancelChance)) { cancelled++; lines.push(t('cancelled ({why})', { why: pick(s, meetingDigests.cancelled) })); }
-    else { held++; lines.push(t('held — {how}', { how: pick(s, meetingDigests.held) })); }
+    if (roll(s, cancelChance)) { cancelled++; lines.push(t('cancelled ({why})', { why: pickFresh(s, 'meet:cancelled', meetingDigests.cancelled) })); }
+    else { held++; lines.push(t('held — {how}', { how: pickFresh(s, 'meet:held', meetingDigests.held) })); }
   }
   s.meetingStats.held += held; s.meetingStats.cancelled += cancelled;
   if (s.meetingStats.cancelled >= 5) award(s, 'ghosted');
@@ -170,7 +170,7 @@ export function generateRequests(s, weeks, ctx) {
   const req = { id: `req-${absWeek(s)}-${s.requests.length}`, templateId: tpl.id, kind: tpl.kind, text: body + suffix, createdWeek: absWeek(s), dueWeek: absWeek(s) + tpl.due, status: 'open', tone, ...(i18n ? { i18n } : {}) };
   s.requests.push(req);
   chat(s, 'advisor', a.name, req.text, { request: req.id, ...(i18n ? { i18n } : {}) });
-  log(s, t('{name} asked for something: {kind}. Due in {n} week(s).', { name: lastName(a.name), kind: t(tpl.kind), n: tpl.due }));
+  log(s, vars(t(pickFresh(s, 'log:reqNew', logLines.requestArrived)), { name: lastName(a.name), kind: t(tpl.kind), n: tpl.due }));
 }
 const scaled = (obj, k) => Object.fromEntries(Object.entries(obj || {}).filter(([key]) => key !== 'skill' && key !== 'labBond').map(([key, v]) => [key, Math.round(v * k)]));
 function applyReward(s, tpl, k = 1) {
@@ -234,7 +234,7 @@ export function expireRequests(s) {
     r.status = 'expired'; s.counts.requestsExpired++;
     applyPenalty(s, tpl, 1.3); effects(s, { trust: -3, pressure: 4 });
     if (modeOf(s) !== MODES.checkedOut && modeOf(s) !== MODES.traveling) chat(s, 'advisor', s.advisor.name, t(pick(s, expireLines)));
-    log(s, t('The {kind} request expired unanswered. It will come up.', { kind: t(r.kind) }));
+    log(s, vars(t(pickFresh(s, 'log:reqExpired', logLines.requestExpired)), { kind: t(r.kind) }));
   }
   s.requests = s.requests.filter(r => r.status === 'open' || now - r.createdWeek < 12);
 }

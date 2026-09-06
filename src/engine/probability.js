@@ -24,3 +24,16 @@ export function pickWeighted(state, items, weightOf) {
   for (let i = 0; i < items.length; i++) { const w = Math.max(0, weights[i]); if (r < w) return items[i]; r -= w; }
   return items[items.length - 1];
 }
+
+// Pick from a pool while refusing what was used recently. Six years of a game will exhaust any
+// pool, so this does not promise novelty — it promises you will not hear the same line twice in
+// a season, which is the difference between texture and tedium. `key` namespaces the memory.
+export function pickFresh(state, key, values, keep = 12) {
+  if (!values || !values.length) return undefined;
+  state.recent = state.recent || {};
+  const seen = state.recent[key] || [];
+  const unseen = values.filter(v => !seen.includes(v));
+  const chosen = pick(state, unseen.length ? unseen : values);
+  state.recent[key] = [...seen, chosen].slice(-Math.min(keep, Math.max(1, values.length - 1)));
+  return chosen;
+}

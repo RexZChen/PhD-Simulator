@@ -12,14 +12,23 @@ async function closeDialogs(page) {
     if (await b.count() && await b.isVisible()) await b.click(); else break;
   }
 }
-async function resolveScenes(page, max = 12) {
+async function resolveScenes(page, max = 24) {
+  // Scenes can stack (a choice can open a pushback, which can open a report), and the catalogue
+  // is large enough now that a month can produce several. Clear whatever is modal until the
+  // desktop is back, acting on the last dialog rendered.
   for (let i = 0; i < max; i++) {
-    const dlg = page.locator('.modal .dialog');
+    const dlg = page.locator('.modal .dialog').last();
     if (!(await dlg.count()) || !(await dlg.isVisible())) return;
-    const title = await dlg.locator('.titlebar').first().innerText();
-    if (/Monthly statement/.test(title)) { await dlg.locator('[data-action="dismiss-report"]').click(); return; }
-    const choice = dlg.locator('[data-action="choice"]:not([disabled])').first();
-    if (await choice.count()) await choice.click(); else return;
+    const btn = dlg.locator([
+      '[data-action="choice"]:not([disabled])',
+      '[data-action="pushback"]:not([disabled])',
+      '[data-action="dismiss-report"]',
+      '[data-action="close-dialog"]',
+      '[data-action="close-thread"]',
+    ].join(', ')).first();
+    if (!(await btn.count())) return;
+    await btn.click();
+    await page.waitForTimeout(40);
   }
 }
 

@@ -1,10 +1,10 @@
 import { schools, focuses } from '../data/catalog.js';
 import { t } from '../i18n/index.js';
 import { monthOf, isSummer, nextIndexFor, dateLabel as calLabel } from '../data/calendar.js';
-import { chatphdLines, chatphdReplies, advisorPings } from '../data/chatter.js';
+import { chatphdLines, chatphdReplies, advisorPings, logLines } from '../data/chatter.js';
 import { repliesFor } from '../data/replies.js';
 import { channelActionById } from '../data/social.js';
-import { clamp, random, roll, pick } from './probability.js';
+import { clamp, random, roll, pick, pickFresh } from './probability.js';
 import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS, vars } from './state.js';
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
@@ -154,7 +154,7 @@ function monthStart(s, first = false, intermediate = false) {
   for (const p of s.projects) {
     if (p.targetVenueId && p.targetMonth === s.month - 1 && !['Submitted', 'Rebuttal', 'Accepted', 'Abandoned'].includes(p.status)) {
       s.counts.deadlinesMissed++; s.lastMissed = p.targetVenue;
-      log(s, t('Missed the {venue} deadline. The venue did not notice. Your advisor did.', { venue: p.targetVenue }));
+      log(s, vars(t(pickFresh(s, 'log:missed', logLines.missedDeadline)), { venue: p.targetVenue }));
       clearTarget(s, p);
       if (s.advisor.ambition > 45) { s.activeProjectId = p.id; pushEvent(s, 'missed_deadline'); }
       // A missed deadline costs trust, not only goodwill, and the second one costs more than the
@@ -293,7 +293,7 @@ function monthlyDrift(s) {
   s.exhaustedMonths = st.energy < 25 ? s.exhaustedMonths + 1 : Math.max(0, s.exhaustedMonths - 1);
   s.player.hidden.burnoutRisk = clamp((s.player.hidden.stress - 40) * 1.2 + s.exhaustedMonths * 12);
   if (s.burnoutMonths === 0 && s.player.hidden.burnoutRisk > 50 && roll(s, s.player.hidden.burnoutRisk / 250)) {
-    s.burnoutMonths = 3; effects(s, { hope: -8, energy: -8 }); log(s, t('Burnout has slowed things down. Recovery is part of the work, whatever the calendar says.'));
+    s.burnoutMonths = 3; effects(s, { hope: -8, energy: -8 }); log(s, t(pickFresh(s, 'log:burnout', logLines.burnout)));
   }
   if (s.advisor.ambition > 70 && s.tempo === 'month' && !['research', 'write'].includes(s.focus)) effects(s, { satisfaction: -3 });
   if (s.relationship.satisfaction < 25) effects(s, { conflict: 5 });

@@ -1,6 +1,8 @@
+import { meetingsB } from './events-f.js';
 // 一对一会议场景（简体中文）
 const c = (text, hint, extra = {}) => ({ text, hint, ...extra });
 export const meetings = {
+  ...meetingsB,
   meet_first: { title: '第一次会议', text: ['{advisor}有一张清单。清单最上面是你的名字，旁边写着“某个东西”。“我们给你找个东西。”', '“你对什么感兴趣？”{advisor}一边问一边已经在打字。你接下来说的任何话都会变成一个项目，所以小心选。'], choices: { own: c('推销你自己的想法', '科研检定 → 新颖性与独立', { successText: '“有意思。”这次他是认真的；你能看出来，因为他停止了打字。', failureText: '“我们从更具体的开始吧。”具体的是他的想法。' }), theirs: c('接受他建议的项目', '现在有进度；以后有依赖'), options: c('要三个选项和一周时间', '管理检定 → 一份真计划', { successText: '三个选项邮件到了，排了序，附阅读清单。你不知道这是可能的。', failureText: '三天里来了九个选项，有几个互相矛盾。你选了一个。他忘了是哪个。' }) } },
   meet_progress: { title: '我们到哪了？', text: ['{advisor}关掉了一个你看不太清的标签页。“那么。我们到哪了？”', '“提醒我一下上次说到哪。”你提醒了。他对他喜欢的部分点头，对真实的部分皱眉。', '{advisor}在会议中吃午饭。午饭是你的初稿。'], choices: { honest: c('解释什么有效什么无效', '信任与清晰；一点脆弱'), promise: c('承诺下个月出结果', '现在满意；以后压力'), help: c('要一个更小更清晰的目标', '管理检定', { successText: '他在白板上画了个框，把你的名字写进去。一个目标！', failureText: '他画了七个框。箭头是双向的。' }) } },
   meet_deadline: { title: '关于截止日期', text: ['“{venue}几周后截止。我们要投。”这不是疑问句。你的初稿在 {draft}%。', '{advisor}调出{venue}的征稿启事。“这是我们。这是我们的位置。”位置很小。位置是你的。'], choices: { sprint: c('承诺冲刺', '压力与满意上升；冲刺开始'), next: c('提议下一个截止日期', '信心检定', { successText: '“……行。但那样就得更好。”确实得更好。', failureText: '“我现在需要的不是这种能量。”“能量”这个词承担了很多。' }), workshop: c('建议先投一版 workshop', '更安全；资本更少') } },

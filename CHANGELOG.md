@@ -53,6 +53,21 @@ right after graduation is almost impossible; the system — not the advisor — 
 - `week_after`, the best-written beat about what the loop costs, was scheduled on every submission
   and capped at one firing per six-year run.
 
+### Content repetition
+Measured across full six-year runs, then fixed where it was worst:
+- **Mail went from 50% repeated to 4%.** Three templates had exactly one variant and were
+  hardcoded to index `[0]`, so the payroll email arrived byte-identical twelve times in a run and
+  the same predatory-journal subject line arrived seven times.
+- **Log lines went from 31% to 21%.** The highest-frequency lines — a request arriving, a request
+  expiring, burnout, a missed deadline — were single fixed strings for things that happen a dozen
+  times. They have pools now.
+- Six new deadline-week meetings, because the crunch pool was three scenes for six years.
+- A shared `pickFresh` picker that refuses what was used recently, applied to mail, meeting
+  digests, advisor messages and log lines.
+
+Everything is in both languages: 4,774 dictionary entries, and every event body, meeting body and
+message pool now resolves in Chinese — including ten that had never been translated.
+
 95 engine tests, 25 Playwright flows.
 
 ## [1.1.0] — 2026-09-06
