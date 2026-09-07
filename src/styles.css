@@ -402,6 +402,10 @@ table.grid td.num, table.grid th.num { text-align: right; }
 .timeline time { color: var(--muted); }
 .achv { display: flex; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px dotted #bbb; }
 .achv.locked { opacity: .55; }
+/* A locked secret is a row that admits something is there. Italic and a shade fainter than a
+   plain locked one, so it reads as withheld rather than as an achievement with a boring name. */
+.achv.secret b { font-style: italic; font-weight: 500; letter-spacing: .3px; }
+.achv.secret { opacity: .44; }
 
 /* Applications */
 .apply-table .lv-head, .apply-table .lv-row { grid-template-columns: 1.3fr 1.1fr 80px 80px 100px 120px; }

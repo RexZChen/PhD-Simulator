@@ -191,21 +191,21 @@ export const achievements = {
 
   thecalendarisnotyours: { name: 'The Calendar Is Not Yours', desc: 'Absorb six unscheduled meetings. An unscheduled ninety minutes costs the afternoon either side of it.' },
 
-  twentyminutes: { name: 'Twenty Minutes', desc: 'Lose yourself at the whiteboard three times. You are not aware of having decided anything and there is a line on the board that was not there before.' },
+  twentyminutes: { secret: true, name: 'Twenty Minutes', desc: 'Lose yourself at the whiteboard three times. You are not aware of having decided anything and there is a line on the board that was not there before.' },
 
-  sixdoors: { name: 'Unstuck, Eight Times', desc: 'Get yourself out of it eight times. Nobody teaches which door to try; everybody has to work it out.' },
-  allsixdoors: { name: 'Every Door', desc: 'Try all six ways of being unstuck in one run, including the one nobody counts as work.' },
-  onechair: { name: 'The Corridor Has One Chair', desc: 'Wait out a committee’s deliberation without looking at your phone, the door, or slide 12. The longest you have been alone with yourself in about two years.' },
-  stoppedandanswered: { name: '“Go Back Two Slides”', desc: 'Stop your own talk to answer the one who has decided to be difficult. It costs two minutes and buys the room.' },
-  draftsfolder: { name: 'Drafts (4)', desc: 'Accumulate four messages you wrote and did not send. They are the ones that mattered most and cost the most to write, and every one of them was one keystroke away.' },
-  thechair: { name: 'Raised It Again', desc: 'Raise the chair fifteen times. Somebody in this building has lowered it fifteen times. The two of you have had an entire relationship and neither knows the other exists.' },
-  theyogurt: { name: 'It Had My Name On It', desc: 'Throw out the yogurt. Nobody thanks you, one person is quietly furious forever, and neither of you will ever raise it.' },
+  sixdoors: { secret: true, name: 'Unstuck, Eight Times', desc: 'Get yourself out of it eight times. Nobody teaches which door to try; everybody has to work it out.' },
+  allsixdoors: { secret: true, name: 'Every Door', desc: 'Try all six ways of being unstuck in one run, including the one nobody counts as work.' },
+  onechair: { secret: true, name: 'The Corridor Has One Chair', desc: 'Wait out a committee’s deliberation without looking at your phone, the door, or slide 12. The longest you have been alone with yourself in about two years.' },
+  stoppedandanswered: { secret: true, name: '“Go Back Two Slides”', desc: 'Stop your own talk to answer the one who has decided to be difficult. It costs two minutes and buys the room.' },
+  draftsfolder: { secret: true, name: 'Drafts (4)', desc: 'Accumulate four messages you wrote and did not send. They are the ones that mattered most and cost the most to write, and every one of them was one keystroke away.' },
+  thechair: { secret: true, name: 'Raised It Again', desc: 'Raise the chair fifteen times. Somebody in this building has lowered it fifteen times. The two of you have had an entire relationship and neither knows the other exists.' },
+  theyogurt: { secret: true, name: 'It Had My Name On It', desc: 'Throw out the yogurt. Nobody thanks you, one person is quietly furious forever, and neither of you will ever raise it.' },
   thestairwell: { name: 'The Half-Landing', desc: 'Go and find them in the stairwell. Nothing you say will help. They will remember it for ten years and you will not remember what you said, because there was nothing to say.' },
-  askedwhy: { name: 'You Asked', desc: 'Ask your advisor what actually happened to the student they let go. The answer is true, complete as a sentence, and missing every part where somebody could have done something.' },
+  askedwhy: { secret: true, name: 'You Asked', desc: 'Ask your advisor what actually happened to the student they let go. The answer is true, complete as a sentence, and missing every part where somebody could have done something.' },
   saidthename: { name: 'Said The Name', desc: 'Say the name of the person who was let go, out loud, in group meeting. Two people will thank you separately, in corridors, quietly.' },
   sentit: { name: 'Four Words, Fourteen Months', desc: 'Finally message the labmate who was pushed out. They reply in nine minutes. They are doing better than you are and they are not bitter about any of it.' },
-  waterit: { name: 'Sam Waters It', desc: 'Water the plastic plant twelve times. Nobody mentions it, which is how you know it counts.' },
-  plasticdevotion: { name: 'It Will Still Be Here', desc: 'Water the plastic plant thirty times. It will outlast your candidacy, your advisor’s sabbatical and the building’s wifi.' },
+  waterit: { secret: true, name: 'Sam Waters It', desc: 'Water the plastic plant twelve times. Nobody mentions it, which is how you know it counts.' },
+  plasticdevotion: { secret: true, name: 'It Will Still Be Here', desc: 'Water the plastic plant thirty times. It will outlast your candidacy, your advisor’s sabbatical and the building’s wifi.' },
   undertime: { name: 'Two Minutes In Hand', desc: 'Finish a talk having covered everything that mattered, with time left. Nobody has ever done this and the chair looks briefly disoriented.' },
 
   // ── The patent ─────────────────────────────────────────────────────────────────────────────
@@ -226,8 +226,8 @@ export const achievements = {
   letoneGo: { name: 'They Stopped Replying', desc: 'Let a contact fade all the way out. No falling-out, no explanation, just an inbox that reordered itself.' },
 
   // ── Four in the morning, and Room 214 ──────────────────────────────────────────────────────
-  fourinthemorning: { name: 'Four For Four', desc: 'Find the real line in all four logs before the reservation runs out. Nobody teaches this and everybody grades you on it.' },
-  notthelastline: { name: 'Not The Last Line', desc: 'Debug a job without once clicking the error message. The error is never the last line.' },
+  fourinthemorning: { secret: true, name: 'Four For Four', desc: 'Find the real line in all four logs before the reservation runs out. Nobody teaches this and everybody grades you on it.' },
+  notthelastline: { secret: true, name: 'Not The Last Line', desc: 'Debug a job without once clicking the error message. The error is never the last line.' },
   saidido: { name: '“I Do Not Know”', desc: 'Get through an oral exam conceding three questions and never being caught out. It is a correct answer and almost nobody believes it.' },
   heldtheroom: { name: 'Held The Room', desc: 'Answer six committee questions without once being caught out.' },
 

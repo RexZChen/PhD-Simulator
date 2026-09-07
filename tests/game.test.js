@@ -681,6 +681,20 @@ test('advisor pushback is a real second beat, and hesitation has a cost', () => 
   assert.ok(s.player.hidden.stress >= stress, 'and saying nothing is not free');
 });
 
+test('an easter egg you have not found does not describe itself in the locked list', () => {
+  // "Water the plastic plant twelve times" printed in the locked list is not an easter egg, it is
+  // a chore list. The row should admit something is there and say nothing else.
+  const secrets = Object.entries(achievements).filter(([, a]) => a.secret);
+  assert.ok(secrets.length >= 8, 'the things you find by touching something are marked as secret');
+  for (const [id, a] of secrets) {
+    assert.ok(a.name && a.desc, `${id} still has real text for once it is earned`);
+  }
+  // And the ones that are simply hard, rather than hidden, stay legible: a player deciding what to
+  // aim for next needs most of the list to be readable.
+  const open = Object.entries(achievements).filter(([, a]) => !a.secret);
+  assert.ok(open.length > secrets.length * 3, 'most achievements are goals, not secrets');
+});
+
 test('the room reacts on your message, and a cold room stays silent', () => {
   // Posting used to print "Four reactions in ninety seconds" underneath a message that had none.
   // A sentence about the room is the tell that the room is scenery.
