@@ -192,7 +192,12 @@ function pickBeats(s) {
   const hood = pool.find(b => b.id === 'hooding');
   const pat = pool.find(b => b.id === 'patent_granted');
   const promised = [hood, pat].filter(Boolean);
-  const chosen = rest.filter(b => !promised.includes(b)).slice(0, 4 - promised.length).concat(promised).sort((a, b) => a.when - b.when);
+  const chosen = rest.filter(b => !promised.includes(b)).slice(0, 4 - promised.length)
+    .concat(pat ? [pat] : []).sort((a, b) => a.when - b.when);
+  // The hooding leads, ahead of anything else in its year: a ceremony you were not at is the first
+  // thing your advisor writes to you about, and sorting it in among the other year-one beats loses
+  // that. The patent takes its place in the ordinary run of years.
+  if (hood) chosen.unshift(hood);
   const last = pick(s, finals.length ? finals : [epilogueBeats.find(b => b.id === 'student_email')]);
   return [...chosen, last].filter(Boolean).map(b => b.id);
 }
