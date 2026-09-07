@@ -11,6 +11,7 @@ import { pushbacks, lectureLines } from '../data/minigames.js';
 import { benchNote } from '../data/bench.js';
 import { vivaMoves, examiners } from '../data/viva.js';
 import { exams, talkMoves, examNote } from '../data/exams.js';
+import { replyForm, acceptedPage } from '../data/decisions.js';
 import { clusterNote } from '../data/cluster.js';
 import { officeAction, patentShare, patentNote, patentMeetings, PATENT } from '../data/patent.js';
 import { summonsKinds, summonsMoves, summonsNote, SUMMONS } from '../data/summons.js';
@@ -256,6 +257,38 @@ export function decisionDialog(s, ui) {
       <p class="pt-after">${voiced(t(L.after))}</p>
       <div class="choices">${btn(t('Close'), 'decision-close', { cls: 'primary' })}</div>
     </div></section></div>`;
+}
+
+// Saying yes. The reply form, then the page that says thank you and nothing else.
+export function offerDialog(s, ui) {
+  const sc = schools.find(x => x.id === ui.offer?.school);
+  if (!sc) return '';
+  const app = s.applications.find(a => a.schoolId === sc.id);
+  const poi = s.advisors.find(x => x.id === app?.poiId);
+  const vars = {
+    name: s.player.name, school: sc.name,
+    poi: poi ? t('Prof. {name}', { name: lastName(poi.name) }) : t('to be assigned'),
+    funding: app?.funding === 'fellowship' ? t('first-year fellowship') : app?.funding === 'RA' ? t('research assistantship') : t('teaching assistantship'),
+    stipend: String(sc.stipend),          // already monthly
+  };
+  const sub = txt => Object.entries(vars).reduce((out, [k, v]) => out.split(`{${k}}`).join(v), t(txt));
+  if (ui.offer.done) {
+    return `<div class="modal"><section class="dialog portal yes" role="dialog" aria-modal="true" aria-labelledby="of-title"><div class="titlebar"><span class="tb-title">${icon('portal', 16)}<span>${esc(t('{school} — Applicant Portal', { school: sc.name }))}</span></span></div><div class="body">
+      <div class="pt-head" style="--c1:${sc.palette?.c1 || '#3a4a6b'}"><span class="pt-crest">${crest(sc, 40)}</span><div><b>${esc(sc.name)}</b><small>${esc(t('Graduate Admissions · Department of Computer Science'))}</small></div></div>
+      <div class="pt-letter"><p class="pt-h">${esc(t(acceptedPage.head))}</p><p>${esc(sub(acceptedPage.body))}</p></div>
+      <p class="pt-after">${esc(t(acceptedPage.after))}</p>
+      <div class="choices">${btn(t('Begin'), 'offer-begin', { id: sc.id, cls: 'primary' })}</div>
+    </div></section></div>`;
+  }
+  return `<div class="modal"><section class="dialog portal" role="dialog" aria-modal="true" aria-labelledby="of-title"><div class="titlebar"><span class="tb-title">${icon('portal', 16)}<span>${esc(t('{school} — Applicant Portal', { school: sc.name }))}</span></span>${btn('✕', 'offer-close', { cls: 'tb-x' })}</div><div class="body">
+    <div class="pt-head" style="--c1:${sc.palette?.c1 || '#3a4a6b'}"><span class="pt-crest">${crest(sc, 40)}</span><div><b id="of-title">${esc(t(replyForm.title))}</b><small>${esc(sc.name)}</small></div></div>
+    <table class="pt-form">${replyForm.fields.map(([k, v]) => `<tr><th>${esc(t(k))}</th><td>${esc(sub(v))}</td></tr>`).join('')}</table>
+    <p class="pt-fineprint">${esc(t(replyForm.note))}</p>
+    <label class="pt-choice"><input type="radio" name="reply" value="yes" checked> ${esc(t(replyForm.accept))}</label>
+    <label class="pt-choice"><input type="radio" name="reply" value="no"> ${esc(t(replyForm.decline))}</label>
+    <label class="pt-reason"><span>${esc(t(replyForm.reason))}</span><input type="text" data-offer-reason placeholder="${esc(t(replyForm.reasonPlaceholder))}"></label>
+    <div class="choices">${btn(t(replyForm.submit), 'offer-submit', { id: sc.id, cls: 'primary' })}</div>
+  </div></section></div>`;
 }
 
 // The photograph. Four people who have done this forty times, and one who has not.

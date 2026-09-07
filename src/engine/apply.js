@@ -314,7 +314,7 @@ export function interviewAnswer(s, schoolId, optionId) {
   if (o.reveal && good) reply = reply.replace('{hint}', hintFor(s, poi, o.reveal));
   app.interview.questions.push({ them: q.them, you: o.label, reply });
   app.interview.step++;
-  if (app.interview.step >= (app.interview.qs?.length ?? interviewQuestions.length)) { app.interview.done = true; app.status = 'under review'; app.chance = clamp(app.chance * (1 + app.interview.delta), .03, .92); log(s, t('Interview with {name} finished. {how}', { name: lastName(poi.name), how: app.interview.delta > .05 ? t('It went well.') : app.interview.delta < 0 ? t('It went.') : t('It was fine, in the way of dentists.') })); }
+  if (app.interview.step >= (app.interview.qs?.length ?? interviewQuestions.length)) { app.interview.done = true; app.status = 'under review'; app.chance = clamp(app.chance * (1 + app.interview.delta * 2.6), .02, .94); log(s, t('Interview with {name} finished. {how}', { name: lastName(poi.name), how: app.interview.delta > .05 ? t('It went well.') : app.interview.delta < 0 ? t('It went.') : t('It was fine, in the way of dentists.') })); }
   return app;
 }
 // A cycle that produces nothing costs you a year, not the save file.
@@ -376,7 +376,7 @@ export function openDecision(s, schoolId) {
   const vars = {
     school: school.name, year: '2028–29', poi: poi ? t('Prof. {name}', { name: lastName(poi.name) }) : t('Graduate Admissions'),
     funding: app.funding === 'fellowship' ? t('first-year fellowship') : app.funding === 'RA' ? t('research assistantship') : t('teaching assistantship'),
-    stipend: String(school.stipend), volume: String(volumeFor(school)), seats: String(seatsFor(school)),
+    stipend: (school.stipend * 12).toLocaleString('en-US'), volume: String(volumeFor(school)), seats: String(seatsFor(school)),
   };
   const after = pick(s, L.after);
   app.letter = { kind, head: L.head, body: L.body, signed: L.signed, after, vars };

@@ -1513,3 +1513,53 @@ test('the whiteboard writes something other than what you drew, and rewards losi
   });
   expect(saved).not.toContain('LayerNorm');
 });
+
+test('the decision arrives as a notification, and the answer is behind a login', async ({ page }) => {
+  // A real decision does not arrive as an email that tells you the answer. It arrives as an email
+  // that tells you there is an answer, in a subject line drained of every trace of what it is,
+  // with a link to a portal you have to log into. The gap between those two is the phase.
+  await page.goto('/');
+  await page.evaluate(async () => {
+    localStorage.clear();
+    const st = await import('/src/engine/state.js');
+    const { decisions } = await import('/src/engine/apply.js');
+    const { schools } = await import('/src/data/catalog.js');
+    const { saveRun, emptyMeta } = await import('/src/engine/save.js');
+    const s = st.createRun(77, { background: 'masters', topic: 'ml', international: false });
+    s.phase = 'application';
+    s.prep = { sop: 70, gre: 162, waivers: false, proceeded: true, letters: [{ id: 'rec-0', asked: true, strength: 68 }] };
+    s.applications = schools.slice(9, 15).map(sc => ({ schoolId: sc.id, effort: 'generic', contact: false,
+      poiId: s.advisors.find(a => a.schoolId === sc.id).id, status: 'submitted', chance: .35 }));
+    decisions(s);
+    saveRun(localStorage, s, emptyMeta());
+  });
+  await page.reload();
+  await page.locator('.boot').click();
+  await page.getByRole('button', { name: /Continue the saved run/ }).click();
+  await page.locator('[data-action="wiz-next"]').click();
+  await closeDialogs(page);
+
+  // The subject line gives nothing away.
+  await page.locator('[data-action="open"][data-app="mail"]').first().click();
+  const subject = await page.locator('.mail-row').first().innerText();
+  expect(subject).toMatch(/update on your application/i);
+  expect(subject, 'the subject line gives the answer away').not.toMatch(/offer of admission|congratulat|regret|unable to offer|waitlist/i);
+
+  // The table says there is an update, not what it is.
+  await page.locator('[data-action="open"][data-app="gradapply"]').first().click();
+  const statusTab = page.locator('button:has-text("Status")').first();
+  if (await statusTab.count()) { await statusTab.click(); await page.waitForTimeout(300); }
+  await expect(page.locator('.apply-table').first()).toContainText(/update waiting/i);
+  const updates = page.locator('[data-action="decision-open"]');
+  expect(await updates.count()).toBeGreaterThan(0);
+
+  // And the letter is behind the login, one at a time.
+  const before = await updates.count();
+  await updates.first().click();
+  await expect(page.locator('.dialog.portal')).toBeVisible();
+  await expect(page.locator('.pt-letter')).not.toBeEmpty();
+  await expect(page.locator('.pt-verdict')).not.toBeEmpty();
+  await page.locator('[data-action="decision-close"]').first().click();
+  // One at a time: the one you just read is no longer waiting.
+  expect(await updates.count()).toBe(before - 1);
+});

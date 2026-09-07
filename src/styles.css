@@ -1572,3 +1572,26 @@ table.mini th { background: var(--face); }
 .radio-list.plans .option svg { width: 17px; height: 17px; }
 .radio-list.plans .option input { margin: 0; }
 .plan-list .group-title, .grid-3 .group > b { margin-bottom: 3px; }
+
+/* The reply form. Ninety seconds, your legal name twice, and a page at the end that says thank you
+   and nothing else — because on the other side of it are six years. */
+.pt-form { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--shadow); border-top: 0; font-size: var(--fs-sm); }
+.pt-form th, .pt-form td { text-align: left; padding: 5px 10px; border-bottom: 1px solid var(--shadow); }
+.pt-form th { width: 42%; color: var(--disabled); font-weight: 400; }
+.pt-form td { font-weight: 600; }
+.pt-form tr:last-child th, .pt-form tr:last-child td { border-bottom: 0; }
+.pt-fineprint { font-size: var(--fs-xs); color: var(--disabled); margin: 7px 0 9px; }
+.pt-choice { display: flex; align-items: baseline; gap: 8px; padding: 4px 2px; font-size: var(--fs-sm); cursor: pointer; }
+.pt-reason { display: grid; gap: 3px; margin: 8px 0 4px; font-size: var(--fs-xs); color: var(--disabled); }
+.pt-reason input { font: inherit; font-size: var(--fs-sm); padding: 4px 6px; }
+
+/* The dice landing. The pin travels to where the draw fell rather than appearing there, so the
+   number arrives instead of being announced — and a near miss reads as a near miss. */
+.roll-toast.rolling { border-color: var(--hi) var(--shadow) var(--shadow) var(--hi); }
+.roll-toast.rolling .roll-pin { transition: none; background: var(--ink); }
+.roll-toast.landed .roll-pin { animation: roll-land .3s ease-out; }
+.roll-toast.landed.won { box-shadow: 3px 3px 0 rgba(47,122,63,.35); }
+.roll-toast.landed.lost { box-shadow: 3px 3px 0 rgba(170,51,51,.35); }
+.roll-tick { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+@keyframes roll-land { 0% { transform: scaleY(2.1); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .roll-toast.landed .roll-pin { animation: none; } }

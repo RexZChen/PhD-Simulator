@@ -205,6 +205,7 @@ export const deskZh = {
 
 // 掷骰读数：检定读的是什么、需要多少、由此得到的概率，以及这一次实际掷到了哪里。
 export const rollZh = {
+  "rolling…": "投掷中…",
   "dependency": "依赖",
   "hope": "希望",
   "satisfaction": "满意度",

@@ -83,3 +83,30 @@ export const acceptedNote = 'You accept. The form takes ninety seconds and asks 
 export const declinedNote = 'You decline. There is a text box marked “Reason (optional)” and you type something honest into it and then delete it and leave it empty, the way everybody does.';
 export const declinedMail = 'Thank you for letting us know. We wish you every success, and we hope our paths cross at a conference.';
 export const portalNote = 'Every one of these is a different portal with a different password rule, and you have written all of them on the same piece of paper.';
+
+// ── Saying yes ────────────────────────────────────────────────────────────────────────────────
+// The reply form. Ninety seconds, your legal name twice, and a page at the end that says thank you
+// and nothing else — and you sit and look at it, because that page is the last moment before six
+// years start and some part of you knows it.
+export const replyForm = {
+  title: 'Reply to Offer of Admission',
+  note: 'This decision is binding under the April 15 Resolution. Please respond by 11:59pm local time.',
+  fields: [
+    ['Applicant', '{name}'],
+    ['Program', 'Ph.D. Computer Science'],
+    ['Term of entry', 'Fall 2028'],
+    ['Advisor of record', '{poi}'],
+    ['Support offered', '{funding} · ${stipend}/mo'],
+  ],
+  accept: 'I accept this offer of admission',
+  decline: 'I decline this offer of admission',
+  reason: 'Reason (optional)',
+  reasonPlaceholder: 'Everybody leaves this empty.',
+  submit: 'Submit reply',
+};
+
+export const acceptedPage = {
+  head: 'Thank you.',
+  body: 'Your reply has been recorded. You will receive further correspondence from the Graduate School regarding registration, orientation, and required immunisation records.',
+  after: 'That is the whole page. There is no button. You sit and look at it for a while, because on the other side of it are six years, and this is the last minute in which they are still only an idea.',
+};

@@ -135,10 +135,31 @@ function showRoll(r) {
   if (!host || !r) return;
   for (const old of host.querySelectorAll('.roll-toast')) old.remove();
   const el = document.createElement('div');
-  el.className = `roll-toast ${r.success ? 'won' : 'lost'}`;
+  el.className = 'roll-toast rolling';
   el.innerHTML = rollReadout(r);
   host.appendChild(el);
-  setTimeout(() => el.remove(), 6500);
+  const pin = el.querySelector('.roll-pin');
+  const out = el.querySelector('.roll-out');
+  const outHtml = out ? out.innerHTML : '';
+  if (out) out.innerHTML = `<span class="roll-tick">${t('rolling…')}</span>`;
+  // ~900ms of the number moving, then it lands. Long enough to watch, short enough that the
+  // sixtieth time you see it is not an imposition.
+  const start = performance.now(), dur = 900;
+  const tick = now => {
+    const t0 = Math.min(1, (now - start) / dur);
+    const ease = 1 - Math.pow(1 - t0, 3);
+    const at = t0 < 1 ? (17 + ((now - start) / 40 * 37) % 66) * (1 - ease) + r.draw * ease : r.draw;
+    if (pin) pin.style.left = `${Math.max(0, Math.min(100, at))}%`;
+    if (out && t0 < 1) out.innerHTML = `<span class="roll-tick">${Math.round(at)}</span>`;
+    if (t0 < 1) requestAnimationFrame(tick);
+    else {
+      el.className = `roll-toast landed ${r.success ? 'won' : 'lost'}`;
+      if (out) out.innerHTML = outHtml;
+      play(r.success ? 'chime' : 'click');
+    }
+  };
+  requestAnimationFrame(tick);
+  setTimeout(() => el.remove(), 7000);
 }
 
 // Copy, from a menu that says Copy. Falls back silently rather than throwing in a sandbox.
@@ -363,6 +384,7 @@ root.addEventListener('click', event => {
       // Mail, Netscope, Life.exe and Scholar are yours before anybody admits you — see the note on
       // PRE_ENROL in shell.js. The others need a department and are disabled with a reason.
       const PRE_ENROL = ['mail', 'browser', 'life', 'scholar'];
+      if (target.dataset.app === 'gradapply') { ui.app = null; render({ preserveScroll: false }); return; }
       const early = run && ['prep', 'application', 'interviews', 'admissions'].includes(run.phase);
       if (!run || !(['playing', 'ending'].includes(run.phase) || (early && PRE_ENROL.includes(target.dataset.app)))) return;
       closeCompose();
@@ -441,6 +463,24 @@ root.addEventListener('click', event => {
       // list; reading them one at a time is the week it actually was.
       perform({ type: 'OPEN_DECISION', id }, { preserveScroll: false });
       if (run?.applications?.find(a => a.schoolId === id)?.letter) { ui.decision = id; play('chime'); render({ preserveScroll: false }); }
+      return;
+    }
+    case 'offer-open': { ui.offer = { school: id, done: false }; render({ preserveScroll: false }); play('click'); return; }
+    case 'offer-close': { ui.offer = null; render({ preserveScroll: false }); return; }
+    case 'offer-submit': {
+      const yes = document.querySelector('input[name="reply"][value="yes"]')?.checked !== false;
+      if (!yes) { perform({ type: 'ANSWER_OFFER', id, yes: false }, { preserveScroll: false }); ui.offer = null; render({ preserveScroll: false }); return; }
+      // Ninety seconds, your legal name twice, and then the page that says thank you.
+      ui.offer = { school: id, done: true };
+      play('chime');
+      render({ preserveScroll: false });
+      return;
+    }
+    case 'offer-begin': {
+      const adv = run?.advisors?.find(a => a.schoolId === id && a.id === run.applications.find(x => x.schoolId === id)?.poiId)
+        || run?.advisors?.find(a => a.schoolId === id);
+      ui.offer = null; ui.gaTab = null;
+      if (adv) perform({ type: 'ENROLL', id: adv.id }, { preserveScroll: false });
       return;
     }
     case 'decision-close': { ui.decision = null; render({ preserveScroll: false }); return; }

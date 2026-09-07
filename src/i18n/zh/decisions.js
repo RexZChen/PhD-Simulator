@@ -1,5 +1,23 @@
 // 申请结果：邮件只说「有更新」，答案在门户里，而这两者之间的空隙就是这个阶段的全部感受。
 export const decisionZh = {
+  // 说「是」的那一刻：一张表，九十秒，和一个只写着「谢谢」的页面。
+  "Reply to Offer of Admission": "答复录取通知",
+  "This decision is binding under the April 15 Resolution. Please respond by 11:59pm local time.": "根据 4 月 15 日决议，本答复具有约束力。请于当地时间 23:59 前提交。",
+  "I accept this offer of admission": "我接受这份录取",
+  "I decline this offer of admission": "我拒绝这份录取",
+  "Reason (optional)": "原因（选填）",
+  "Everybody leaves this empty.": "所有人都把这一栏留空。",
+  "Submit reply": "提交答复",
+  "Term of entry": "入学学期",
+  "Advisor of record": "备案导师",
+  "Support offered": "提供的资助",
+  "Thank you.": "谢谢。",
+  "Your reply has been recorded. You will receive further correspondence from the Graduate School regarding registration, orientation, and required immunisation records.": "您的答复已记录。研究生院将就注册、入学导引以及所需的疫苗接种记录另行与您联系。",
+  "That is the whole page. There is no button. You sit and look at it for a while, because on the other side of it are six years, and this is the last minute in which they are still only an idea.": "整个页面就这些。没有按钮。你坐在那儿看了一会儿——因为这一页的另一边是六年，而这是它们还只是一个念头的最后一分钟。",
+  "Reply to this offer": "答复这份录取",
+  "to be assigned": "待定",
+  "Begin": "开始",
+
   // 引用不是平滑增长的。它一阵一阵地来。
   "Something cites you eleven times in a fortnight. It turns out to be one survey with a very long related-work section, and for about four days you check the number more often than is reasonable.": "两个星期里，有东西引了你十一次。后来发现是一篇综述，相关工作那一节特别长；而接下来大约四天，你刷新那个数字的频率高得不太合理。",
   "A lab you have heard of built on it. The citation is in the introduction rather than the related work, which is a distinction that matters to approximately nine people, all of whom are you.": "一个你听说过的实验室在它上面做了工作。引用出现在引言里而不是相关工作里——这个区别大约对九个人重要，而这九个人都是你。",
