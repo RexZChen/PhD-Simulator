@@ -3,6 +3,7 @@ import { icon, appDefs } from './icons.js';
 import { dateLabel, monthOf } from '../data/calendar.js';
 import { SHORT_DISCLAIMER } from '../data/names.js';
 import { lastName, noticeText } from '../engine/state.js';
+import { fixtures, fixtureOrder } from '../data/desk.js';
 import { MODES } from '../engine/advisor.js';
 import { managerApp, reportDialog } from './apps/manager.js';
 import { whiteboardApp } from './apps/whiteboard.js';
@@ -21,6 +22,22 @@ import { setupWizard, endingApp, collectionApp, aboutDialog, tipsDialog, confirm
 import { gradApply, threadDialog } from './apps/gradapply.js';
 import { sceneDialog, milestoneDialog, pushbackDialog, lectureDialog, benchDialog, crisisDialog, vivaDialog, clusterDialog, patentDialog, summonsDialog, photoDialog } from './scenes.js';
 import { t, languages, getLanguage } from '../i18n/index.js';
+
+// Objects at the edge of the screen. No labels, no badges, no tooltips that give them away, and
+// nothing anywhere else in the interface ever refers to them.
+const FIXTURE_ART = {
+  plant: '<i class="dp-pot"></i><i class="dp-leaf a"></i><i class="dp-leaf b"></i><i class="dp-leaf c"></i>',
+  chair: '<i class="dc-back"></i><i class="dc-seat"></i><i class="dc-post"></i><i class="dc-base"></i>',
+  fridge: '<i class="df-body"></i><i class="df-split"></i><i class="df-handle"></i>',
+};
+const deskFixture = (s, id) => {
+  const f = fixtures[id];
+  const st = s[f.slot];
+  const fresh = st && st.lastWeek === s.month * 4 + (s.week || 0);
+  const cls = ['desk-fixture', `dk-${id}`, st?.found ? 'known' : '',
+    id === 'chair' && !fresh ? 'lowered' : '', id === 'fridge' && st?.thrown ? 'cleared' : ''].filter(Boolean).join(' ');
+  return `<button class="${cls}" data-action="fixture" data-id="${id}" aria-label="${esc(t(f.label))}" title="">${FIXTURE_ART[id]}</button>`;
+};
 
 const reminders = () => [t('You cannot optimize your way out of being a person.'), t('A finished project is a contribution. A perfect project is a rumor.'), t('Reply to the collaborator. (You will not.)'), t('Buy milk. Cite milk.'), t('The deadline is not a person. It cannot be disappointed in you.'), t('Water the plant. Water yourself.')];
 
@@ -100,7 +117,7 @@ export function shell(run, ui, meta, saved, notices = []) {
     ${playing ? `<aside class="sidebar"><div class="mini"><div class="titlebar"><span class="tb-title">${icon('status', 14)}<span>${esc(s.player.name)}</span></span></div><div class="body">${sideStatus(s)}</div></div>
     <div class="mini"><div class="titlebar"><span class="tb-title">${icon('user', 14)}<span>${t('Prof. {name}', { name: lastName(s.advisor.name) })}</span></span></div><div class="body"><div class="presence ${['checkedOut', 'traveling'].includes(s.advisorMode?.id) ? 'off' : s.advisorMode?.id === 'grant' ? 'away' : s.advisorMode?.id === 'pressed' ? 'typing' : ''}"><i></i>${esc(t(mode.presence))}</div><div class="small muted">${esc(t(mode.label))} · ${t('1:1s {cadence}', { cadence: t(s.cadence.oneOnOne) })}</div>${openReq ? `<div class="small" style="margin-top:4px">${tag(t('{n} open request(s)', { n: openReq }), 'warn')}</div>` : ''}<div class="row" style="margin-top:6px">${btn(t('Message'), 'open', { app: 'chat', cls: 'small' })}${btn(t('Requests'), 'open', { app: 'dashboard', cls: 'small link' })}</div></div></div>
     <div class="sticky"><span class="pin"></span>${esc(reminders()[(s.month + s.seed) % 6])}<small>— notes.txt</small></div>
-    <button class="desk-plant${s.plant?.found ? ' known' : ''}" data-action="plant" aria-label="${esc(t('A plant'))}" title=""><i class="dp-pot"></i><i class="dp-leaf a"></i><i class="dp-leaf b"></i><i class="dp-leaf c"></i></button></aside>` : ''}
+    <div class="desk-fixtures">${fixtureOrder.map(id => deskFixture(s, id)).join('')}</div></aside>` : ''}
     ${ui.minimized ? `<div style="color:#fff;place-self:center;text-align:center">${t('Your desk is still here.')}<br><br>${btn(t('Restore window'), 'restore')}</div>` : ''}
   </main>
   <div class="watermark">${t('DOING SCIENCE.')}<br>${t('PROBABLY.')}</div>

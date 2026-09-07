@@ -1841,13 +1841,13 @@ test('a rich advisor can show a cage too, not only a poor one', async () => {
   assert.ok(reachable.length > 0, `nothing in the catalogue can show a ${harshest.id} under pressure`);
 });
 
-test('every line the exam room, the corridor and the plant can print exists in Chinese', async () => {
+test('every line the exam room, the corridor and the desk can print exists in Chinese', async () => {
   // These live behind a real-time UI the audit harness cannot walk — it dispatches VIVA with a
   // synthetic tally and never renders a slide, a corridor or a verdict. So the exam prose was
   // reachable in play and invisible to the audit, which is exactly the shape of bug that let a
   // year of gameplay strings sit untranslated behind a confident zero. Checked directly instead.
   const { exams, decks, talkLines, badCop, corridor, verdicts, talkMoves, examNote } = await import('../src/data/exams.js');
-  const { plantLines, plantNote } = await import('../src/data/plant.js');
+  const { plantLines, plantNote, chairLines, chairNote, fridgeLines, fridgeNote } = await import('../src/data/desk.js');
   const { doors, OBSTACLES, stuckNote } = await import('../src/data/stuck.js');
   const { zh } = await import('../src/i18n/zh/index.js');
   const need = [];
@@ -1858,6 +1858,9 @@ test('every line the exam room, the corridor and the plant can print exists in C
   need.push(...Object.values(verdicts.pass), ...verdicts.quickCongrats, verdicts.advisorLine, ...Object.values(verdicts.photo));
   for (const m of Object.values(talkMoves)) need.push(m.label, m.hint);
   need.push(examNote, plantNote, plantLines.discover, plantLines.noticed, plantLines.devoted, plantLines.dry, ...plantLines.after, ...plantLines.idle);
+  need.push(chairNote, chairLines.discover, chairLines.noticed, ...chairLines.after, ...chairLines.idle);
+  need.push(fridgeNote, fridgeLines.discover, fridgeLines.thrown, fridgeLines.slack, fridgeLines.slackAfter,
+    ...fridgeLines.after, ...fridgeLines.after_thrown, ...fridgeLines.idle);
   for (const d of Object.values(doors)) need.push(d.label, d.hint, ...d.good, ...d.bad);
   for (const o of Object.values(OBSTACLES)) need.push(o.label, o.hint);
   need.push(stuckNote);
@@ -1868,7 +1871,7 @@ test('every line the exam room, the corridor and the plant can print exists in C
 test('the plant only does something when you are already having a bad time', async () => {
   // A ritual is not a resource. If watering paid out on a good day it would become a strategy,
   // and 288 waterings over six years would dwarf every real decision in the game.
-  const { waterPlant } = await import('../src/engine/plant.js');
+  const { waterPlant } = await import('../src/engine/desk.js');
   const mk = stress => { const s = enterProgram(4); s.month = 20; s.week = 0; s.player.hidden.stress = stress; return s; };
   const calm = mk(20), hope = calm.player.stats.hope, st = calm.player.hidden.stress;
   waterPlant(calm);

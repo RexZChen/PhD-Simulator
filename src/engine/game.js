@@ -20,7 +20,7 @@ import { monthlyLedger, monthlyLife, vitalsDrift, doLifeAction, visitClinic, pay
 import { popIns, runIns, dayWeather } from '../data/day.js';
 import { flowLine as boardFlowLine } from '../data/whiteboard.js';
 import { verdicts } from '../data/exams.js';
-import { waterPlant } from './plant.js';
+import { useFixture } from './desk.js';
 import { accrueCitations } from './scholar.js';
 import { updateStanding, updateQuitPressure, fired, quit, quitBand } from './divergence.js';
 import { prepareTrip, resolveVisa, scoreTalk, answerQuestion, spendTripDay, resolveCaught, endTrip, upgradeTrip } from './trip.js';
@@ -662,7 +662,7 @@ export function dispatch(state, action) {
   }
   if (a.type === 'SELECT_PROJECT') { if (!s.projects.some(p => p.id === a.id)) throw new Error(t('No such project.')); s.activeProjectId = a.id; return s; }
   if (a.type === 'DISMISS_REPORT') { dismissReport(s); return s; }
-  if (a.type === 'PLANT') { waterPlant(s); return s; }
+  if (a.type === 'FIXTURE') { useFixture(s, a.id); return s; }
   if (a.type === 'SUMMONS') {
     if (s.stage !== 'summons') throw new Error(t('There is nothing in the calendar.'));
     answerSummons(s, a.id);

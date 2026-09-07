@@ -329,7 +329,7 @@ root.addEventListener('click', event => {
     case 'exam-talk': examTalk(id); play('click'); return;
     case 'exam-interrupt': examInterrupt(); play('click'); return;
     case 'exam-corridor': examCorridor(id); play('click'); return;
-    case 'plant': perform({ type: 'PLANT' }); return;
+    case 'fixture': perform({ type: 'FIXTURE', id }); return;
     case 'photo-close': { if (run) { run.photo = null; persist(); render({ preserveScroll: false }); } return; }
     case 'crisis': perform({ type: 'CRISIS', id }, { preserveScroll: false }); return;
     case 'life-tab': ui.lifeTab = id; render({ preserveScroll: false }); return;

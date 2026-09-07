@@ -197,6 +197,8 @@ export const achievements = {
   allsixdoors: { name: 'Every Door', desc: 'Try all six ways of being unstuck in one run, including the one nobody counts as work.' },
   onechair: { name: 'The Corridor Has One Chair', desc: 'Wait out a committee’s deliberation without looking at your phone, the door, or slide 12. The longest you have been alone with yourself in about two years.' },
   stoppedandanswered: { name: '“Go Back Two Slides”', desc: 'Stop your own talk to answer the one who has decided to be difficult. It costs two minutes and buys the room.' },
+  thechair: { name: 'Raised It Again', desc: 'Raise the chair fifteen times. Somebody in this building has lowered it fifteen times. The two of you have had an entire relationship and neither knows the other exists.' },
+  theyogurt: { name: 'It Had My Name On It', desc: 'Throw out the yogurt. Nobody thanks you, one person is quietly furious forever, and neither of you will ever raise it.' },
   thestairwell: { name: 'The Half-Landing', desc: 'Go and find them in the stairwell. Nothing you say will help. They will remember it for ten years and you will not remember what you said, because there was nothing to say.' },
   askedwhy: { name: 'You Asked', desc: 'Ask your advisor what actually happened to the student they let go. The answer is true, complete as a sentence, and missing every part where somebody could have done something.' },
   saidthename: { name: 'Said The Name', desc: 'Say the name of the person who was let go, out loud, in group meeting. Two people will thank you separately, in corridors, quietly.' },

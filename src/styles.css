@@ -1372,18 +1372,36 @@ table.mini th { background: var(--face); }
 @keyframes ph-pop { 0% { opacity: 0; } 6% { opacity: .95; } 20% { opacity: 0; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .ph-flash, .ph-smile.real, .ex-figure, .ex-pip.now { animation: none; } }
 
-/* The plant. Bottom-left of the desktop, behind everything, mentioned nowhere. */
-.desk-plant { position: relative; align-self: start; margin: 2px 0 0 10px; width: 46px; height: 54px; background: none; border: 0; padding: 0; cursor: pointer; opacity: .92; }
-.desk-plant:hover { opacity: 1; }
-.desk-plant:active .dp-leaf { transform: translateY(1px); }
-.dp-pot { position: absolute; left: 12px; bottom: 0; width: 22px; height: 18px; background: linear-gradient(#b4795a, #8f5c42); border: 1px solid #6f4632; clip-path: polygon(8% 0, 92% 0, 78% 100%, 22% 100%); }
+/* The things on the desk. A row at the foot of the sidebar, under the sticky note that has been
+   saying "Water the plant. Water yourself." since long before there was a plant. No labels. */
+.desk-fixtures { display: flex; align-items: flex-end; gap: 12px; padding: 4px 0 0 10px; }
+.desk-fixture { position: relative; width: 44px; height: 54px; background: none; border: 0; padding: 0; cursor: pointer; opacity: .9; }
+.desk-fixture:hover { opacity: 1; }
+.desk-fixture:focus-visible { outline: 2px dotted var(--hi); outline-offset: 2px; }
+
+.dp-pot { position: absolute; left: 11px; bottom: 0; width: 22px; height: 18px; background: linear-gradient(#b4795a, #8f5c42); border: 1px solid #6f4632; clip-path: polygon(8% 0, 92% 0, 78% 100%, 22% 100%); }
 .dp-leaf { position: absolute; bottom: 15px; width: 9px; height: 26px; background: #4f8a5a; border: 1px solid #3a6a44; border-radius: 60% 60% 20% 20%; transform-origin: 50% 100%; }
-.dp-leaf.a { left: 22px; transform: rotate(-4deg); }
-.dp-leaf.b { left: 13px; height: 21px; transform: rotate(-30deg); }
-.dp-leaf.c { left: 30px; height: 19px; transform: rotate(28deg); }
-/* Once you know, it never moves again, because it never did. */
-.desk-plant.known .dp-leaf { animation: none; }
-.desk-plant:focus-visible { outline: 2px dotted var(--hi); outline-offset: 2px; }
+.dp-leaf.a { left: 21px; transform: rotate(-4deg); }
+.dp-leaf.b { left: 12px; height: 21px; transform: rotate(-30deg); }
+.dp-leaf.c { left: 29px; height: 19px; transform: rotate(28deg); }
+.dk-plant:active .dp-leaf { transform: translateY(1px); }
+
+/* The chair, side-on, because front-on it reads as a monitor. It is lower than you left it. */
+.dc-back { position: absolute; left: 7px; bottom: 22px; width: 7px; height: 24px; background: #5a6472; border: 1px solid #414957; border-radius: 3px 3px 0 0; transform-origin: 50% 100%; transform: rotate(-8deg); transition: bottom .18s ease-out; }
+.dc-seat { position: absolute; left: 7px; bottom: 19px; width: 27px; height: 6px; background: #6b7583; border: 1px solid #414957; border-radius: 2px 5px 5px 2px; transition: bottom .18s ease-out; }
+.dc-post { position: absolute; left: 18px; bottom: 6px; width: 5px; height: 14px; background: #8a8f99; transition: height .18s ease-out; }
+.dc-base { position: absolute; left: 9px; bottom: 2px; width: 24px; height: 4px; background: #8a8f99; border-radius: 3px; box-shadow: -2px 2px 0 -1px #8a8f99, 20px 2px 0 -1px #8a8f99; }
+.dk-chair.lowered .dc-back { bottom: 13px; }
+.dk-chair.lowered .dc-seat { bottom: 10px; }
+.dk-chair.lowered .dc-post { height: 5px; }
+
+/* The fridge. There is a yogurt in it with somebody's name on it. */
+.df-body { position: absolute; left: 9px; bottom: 0; width: 26px; height: 46px; background: linear-gradient(#dcdcd4, #c4c4bc); border: 1px solid #8d8d85; border-radius: 2px; }
+.df-split { position: absolute; left: 9px; bottom: 30px; width: 26px; height: 1px; background: #8d8d85; }
+.df-handle { position: absolute; left: 29px; bottom: 32px; width: 3px; height: 10px; background: #77777044; box-shadow: 0 -14px 0 #777770; }
+.dk-fridge.cleared .df-body { background: linear-gradient(#e6e6de, #d0d0c8); }
+.dk-fridge:active .df-body { filter: brightness(1.06); }
+@media (prefers-reduced-motion: reduce) { .dc-back, .dc-seat, .dc-post { transition: none; } }
 
 /* Narration is the camera; speech is the message. A line that opens on a quote keeps the body
    voice, and what the room did about it drops back a size so the message is the thing you read. */
