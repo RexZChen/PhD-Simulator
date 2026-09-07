@@ -92,10 +92,13 @@ export function createRun(seed = Date.now() >>> 0, answers = {}) {
     relationship: { trust: 50, satisfaction: 60, dependency: 10, conflict: 0 }, housing: { rentDelta: 0, commute: 0 },
     cadence: { oneOnOne: 'biweekly', group: 'weekly' }, meetingStats: { held: 0, cancelled: 0, presented: 0, skipped: 0 },
     ta: false, internship: null, mutators: [], report: null, weekLog: [], ending: null, pace: 'auto',
-    // Month 26 is November of the third academic year. It used to be 23, which is August — a month
-    // this game's own calendar labels "New students arrive" and "Lease turnover", and in which no
-    // committee of four faculty has ever sat for anybody's prelim.
-    milestones: { prelim: null, prelimMonth: 26, prelimAttempts: 0, proposal: null, proposalMonth: 44, proposalAttempts: 0, defense: null, defenseMonth: null, defenseAttempts: 0, thesisStarted: false, graduated: false },
+    // Month 20 is May of the second academic year, which is when a US CS prelim is actually sat:
+    // two years of coursework, then the exam, in the window before everyone scatters for the
+    // summer. It used to be 23, which is August — a month this game's own calendar labels "New
+    // students arrive" and "Lease turnover", and in which no committee of four faculty has ever
+    // sat for anybody's prelim. The other honest slot is November; May is the commoner one and it
+    // gives the run back the three months that finishing actually needs.
+    milestones: { prelim: null, prelimMonth: 20, prelimAttempts: 0, proposal: null, proposalMonth: 44, proposalAttempts: 0, defense: null, defenseMonth: null, defenseAttempts: 0, thesisStarted: false, graduated: false },
     jobs: { track: null, offers: [], chosen: null },
     counts: { accepted: 0, rejected: 0, deadlinesMade: 0, deadlinesMissed: 0, requestsDone: 0, requestsDeclined: 0, requestsExpired: 0, holidaysTaken: 0, preprints: 0, taSemesters: 0, internships: 0 },
     budget: 'normal', debt: 0, conditions: [], bills: [], lifeCooldowns: {}, spend: { care: 0, fees: 0, interest: 0, sent: 0 },

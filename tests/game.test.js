@@ -412,7 +412,7 @@ test('passing the prelim continues into year three and seasons pass faster', () 
   let guard = 0;
   while (s.stage === 'milestone' && s.milestoneKind === 'prelim' && guard++ < 3) { s = act(s, { type: 'MILESTONE', id: 'balanced' }); if (s.stage === 'report') s = act(s, { type: 'DISMISS_REPORT' }); }
   assert.equal(s.phase, 'playing');
-  assert.ok(s.month > 26, 'the run continues past the prelim');
+  assert.ok(s.month > s.milestones.prelimMonth, 'the run continues past the prelim');
   assert.ok(['month', 'season', 'week'].includes(s.tempo));
 });
 
@@ -711,6 +711,32 @@ test('coming back into the country you live in is a question the trip actually a
   const early = enterProgramWith(3, { international: true });
   early.month = 12;
   assert.equal(stampRisk(early), 0, 'not in year one, when the stamp is still good');
+});
+
+test('the offer letter was gross, and a cheaper state is a real reason to go there', () => {
+  // Every graduate student in the United States learns this at a payroll window in September,
+  // alone, having already signed a lease against the number on the letter. The ledger used to
+  // deposit the gross figure, which is the institution's version of events, uncorrected.
+  let s = enterProgramAt('melon', 5);
+  s.month = 12;
+  const l = monthlyLedger(s);
+  assert.ok(l.tax > 0, 'something is withheld');
+  assert.equal(l.net, l.stipend - l.tax, 'and what lands is what is left');
+  assert.ok(l.tax / l.stipend > .12 && l.tax / l.stipend < .24, `a plausible rate, not a guess (${(100 * l.tax / l.stipend).toFixed(1)}%)`);
+  assert.match(l.note || '', /gross/i, 'the first payslip says so out loud');
+  // And it says it once.
+  const again = monthlyLedger(s);
+  assert.ok(!/gross/i.test(again.note || ''), 'and then never again, because you know now');
+
+  // A state with no income tax is a real, checkable advantage, which is the kind of thing nobody
+  // works out until the second year.
+  const texas = enterProgramAt('utawesome', 5);
+  const pennsylvania = enterProgramAt('melon', 5);
+  assert.ok(texas.program.tax < pennsylvania.program.tax, 'no state income tax beats a city wage tax');
+  texas.month = pennsylvania.month = 12;
+  const tl = monthlyLedger(texas), pl = monthlyLedger(pennsylvania);
+  assert.ok(tl.stipend < pl.stipend, 'and the Texas offer is the smaller gross number');
+  assert.ok(tl.net > pl.net - 120, `which does not settle it (${tl.net} net vs ${pl.net} net)`);
 });
 
 test('overclaiming costs you in the reviews, the way it costs you at the conference', () => {

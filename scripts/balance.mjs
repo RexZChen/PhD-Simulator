@@ -125,6 +125,15 @@ export async function run(seed, style) {
         }
       }
       if (style === 'diligent') for (const r of s.requests.filter(r => r.status === 'open')) { try { s = act(s, { type: 'REQUEST_DO', id: r.id }); } catch {} }
+      // A person who is running out of money moves in with somebody. The harness never did, so it
+      // played a strictly worse financial game than any real player and every conclusion drawn
+      // from its debt figures was about a student who watched their balance fall for six years and
+      // did nothing. Rent is the largest line on the ledger and the only one you can move.
+      if (!s.flags.movedForMoney && (s.debt || 0) > 2600 && s.month > 14 && s.player.stats.energy > 22) {
+        for (const mv of ['roommate', 'further']) {
+          try { s = act(s, { type: 'LIFE', id: mv }); s.flags.movedForMoney = true; break; } catch { /* not open to this run */ }
+        }
+      }
       // The patent is a modal the moment it wants something, so a real player always answers it.
       // A harness that does not answer leaves the run parked on `meetings` forever and reports the
       // whole back half of the process — the filing, the rejection, the grant — as unreachable.

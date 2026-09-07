@@ -1,6 +1,31 @@
 // Placeholder parody content. Every name here is meant to be easy to replace.
 export const topics = { ml: 'Machine learning', nlp: 'Natural language processing', systems: 'Systems', theory: 'Theory', hci: 'Human–computer interaction', robotics: 'Robotics' };
 
+// What actually reaches the bank.
+//
+// The offer letter states a gross number and every graduate student in the United States learns
+// the difference at a payroll window in September, alone, having already signed a lease against
+// the number on the letter. Federal withholding on a stipend in this range runs 10–12%; the rest
+// is state and, in a few cities, a local wage tax on top of it. Seven states levy no income tax
+// at all, and the students there do not know how lucky they are because nobody has ever shown
+// them the other number either.
+//
+// These are per school because the user asked for the economics validated per school, and because
+// a $2,950 offer in Austin genuinely beats a $3,100 offer in Pittsburgh, which is the kind of
+// thing nobody works out until the second year.
+const TAX = {
+  default: .155,          // federal, plus a middling state rate
+  utawesome: .11,         // no state income tax
+  ricearoni: .11,         // no state income tax
+  udub: .11,              // no state income tax
+  melon: .175,            // state, plus a city wage tax, plus a school district tax
+  nyuniverse: .19, columbiad: .19, newyikes: .19,   // state plus city
+  brrkeley: .175, uclost: .175, uscry: .175, ucsandiego: .175,
+  yail: .17, notreshame: .145, purdont: .145, uiucorn: .16, michigoon: .15,
+  wiscornsin: .165, umassive: .165, harvarsity: .165, mitt: .165,
+  losalamosly: .14, solarstate: .14, buffalonely: .19, alohastate: .18,
+};
+
 export const schools = [
   ['mitt', 'MITT', 'Sleep is an implementation detail.', 98, 0.030, 2300, 3900, 85, ['theory', 'systems'], 'exam', 'cold', { symbol: 'gear', motto: 'Mens et Manus et GPU', c1: 'slate', c2: 'gold' }],
   ['stanfurd', 'Stanfurd', 'The startup with a university attached.', 96, 0.038, 2600, 4000, 80, ['ml', 'hci'], 'project', 'warm', { symbol: 'tree', motto: 'Disrupt, Then Cite', c1: 'red', c2: 'cream' }],
@@ -34,7 +59,8 @@ export const schools = [
   ['newyikes', 'City University of New Yikes', 'No campus. Nine campuses. Both are true.', 60, 0.529, 2400, 2900, 56, ['hci', 'nlp'], 'project', 'cold', { symbol: 'skyline', motto: 'Ad Astra Per Subway', c1: 'slate', c2: 'gold' }],
   ['alohastate', 'University of Aloha State', 'Nine time zones from your co-authors.', 58, 0.557, 2000, 2500, 54, ['hci', 'ml'], 'project', 'warm', { symbol: 'wave', motto: 'Above All Nations, Behind All Deadlines', c1: 'teal', c2: 'cream' }],
   ['state', 'Midwestern State', 'Good science. Reasonable parking.', 55, 0.6, 900, 2450, 57, ['hci', 'systems'], 'project', 'cold', { symbol: 'star', motto: 'Parking Available', c1: 'teal', c2: 'cream' }],
-].map(([id, name, tagline, prestige, baseline, rent, stipend, difficulty, topics, structure, climate, crest]) => ({ id, name, tagline, prestige, baseline, rent, stipend, difficulty, topics, topic: topics[0], structure, climate, crest, fee: 75 }));
+].map(([id, name, tagline, prestige, baseline, rent, stipend, difficulty, topics, structure, climate, crest]) => ({ id, name, tagline, prestige, baseline, rent, stipend, difficulty, topics, topic: topics[0], structure, climate, crest, fee: 75, tax: TAX[id] ?? TAX.default }));
+
 
 
 // Where your advisor is on their own clock. This is the cage: the reason a person behaves the way

@@ -222,6 +222,12 @@ export function monthlyLedger(s) {
   const stipend = interning
     ? Math.round(s.internship.salary || s.program.stipend * 1.75)   // what the offer actually said, which is sometimes worse
     : Math.round(s.program.stipend * (summerGap ? .4 : 1) * (s.flags.fundingGap ? .7 : 1)) + (s.flags.raise ? 150 : 0);
+  // The offer letter said a gross number. Nobody discovers this from the letter; everybody
+  // discovers it at a payroll window in September, having already signed a lease against the
+  // number on the letter. An internship is withheld harder, because the salary is higher.
+  const rate = interning ? Math.min(.28, (s.program.tax ?? .155) + .07) : (s.program.tax ?? .155);
+  const tax = Math.round(stipend * rate);
+  const net = stipend - tax;
   const rent = s.program.rent + s.housing.rentDelta;
   const food = budgetOf(s).food + (s.flags.cat ? 45 : 0);
   const premium = s.insurance?.premium || 0;
@@ -234,7 +240,26 @@ export function monthlyLedger(s) {
 
   if (m === PLAN_YEAR_MONTH && s.insurance) { s.insurance.deductibleLeft = s.insurance.deductible; s.insurance.planYear++; }
 
-  s.player.stats.money = Math.round(s.player.stats.money + stipend + support);
+  // April, and the other half of the truth.
+  //
+  // Withholding on a stipend is calculated as though you earn this all year at this rate, and you
+  // do not: a chunk of the award is a tuition waiver that is not wage income, the standard
+  // deduction eats most of what is left, and a good number of international students are covered
+  // by a treaty article their university's payroll system has never heard of. So you over-pay all
+  // year and a lump of it comes back in one piece in the spring.
+  //
+  // Modelling the withholding without the refund was worse than modelling neither: it graduated
+  // everybody thirty-seven thousand dollars in debt. The refund is not a kindness the game is
+  // doing you. It is your own money, held for a year, returned without interest, and it arrives
+  // in April feeling like a windfall, which is the joke.
+  s.withheld = (s.withheld || 0) + tax;
+  let refund = 0;
+  if (m === 4 && s.withheld > 0) {
+    refund = Math.round(s.withheld * (s.player.profile.international ? .52 : .44));
+    s.withheld = 0;
+  }
+
+  s.player.stats.money = Math.round(s.player.stats.money + net + support + refund);
   s.debt = Math.round((s.debt || 0) + interest);
   const outflow = rent + food + premium + fees + visa + remit + other;
   charge(s, outflow);
@@ -248,12 +273,16 @@ export function monthlyLedger(s) {
     repaid = Math.min(s.debt, s.player.stats.money - 900);
     if (repaid > 0) { s.player.stats.money -= repaid; s.debt = Math.round(s.debt - repaid); }
   }
-  const note = interning ? (stipend < s.program.stipend ? t('Internship salary this month. It is less than the stipend, which you knew and took anyway.') : t('Internship salary this month. The company pays like the company.'))
+  const firstPayslip = !s.flags.sawWithholding && !interning;
+  if (firstPayslip) s.flags.sawWithholding = true;
+  const note = refund ? t('The refund lands in one piece. It is your own money, held for a year and returned without interest, and it feels like a windfall, which is the trick.')
+    : firstPayslip ? t('The offer letter said {gross}. The offer letter was gross. Withholding takes {tax} and nobody mentioned it, because from inside the payroll office there is nothing to mention.', { gross: `$${stipend.toLocaleString('en-US')}`, tax: `$${tax.toLocaleString('en-US')}` })
+    : interning ? (stipend < s.program.stipend ? t('Internship salary this month. It is less than the stipend, which you knew and took anyway.') : t('Internship salary this month. The company pays like the company.'))
     : summerGap ? t('Summer TA gap: the stipend is 40% of itself until September.')
       : s.flags.fundingGap ? t('Year-six funding gap: the stipend is 70% of itself.')
         : fees ? t('Term fees. Your tuition is waived; the fees are not tuition, which is how they survive.')
           : null;
-  s.ledger = { month: s.month, stipend, support, rent, food, premium, fees, visa, remit, interest, other, repaid, debt: Math.round(s.debt || 0), note };
+  s.ledger = { month: s.month, stipend, tax, net, refund, support, rent, food, premium, fees, visa, remit, interest, other, repaid, debt: Math.round(s.debt || 0), note };
   return s.ledger;
 }
 
