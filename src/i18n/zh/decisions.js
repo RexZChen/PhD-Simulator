@@ -1,5 +1,8 @@
 // 申请结果：邮件只说「有更新」，答案在门户里，而这两者之间的空隙就是这个阶段的全部感受。
 export const decisionZh = {
+  "Read your updates first.": "先把更新读完。",
+  "There are updates on your applications": "你的申请有更新",
+  "{n} of them, each behind its own login. Open them one at a time; that is how they arrive.": "一共 {n} 条，每一条都在各自的登录后面。一条一条地打开——它们本来就是这样来的。",
   // 说「是」的那一刻：一张表，九十秒，和一个只写着「谢谢」的页面。
   "Reply to Offer of Admission": "答复录取通知",
   "This decision is binding under the April 15 Resolution. Please respond by 11:59pm local time.": "根据 4 月 15 日决议，本答复具有约束力。请于当地时间 23:59 前提交。",
@@ -151,6 +154,14 @@ export const savesZh = {
 
 // 你住在哪儿：房租是账本上最大的一项，也是唯一一项你真的动得了的。
 export const housingZh = {
+  "{sign}{n} {what}": "{sign}{n} {what}",
+  "+{n} Energy": "+{n} 精力",
+  "Health": "健康",
+  "Hope": "希望",
+  "Stress": "压力",
+  "Advisor": "导师",
+  "Progress": "进度",
+  "Loneliness": "孤独",
   "Find a roommate": "找个室友",
   "A second-year from another department, a lease with both names on it, and a shared wall you will come to know the acoustic properties of intimately. Four hundred and twenty dollars a month, which is the difference between the arithmetic working and not working.": "另一个系的二年级，一份签着两个人名字的租约，和一堵你将会对其声学特性了如指掌的隔墙。每个月四百二十美元——而这正是账算得平和算不平之间的差额。",
   "Move further out": "搬得远一点",

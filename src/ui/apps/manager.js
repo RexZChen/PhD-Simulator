@@ -270,17 +270,18 @@ function managerNextStep(s) {
   if (s.thesis && !s.thesis.deposited) return canDeposit(s)
     ? { title: t('Deposit the dissertation'), detail: t('Every revision is done. The degree is conferred on deposit, not on the defense.'), cta: go(t('Deposit it →'), 'deposit') }
     : { title: t('Finish the committee’s revisions'), detail: t('{n} left. Defending was not finishing.', { n: revisionsLeft(s) }), cta: '' };
+  // Running out of Energy outranks everything else, because at 0 Energy every other suggestion on
+  // this screen is a button the player cannot afford to press — and the way out is in another app,
+  // on a tab they have no reason to have opened.
+  if (s.player.stats.energy < 22) return { title: t('You are running on nothing'),
+    detail: t('Everything costs Energy and you are out. Life.exe → Body has the things that give it back; every one of them costs you something else.'),
+    cta: openApp(t('Open Life.exe'), 'life', 'body') };
   if (canStartMain(s)) return { title: s.projects.length ? t('Start the next one') : t('Start a project'), detail: s.projects.length ? t('The last one is finished. Six years is three or four projects, not one, and Research does nothing while there is nothing to research.') : t('Nothing is running. A PhD is made of projects and you do not have one.'), cta: go(t('Start main project'), 'start-project', { disabled: !canStartMain(s) }) };
   if (open.length) return { title: t('Your advisor asked for something'), detail: t('{n} open request(s). Do them, push back, or decline — ignoring them is also a choice, with a cost.', { n: open.length }), cta: openApp(t('Open LabChat'), 'chat', 'advisor') };
   if (p?.status === 'Rebuttal') return { title: t('The rebuttal window is open'), detail: t('Reviews are in. The window closes at the end of this month.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
   if (p?.status === 'Ready' && p.kind !== 'thesis') return { title: t('A draft is approved'), detail: t('Submit it when a venue is open.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
   if (p && ['Drafting', 'Experiments', 'Prototype', 'Idea'].includes(p.status) && !p.targetVenueId && p.progress >= 35)
     return { title: t('Choose a venue'), detail: t('Work without a deadline expands, and your advisor will keep asking which one it is.'), cta: openApp(t('Set a target'), 'browser', 'openregret') };
-  // Running out of Energy is the wall the player hits most often, and the way out is in another
-  // app on a tab they have no reason to have opened. Say so, once, when it is true.
-  if (s.player.stats.energy < 22) return { title: t('You are running on nothing'),
-    detail: t('Everything costs Energy and you are out. Life.exe → Body has the things that give it back; every one of them costs you something else.'),
-    cta: openApp(t('Open Life.exe'), 'life', 'body') };
   if (!s.focus) return null;
   return { title: t('Plan set'), detail: t('Use the desktop if you want to, then continue. Everything else is optional.'), cta: go(t('Continue →'), 'continue') };
 }

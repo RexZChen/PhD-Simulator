@@ -446,24 +446,8 @@ export function hardTaMonth(s) {
     effects(s, { energy: HARD_TA.energy, progress: HARD_TA.progress, teaching: 2, stress: 3 });
     return;
   }
-  // Does it start? Rare, and it needs the money to actually be gone.
-  if (s.month < 14 || s.flags.fellow || s.milestones.graduated) return;
-  if (s.month - (s.lastRaCheck ?? -99) < 6) return;
-  s.lastRaCheck = s.month;
-  // roll() floors its chance at 3%, so a computed risk of zero is not zero — with a check every
-  // six months that turns "well funded, cannot happen" into about a quarter of all runs. Guard the
-  // zero explicitly, and keep the rate genuinely rare: this is the thing that happens to somebody
-  // in every cohort and almost never to you.
-  // roll() both floors its chance at 3% and ceilings it at 97%, so it cannot express anything
-  // rarer than 3% — with a check every six months that is a quarter of all runs, whatever number
-  // you pass it. For genuinely rare things, compare against random() directly.
-  const risk = (44 - s.advisor.funding) / 2200;
-  if (risk <= 0 || random(s) >= risk) return;
-  s.raLost = { since: s.month, until: s.month + HARD_TA.semesters * 5, years: 1 };
-  s.ta = true;
-  s.flags.hardTA = true;
-  log(s, t(pick(s, raLostText)));
-  pushHardTa(s);
+  // Starting it is the `ra_lost` scene's job (src/data/events/middle.js) — one entry point, so
+  // the conversation and the consequence can never disagree. This function owns the clock only.
 }
 // The conversation is an event so it has choices; life.js only owns the clock.
 function pushHardTa(s) { s.eventQueue = [...(s.eventQueue || []), 'ra_lost']; }

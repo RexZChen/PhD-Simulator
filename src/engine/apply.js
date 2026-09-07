@@ -104,6 +104,11 @@ export function prepAction(s, id, target) {
 // should never have to guess what this screen wants; the difficulty is meant to be the choices,
 // not the interface.
 export function nextStep(s) {
+  if (unopenedDecisions(s).length) {
+    return { title: t('There are updates on your applications'),
+      detail: t('{n} of them, each behind its own login. Open them one at a time; that is how they arrive.', { n: unopenedDecisions(s).length }),
+      cta: null };
+  }
   const p = s.prep;
   if (s.phase === 'prep') {
     if (!p.sopSteps.includes('draft'))

@@ -2346,3 +2346,71 @@ test('every school is survivable, and rent is a lever the player can actually pu
   const lean = balance(dispatch(dispatch(s, { type: 'LIFE', id: 'roommate' }), { type: 'BUDGET', id: 'lean' }));
   assert.ok(lean > 0, `${worst.name} is unsurvivable even with a roommate and a lean budget ($${lean}/mo)`);
 });
+
+test('the year the money went actually happens, and the scene never lies about it', async () => {
+  // Two entry points, and only one of them set any state: `ra_lost` fired in 27% of runs telling
+  // the player their funding had gone, and then they taught nothing, lost nothing and finished on
+  // time. Meanwhile the mechanic behind it fired 0 times in 180 six-year runs, because it needed
+  // an advisor under funding 44 — 1.6% of them — and then rolled 0.00136 per check.
+  const { hardTaMonth } = await import('../src/engine/life.js');
+  const { events } = await import('../src/data/events.js');
+
+  // Every choice in the scene carries the consequence. You do not get to decline the arithmetic.
+  const scene = events.find(e => e.id === 'ra_lost');
+  assert.ok(scene, 'the funding scene is gone');
+  assert.ok(scene.choices.every(c => c.hardTa === true),
+    'a choice in the funding scene leaves the player told but untouched');
+  assert.ok((scene.conditions.maxFunding ?? 100) <= 60, 'it can happen to a well-funded advisor');
+
+  // And it resolves rather than running forever.
+  const s = enterProgram(10);
+  s.month = 16;
+  const run = dispatch({ ...s, event: 'ra_lost' }, { type: 'CHOICE', id: 'ask' });
+  assert.ok(run.raLost, 'the scene did not start the year');
+  assert.equal(run.ta, true);
+  assert.equal(run.flags.hardTA, true);
+  const started = run.raLost.until;
+  assert.ok(started > run.month, 'the year has no end date');
+
+  let ended = null;
+  for (let m = 17; m <= 71 && !ended; m++) {
+    run.month = m;
+    run.player.stats.energy = 60;              // a player would rest; this isolates the clock
+    hardTaMonth(run);
+    if (!run.raLost) ended = m;
+  }
+  assert.ok(ended, 'the funding year never ends');
+  assert.ok(ended - 16 >= 8, 'it is meant to cost about a year');
+  assert.ok(run.achievements.includes('theyearthemoneywent'));
+});
+
+test('the decisions cannot be read off the Offers tab before you open them', async () => {
+  // The sealed notification exists for the gap between knowing there is an answer and knowing the
+  // answer. decisions() moves the phase to 'admissions', which rendered the Offers tab — listing
+  // every acceptance by name while the strip above still said "update waiting" for all of them,
+  // and giving away the rejections by elimination.
+  const { decisions, unopenedDecisions, nextStep } = await import('../src/engine/apply.js');
+  const s = createRun(77, { background: 'masters', topic: 'ml', international: false });
+  s.phase = 'application';
+  s.prep = { sop: 70, gre: 162, waivers: false, proceeded: true, letters: [{ id: 'rec-0', asked: true, strength: 68 }] };
+  s.applications = schools.slice(9, 17).map(sc => ({ schoolId: sc.id, effort: 'tailored', contact: false,
+    poiId: s.advisors.find(a => a.schoolId === sc.id).id, status: 'submitted', chance: .5 }));
+  decisions(s);
+  assert.ok(unopenedDecisions(s).length > 0, 'nothing was sealed');
+  // While anything is sealed, the one next step is to read it.
+  assert.match(nextStep(s).title, /updates on your applications/i);
+
+  // The Status tab is forced while sealed decisions remain — verified through the renderer, which
+  // is where the leak was.
+  const { gradApply } = await import('../src/ui/apps/gradapply.js');
+  const sealedView = gradApply(s, { gaTab: 'admissions' });
+  assert.ok(!sealedView.includes('offer-open'), 'the Offers tab is reachable with letters unread');
+  assert.ok(sealedView.includes('decision-open'), 'the sealed updates are not on screen');
+
+  // Read them all, and it opens.
+  const { openDecision } = await import('../src/engine/apply.js');
+  for (const a of [...unopenedDecisions(s)]) openDecision(s, a.schoolId);
+  assert.equal(unopenedDecisions(s).length, 0);
+  const openView = gradApply(s, { gaTab: 'admissions' });
+  if (s.offers.length) assert.ok(openView.includes('offer-open'), 'the offers never became reachable');
+});

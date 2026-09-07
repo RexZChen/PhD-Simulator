@@ -75,11 +75,19 @@ function budgetBox(s) {
   return `<div class="budget-list">${Object.entries(budgets).map(([id, b]) => `<button class="option ${s.budget === id ? 'selected' : ''}" data-action="budget" data-id="${id}" ${s.stage !== 'plan' ? 'disabled' : ''}><span class="radio"></span><span><b>${esc(t(b.name))} · ${money(b.food)}${t('/mo')}</b><span class="muted">${esc(t(b.blurb))}</span></span></button>`).join('')}</div>`;
 }
 
+// What it takes out of you, in the units the player is watching. Money and Energy are printed
+// separately; this is everything else that a recharge quietly costs.
+const TOLL = { health: 'Health', hope: 'Hope', stress: 'Stress', satisfaction: 'Advisor', progress: 'Progress', loneliness: 'Loneliness' };
+const INVERTED = new Set(['stress', 'loneliness']);
+const toll = a => Object.entries(a.effects || {})
+  .filter(([k, v]) => TOLL[k] && (INVERTED.has(k) ? v > 0 : v < 0))
+  .map(([k, v]) => t('{sign}{n} {what}', { sign: v < 0 ? '−' : '+', n: Math.abs(v), what: t(TOLL[k]) }));
+
 function actionList(s, list = lifeActions) {
   return `<div class="life-actions">${list.map(a => {
     const why = lifeActionAvailable(s, a);
     return `<button class="life-act ${why ? 'off' : ''}" data-action="life" data-id="${a.id}" ${why || s.stage !== 'plan' ? 'disabled' : ''} title="${esc(why || t(a.line))}">
-      ${icon(a.icon, 20)}<span><b>${esc(t(a.name))}</b><small class="muted">${why ? esc(why) : [a.cost?.energy ? t('−{n} Energy', { n: a.cost.energy }) : '', a.cost?.money ? `−${money(a.cost.money)}` : '', a.effects?.money ? `+${money(a.effects.money)}` : ''].filter(Boolean).join(' · ') || t('free')}</small></span>
+      ${icon(a.icon, 20)}<span><b>${esc(t(a.name))}</b><small class="muted">${why ? esc(why) : [a.effects?.energy > 0 ? t('+{n} Energy', { n: a.effects.energy }) : '', ...toll(a), a.cost?.energy ? t('−{n} Energy', { n: a.cost.energy }) : '', a.cost?.money ? `−${money(a.cost.money)}` : '', a.effects?.money ? `+${money(a.effects.money)}` : ''].filter(Boolean).join(' · ') || t('free')}</small></span>
     </button>`;
   }).join('')}</div>`;
 }

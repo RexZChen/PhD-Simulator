@@ -31,7 +31,7 @@ export function energyMeter(s) {
 function header(s, ui, title, sub, action = '') {
   const st = s.player.stats;
   return `<div class="topstrip raised"><div><h1>${title}</h1><div class="sub">${sub}</div></div><div class="stack right">${action}${energyMeter(s)}<span class="tiny muted">${esc(s.player.name)} · ${money(st.money)}</span></div></div>
-  <div class="tabs" style="margin-bottom:8px">${tabDefs().map(([id, label, when]) => btn(`${label} <span class="tiny muted">${when}</span>`, 'ga-tab', { id, cls: (ui.gaTab || s.phase) === id ? 'active' : '', disabled: phases.indexOf(id) > phases.indexOf(s.phase) }))}</div>
+  <div class="tabs" style="margin-bottom:8px">${tabDefs().map(([id, label, when]) => btn(`${label} <span class="tiny muted">${when}</span>`, 'ga-tab', { id, disabled: id === 'admissions' && unopened(s).length > 0, title: id === 'admissions' && unopened(s).length > 0 ? t('Read your updates first.') : '', cls: (unopened(s).length ? 'interviews' : (ui.gaTab || s.phase)) === id ? 'active' : '', disabled: phases.indexOf(id) > phases.indexOf(s.phase) }))}</div>
   ${guideStrip(s, ui)}`;
 }
 
@@ -126,7 +126,7 @@ export function programs(s, ui) {
 export function status(s, ui) {
   const pending = s.applications.filter(a => a.interview && !a.interview.done);
   return `${header(s, ui, t('GradApply — Status'), t('January to March 2028. Interviews, waiting, refreshing. The portal has one button and it is “Refresh.”'), pending.length ? `<span class="small">${t('{n} interview(s) to do', { n: pending.length })}</span>` : btn(t('Refresh the portal (March decisions) →'), 'decisions', { cls: 'primary continue' }))}
-  ${note(pending.length ? t('Interview invitations arrived. Each is a short video call with your professor of interest: three questions, then a decision you will not hear for weeks.') : t('Nothing to do but wait. Decisions arrive in March; waitlists move in April.'))}
+  ${unopened(s).length ? '' : note(pending.length ? t('Interview invitations arrived. Each is a short video call with your professor of interest: three questions, then a decision you will not hear for weeks.') : t('Nothing to do but wait. Decisions arrive in March; waitlists move in April.'))}
   ${unopened(s).length ? `<div class="updates"><b>${t('{n} update(s) waiting', { n: unopened(s).length })}</b><p class="tiny muted">${esc(t(portalNote))}</p><div class="up-row">${unopened(s).map(a => { const sc = schools.find(x => x.id === a.schoolId); return `<button class="btn update" data-action="decision-open" data-id="${a.schoolId}">${crest(sc, 18)}<span><b>${esc(sc.name)}</b><small>${t('View update')}</small></span></button>`; }).join('')}</div></div>` : ''}
   <div class="listview apply-table"><div class="lv-head"><span>${t('Program')}</span><span>${t('Professor of interest')}</span><span>${t('Submitted')}</span><span>${t('Letters')}</span><span>${t('Status')}</span><span></span></div>${s.applications.map(app => { const sc = schools.find(x => x.id === app.schoolId); const poi = s.advisors.find(a => a.id === app.poiId); const late = s.prep.letters.filter(l => l.asked && l.status === 'late').length; return `<div class="lv-row"><span class="school-cell">${crest(sc, 30)}<b>${esc(sc.name)}</b></span><span class="small">${avatar(poi.id, 18)} ${esc(poi.name)}</span><span class="small">Dec 15 · ${t(app.effort)}</span><span class="small">${late ? t('{n} late', { n: late }) : t('on time')}</span><span>${tag(sealed(app) ? t('update waiting') : t(app.status), sealed(app) ? 'warn' : app.status === 'admitted' ? 'ok' : app.status === 'rejected' ? 'bad' : app.status === 'interview' ? 'warn' : 'info')}</span><span>${app.interview && !app.interview.done ? btn(t('Join the call'), 'ga-thread', { id: `${app.schoolId}:interview`, cls: 'small primary' }) : app.interview ? btn(t('Transcript'), 'ga-thread', { id: `${app.schoolId}:interview`, cls: 'small link' }) : ''}</span></div>`; }).join('')}</div>`;
 }
@@ -140,7 +140,9 @@ export function offers(s, ui) {
 }
 
 export function gradApply(s, ui) {
-  const tab = ui.gaTab && phases.indexOf(ui.gaTab) <= phases.indexOf(s.phase) ? ui.gaTab : s.phase;
+  const sealedLeft = unopened(s).length > 0;
+  const tab = sealedLeft ? 'interviews'
+    : ui.gaTab && phases.indexOf(ui.gaTab) <= phases.indexOf(s.phase) ? ui.gaTab : s.phase;
   return { prep: prepare, application: programs, interviews: status, admissions: offers }[tab](s, ui);
 }
 

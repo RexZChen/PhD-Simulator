@@ -6,6 +6,7 @@ import { meetings, meetingById } from '../data/meetings.js';
 import { monthOf, isTeachingTerm, isSummer } from '../data/calendar.js';
 import { random, roll, clamp, pickWeighted, pick } from './probability.js';
 import { meetContact } from './network.js';
+import { HARD_TA } from '../data/hardta.js';
 import { effects, log, award, finish, activeProject, absWeek, labmateById, fill, chat, lastName, setTemplateLookup, joined, firstName, draftMail, activeLabmates } from './state.js';
 
 export const templateById = { ...eventById, ...meetingById };
@@ -323,6 +324,14 @@ export function resolveChoice(s, id) {
   }
   // The one who does not finish. Pinned by name on the run rather than left to the actor picker,
   // because the arc runs across years and it has to still be the same person in the last beat.
+  // The year the money went. This scene had two entry points — a monthly check in life.js and its
+  // own conditions here — and only the first of them set any state, so 27% of runs were told their
+  // funding had gone and then taught nothing, lost nothing and finished on time.
+  if (c.hardTa && !s.raLost) {
+    s.raLost = { since: s.month, until: s.month + HARD_TA.semesters * 5, years: 1 };
+    s.ta = true;
+    s.flags.hardTA = true;
+  }
   if (c.watchFired && s.eventActor) {
     const who = labmateById(s, s.eventActor.id);
     if (who) s.fired = { id: who.id, name: who.name, month: s.month, kept: false, pending: true };

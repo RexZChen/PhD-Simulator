@@ -385,6 +385,7 @@ root.addEventListener('click', event => {
       // Mail, Netscope, Life.exe and Scholar are yours before anybody admits you — see the note on
       // PRE_ENROL in shell.js. The others need a department and are disabled with a reason.
       const PRE_ENROL = ['mail', 'browser', 'life', 'scholar'];
+      if (target.dataset.app === 'gradapply-status') { ui.app = null; ui.gaTab = 'interviews'; render({ preserveScroll: false }); return; }
       if (target.dataset.app === 'gradapply') { ui.app = null; render({ preserveScroll: false }); return; }
       const early = run && ['prep', 'application', 'interviews', 'admissions'].includes(run.phase);
       if (!run || !(['playing', 'ending'].includes(run.phase) || (early && PRE_ENROL.includes(target.dataset.app)))) return;
