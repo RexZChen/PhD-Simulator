@@ -1126,3 +1126,11 @@ table.mini th { background: var(--face); }
 @keyframes award-in { from { opacity: 0; transform: translateX(20px) rotate(3deg) scale(.9); } to { opacity: 1; transform: none; } }
 @keyframes award-out { to { opacity: 0; transform: translateX(14px); } }
 @media (prefers-reduced-motion: reduce) { .award-toast { animation: none; } }
+
+/* One pace control, in one place. Four speeds; a closed one says why rather than vanishing. */
+.pace { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.pace .tiny { margin-right: 2px; }
+.pace-step { font-size: 11px; padding: 2px 8px; border: 1px solid; border-color: var(--hi) var(--shadow) var(--shadow) var(--hi); background: var(--face); color: inherit; }
+.pace-step:hover:not(:disabled) { background: #e9eef8; }
+.pace-step.on { background: var(--sel); color: var(--sel-text); border-color: var(--shadow) var(--hi) var(--hi) var(--shadow); font-weight: 700; }
+.pace-step:disabled { color: var(--disabled); background: var(--face); cursor: default; }

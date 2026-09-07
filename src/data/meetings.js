@@ -1,6 +1,72 @@
 // One-on-one meeting scenes. Selected by cadence, filtered by conditions, weighted by freshness.
 const c = (id, text, hint, effects = {}, extra = {}) => ({ id, text, hint, effects, ...extra });
 export const meetings = [
+
+  // ── Cancellations ──────────────────────────────────────────────────────────────────────────
+  // `meet_cancelled` was the only cancellation scene in the game, so every cancelled meeting in a
+  // six-year run was byte-identical — measured at 3.2 firings per run in the middle years. A
+  // cancellation is one of the most common events in a PhD and it deserves more than one sentence.
+  { id: 'meet_cancel_recur', title: 'Cancelled, again', probability: .9, cooldown: 3, conditions: { cancelled: true, minMonth: 8 },
+    text: ['The third one in a row. The message is “sorry — swamped, next week for sure,” which is what the second one said, and the first one.',
+      'It arrives eleven minutes after it was due to start, which means they remembered when the calendar told them.'],
+    choices: [c('async', 'Send the update anyway, in writing', 'They read it or they do not', { energy: -3, draft: 3 }, { check: { advisor: 'availability', difficulty: 45 }, successEffects: { trust: 5, satisfaction: 4 }, failureEffects: { hope: -3 }, successText: 'A reply at 11 p.m. with three specific comments. The meeting was never the point; the attention was.', failureText: 'No reply. It is in their inbox with four hundred others and it will be read in March, possibly.' }),
+      c('flag', 'Say, gently, that this is the third', 'A sentence that is hard to say', { energy: -2 }, { check: { skill: 'communication', difficulty: 52 }, successEffects: { trust: 6, satisfaction: 3, stress: -5 }, failureEffects: { satisfaction: -5, conflict: 3 }, successText: '“You are right. Put a recurring slot in and I will protect it.” They do protect it, for about five months.', failureText: '“It has been a lot.” It has been a lot for them. The sentence closes rather than opens.', personality: 'boundarySetter' }),
+      c('use', 'Take the hour back', 'An hour is an hour', { energy: 4, progress: 5, stress: -3 }, { personality: 'independent' })] },
+  { id: 'meet_cancel_travel', title: 'They are in a different time zone', probability: .8, cooldown: 4, conditions: { cancelled: true, mode: ['traveling'] },
+    text: 'Cancelled from an airport. The message has no punctuation and one word that is definitely autocorrect. Somewhere in it is an instruction about your figures.',
+    choices: [c('decode', 'Work out what they meant', 'Detective work on eleven words', { energy: -3, writingQuality: 3 }, { result: 'You decide it means "make the axes consistent." It did mean that. You are getting good at this and it is not a skill you wanted.' }),
+      c('ask', 'Ask them to repeat it when they land', 'Costs three days', { stress: 3, progress: -2 }, { result: 'They land, they reply, it is a different instruction from the one you decoded, and both of you carry on as though this is normal.' }),
+      c('own', 'Decide it yourself and tell them after', 'Independence, unasked for', { progress: 6, confidence: 5, dependency: -5 }, { personality: 'independent' })] },
+  { id: 'meet_cancel_double', title: 'Double-booked', probability: .8, cooldown: 4, conditions: { cancelled: true },
+    text: ['You arrive and there is somebody else in the chair. Neither of you is wrong; the calendar is wrong; the calendar has been wrong since September.',
+      'They apologise and offer you the last ten minutes of the slot, which is the part where the other person is putting their coat on.'],
+    choices: [c('ten', 'Take the ten minutes', 'Compressed and surprisingly effective', { energy: -2, progress: 3, readiness: 2 }, { result: 'Ten minutes with somebody who has to leave turns out to produce more decisions than fifty minutes with somebody who does not.' }),
+      c('rebook', 'Rebook properly', 'The adult answer; costs a fortnight', { stress: 2, satisfaction: 2 }, { result: 'The next free slot is in sixteen days. You take it. It is later cancelled.' }),
+      c('walk', 'Say it is fine and leave', 'It is not fine', { hope: -4, stress: 3, energy: 2 }, { personality: 'peoplePleaser' })] },
+  { id: 'meet_cancel_sick', title: 'They are ill', probability: .7, cooldown: 6, conditions: { cancelled: true },
+    text: 'A one-line message at seven in the morning. It is the first time in two years they have cancelled for a reason that is about them rather than about work.',
+    choices: [c('kind', 'Say get well and mean it', 'Free; remembered', { energy: -1, satisfaction: 4, trust: 3 }, { result: 'You do not attach anything to the message. No draft, no question, no "whenever you get a chance." They notice that. Almost nobody does it.' }),
+      c('attach', 'Say get well and attach the draft', 'The reflex of a stressed person', { energy: -2, satisfaction: -2, draft: 2 }, { personality: 'grinder', result: 'They read it from bed and send comments that are shorter and worse than usual, and you both pretend that was a good outcome.' }),
+      c('week', 'Use the week without them', 'A gift you did not ask for', { progress: 8, energy: -4, confidence: 4 }, { personality: 'independent' })] },
+  { id: 'meet_cancel_forgotten', title: 'They are simply not there', probability: .8, cooldown: 5, conditions: { cancelled: true, maxAvailability: 55 },
+    text: ['No message. The office is empty. You wait eleven minutes, which is exactly the amount of time that makes you feel foolish and not enough time to have gone anywhere.',
+      'You are in the video call. You are the only one in the video call. You stay for nine minutes in case, with your camera on, doing nothing.'],
+    choices: [c('email', 'Email, without an edge', 'Professional; slightly costly to you', { energy: -1 }, { check: { advisor: 'caring', difficulty: 48 }, successEffects: { satisfaction: 3, trust: 3 }, failureEffects: { hope: -4, satisfaction: -2 }, successText: '“I am so sorry — completely my fault.” It is genuine and the slot is rebooked within the hour.', failureText: 'The reply, two days later, is about something else entirely and does not mention it.' }),
+      c('nothing', 'Say nothing about it, ever', 'The path of least resistance', { hope: -3, dependency: 3 }, { personality: 'peoplePleaser' }),
+      c('note', 'Start counting', 'Information you will need in year four', { stress: 2, career: 2 }, { flags: { countingCancellations: true }, personality: 'cynic', result: 'You put a line in a file. It looks paranoid today and it is the document that makes the graduation conversation possible in three years.' })] },
+
+  // ── The middle years, one to one ───────────────────────────────────────────────────────────
+  // In an ordinary month between the prelim and the market, the eligible pool was two or three
+  // scenes, so `meet_prelim` was firing 3.4 times per run in 93% of runs. These have wide
+  // conditions on purpose: they are the meetings you have when nothing in particular is happening,
+  // which is most of them.
+  { id: 'meet_mid_drift', title: '“So what is the plan?”', probability: .8, cooldown: 4, conditions: { minMonth: 18, maxMonth: 52 },
+    text: ['Not a challenge. A real question, asked mildly, about a project that has been going for a while without a shape.',
+      '“Talk me through the next six months.” You have a next three weeks. The gap between those two things is the meeting.'],
+    choices: [c('map', 'Draw the arc on the whiteboard', 'Twenty minutes; a spine', { energy: -5, readiness: 6, progress: 4, scope: -5 }, { check: { skill: 'research', difficulty: 50 }, successEffects: { confidence: 6, trust: 5, hope: 4 }, failureEffects: { stress: 5, confidence: -3 }, successText: 'Three boxes and two arrows. Both of you look at it and it is obviously right, and neither of you had seen it until it was on a wall.', failureText: 'It comes out as eleven boxes. They say “which of these is the thesis,” which is the question you came in to answer.' }),
+      c('honest', 'Say you do not have six months of plan', 'The truth; usually survivable', { energy: -2 }, { advisorResponse: true, personality: 'boundarySetter' }),
+      c('ask', 'Ask what they would do', 'Their answer is not always the right one', { energy: -3, progress: 6, dependency: 5 }, { result: 'They tell you, at speed, with total confidence. About seventy per cent of it is right and neither of you knows which seventy.' })] },
+  { id: 'meet_mid_compare', title: 'They mention another student', probability: .7, cooldown: 5, conditions: { minMonth: 18, minLabSize: 5 },
+    text: ['“{labmate} had a similar problem and solved it by —” and the rest of the sentence is useful, and it is not the part you hear.',
+      'A comparison that is not meant as a comparison, delivered as an example, which lands as a comparison.'],
+    choices: [c('take', 'Take the technical content and drop the rest', 'The skill worth having', { energy: -2, progress: 5, evidence: 3 }, { result: 'The method is genuinely useful. You use it. You put the other feeling in a drawer, where it stays for about four days.' }),
+      c('ask', 'Ask {labmate} about it directly', 'Better information; a real conversation', { energy: -3, progress: 4, labBond: 6 }, { bond: 6, result: 'They walk you through it and mention, unprompted, that it took them five months and two abandoned versions, which the example in the meeting did not include.' }),
+      c('sting', 'Let it sit', 'It sits', { hope: -5, stress: 5, confidence: -4 }, { personality: 'perfectionist' })] },
+  { id: 'meet_mid_nothing', title: 'A meeting with nothing in it', probability: .75, cooldown: 4, conditions: { minMonth: 18, maxMonth: 52 },
+    text: 'Twelve minutes. Two updates, one "great," one "keep going," and a scheduling question. It is not a bad meeting. It is not a meeting.',
+    choices: [c('bring', 'Bring the hard question you have been saving', 'Uses the slot for something', { energy: -4 }, { check: { skill: 'communication', difficulty: 48 }, successEffects: { progress: 6, novelty: 5, trust: 4 }, failureEffects: { stress: 4 }, successText: 'The twelve minutes become forty and it is the most useful conversation of the month, because you brought something to it.', failureText: 'They answer briefly and look at the clock, and you learn that this was not the week.' }),
+      c('accept', 'Take the twelve minutes and go', 'An hour back', { energy: 3, progress: 3 }, { result: 'Nothing happened. Nothing was supposed to happen. Roughly half of all supervision is this and it is not a failure of anything.' }),
+      c('social', 'Ask them something not about work', 'A different kind of information', { energy: -2, trust: 5, satisfaction: 3 }, { result: 'You ask what they are reading. They tell you for six minutes with obvious pleasure, and you learn more about how they think than the last four meetings gave you.' })] },
+  { id: 'meet_mid_recalibrate', title: '“Is this still the thesis?”', probability: .6, cooldown: 8, conditions: { minMonth: 24, maxMonth: 52, minProgress: 30 },
+    text: 'Asked without warning, in the middle of a normal update, in a tone that is genuinely curious rather than sceptical. It is the single most important question of the middle years and it takes four seconds to ask.',
+    choices: [c('yes', 'Argue that it is', 'Defend it and find out if you believe it', { energy: -4 }, { check: { skill: 'research', difficulty: 54 }, successEffects: { confidence: 8, novelty: 4, trust: 5 }, failureEffects: { hope: -5, scope: 6 }, successText: 'You argue it and you convince yourself in the process, which is the useful direction for that to run.', failureText: 'Halfway through the defence you hear that you are describing what you have done rather than what it is for.' }),
+      c('no', '“I do not think it is any more.”', 'A hard sentence; usually the right one', { energy: -3, stress: -6, scope: -12, hope: -3, novelty: 6 }, { flags: { rethought: true }, personality: 'independent', result: 'Saying it out loud costs about four seconds and eleven months of sunk cost, and the eleven months were already spent whether you said it or not.' }),
+      c('later', 'Ask for a fortnight to think about it', 'The reasonable middle', { energy: -1, stress: 3, readiness: 4 }, { result: 'They agree immediately. You think about it for a fortnight, properly, which is more than most people give the question.' })] },
+  { id: 'meet_mid_writing', title: 'They want to see writing', probability: .7, cooldown: 5, conditions: { minMonth: 20, minProgress: 35 },
+    text: '“Send me something written. Not slides. Prose.” Slides you can do. Prose exposes whether you know what you are claiming.',
+    choices: [c('write', 'Write four honest pages', 'Slow; the thing that actually moves a thesis', { energy: -8, draft: 10, writingQuality: 6 }, { skill: { writing: 1 }, result: 'Two of the four pages fall apart as you write them, which is the pages doing their job. What survives is the paper.' }),
+      c('slides', 'Send annotated slides instead', 'They notice', { energy: -3, draft: 3, satisfaction: -3 }, { personality: 'grinder', result: '“This is slides.” Yes. “Send me prose.” The delay cost a fortnight and the request did not change.' }),
+      c('outline', 'Send an outline and ask which section to write first', 'Efficient; slightly evasive', { energy: -4, draft: 4, writingQuality: 3 }, { result: 'They pick section three, which is the one you were avoiding, because of course it is.' })] },
   { id: 'meet_first', title: 'The first meeting', probability: 1, once: true, conditions: { maxMonth: 0 },
     text: ['{advisor} has a list. The list has your name at the top and the word “something” next to it. “Let’s find you something.”', '“What are you excited about?” {advisor} asks, already typing. Whatever you say next will become a project, so choose carefully.'],
     choices: [c('own', 'Pitch your own idea', 'Research check → novelty and independence', { energy: -4 }, { check: { skill: 'research', difficulty: 58 }, successEffects: { novelty: 10, confidence: 6, trust: 4 }, failureEffects: { confidence: -3, scope: 6 }, successText: '“Interesting.” They mean it this time; you can tell because they stopped typing.', failureText: '“Let’s start with something more concrete.” Concrete is their idea.', personality: 'independent', startMain: true }),

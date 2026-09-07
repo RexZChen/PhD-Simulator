@@ -19,7 +19,9 @@ import divergence from './events/divergence.js';
 import fate from './events/fate.js';
 import visa from './events/visa.js';
 import succession from './events/succession.js';
+import group from './events/group.js';
+import middle from './events/middle.js';
 
-export const events = [...application, ...holiday, ...life, ...research, ...advisor, ...review, ...department, ...career, ...lab, ...peer, ...crunch, ...urgent, ...conference, ...late, ...divergence, ...more, ...funding, ...cage, ...fate, ...visa, ...succession]
+export const events = [...application, ...holiday, ...life, ...research, ...advisor, ...review, ...department, ...career, ...lab, ...peer, ...crunch, ...urgent, ...conference, ...late, ...divergence, ...more, ...funding, ...cage, ...fate, ...visa, ...succession, ...group, ...middle]
   .map(e => ({ cooldown: 99, probability: .5, weight: 1, conditions: {}, ...e }));
 export const eventById = Object.fromEntries(events.map(e => [e.id, e]));

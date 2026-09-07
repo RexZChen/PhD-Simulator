@@ -92,3 +92,47 @@ export function focusOptions(s) {
   return focuses.map(f => ({ ...f, disabled: availability[f.id] || null }));
 }
 export const focusById = (s, id) => focusOptions(s).find(f => f.id === id) || null;
+
+// ── One pace control ─────────────────────────────────────────────────────────────────────────
+// The three tempo switches lived in three different places with three different conditions, and
+// `zoom` (week) disappeared at month 24 exactly as `pace` (season) appeared, so the controls
+// swapped position halfway through the run. A player cannot build a mental model out of that.
+//
+// This is the single source of truth: the four speeds, whether each is available right now, and —
+// when it is not — the reason, in a sentence, rather than the control simply not being there.
+export const PACES = ['season', 'month', 'week', 'day'];
+
+export function paceOptions(s) {
+  const c = crunchOf(s);
+  const forced = c && c.type !== 'zoom';
+  const tempo = s.tempo || tempoOf(s);
+  const why = {
+    season: s.month < 24 ? 'Seasons open once the prelim is behind you.'
+      : forced ? 'Not while there is a deadline this month.'
+      : s.week !== 0 ? 'Only at the start of a month.'
+      : !seasonEligible(s) ? 'Something on the calendar needs this month one at a time.' : null,
+    month: forced ? 'A deadline this month takes it week by week.' : null,
+    week: forced || s.week === 0 ? null : 'The month is already under way.',
+    day: !c ? 'Day pace is for deadline weeks.'
+      : s.dayOff === s.month ? 'You stepped back out of day pace this month.'
+      : (c.type === 'deadline' || c.type === 'rebuttal') && s.week < 3 ? 'The last week of a deadline month.'
+      : null,
+  };
+  return PACES.map(id => ({ id, active: tempo === id, disabled: why[id] || null }));
+}
+
+// Move to a pace. Returns the note to log, or throws with the reason it is not available.
+export function setPace(s, id) {
+  const opt = paceOptions(s).find(o => o.id === id);
+  if (!opt) throw new Error('That is not a pace.');
+  if (opt.disabled) throw new Error(opt.disabled);
+  if (opt.active) return null;
+  const c = crunchOf(s);
+  // Clear whatever the old pace was holding on to, then set the new one.
+  if (id !== 'day') s.dayOff = c ? s.month : s.dayOff;
+  if (id === 'season') { s.pace = 'auto'; s.flags.zoomMonth = -1; }
+  if (id === 'month') { s.pace = 'month'; s.flags.zoomMonth = -1; s.dayOff = s.month; }
+  if (id === 'week') { s.pace = 'month'; s.flags.zoomMonth = s.month; s.dayOff = s.month; }
+  if (id === 'day') { s.dayOff = -1; s.dayMode = s.month; }
+  return { season: 'Letting calm seasons pass in one step.', month: 'Taking it month by month.', week: 'Taking this month week by week.', day: 'Day by day: five working days, and every hour visible.' }[id];
+}

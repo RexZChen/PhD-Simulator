@@ -13,6 +13,9 @@ setTemplateLookup(id => templateById[id]);
 // Derived from the data rather than listed here, so a new one cannot be silently left out.
 const URGENT = events.filter(e => e.urgent).map(e => e.id);
 const cadenceRank = { whenever: 0, monthly: 1, biweekly: 2, weekly: 3 };
+// The scenes that can occupy the weekly group-meeting slot.
+const GROUP_POOL = ['group_present', 'group_nobody_read', 'group_someone_else', 'group_derail', 'group_visitor', 'group_reading', 'group_your_turn_again',
+  'group_round_thin', 'group_round_strong', 'group_public_correction', 'group_laughed_at'];
 
 // ctx: { tempo, crunch (null|{type}), cancelled, actor }
 export function eligible(s, e, ctx = {}) {
@@ -142,7 +145,13 @@ export function scheduleTurnEvents(s, ctx) {
   for (const e of events) if (e.forced && !queue.includes(e.id) && eligible(s, e, ctx)) queue.push(e.id);
   for (const id of s.eventQueue) if (!queue.includes(id)) queue.push(id);
   if (ctx.meetingTemplate && !queue.includes(ctx.meetingTemplate)) queue.push(ctx.meetingTemplate);
-  if (ctx.present && eligible(s, eventById.group_present, ctx)) queue.push('group_present');
+  // Group meeting is the most-repeated slot in the game — measured at 7.8 firings per run in the
+  // middle years, up to 17. It is a pool now: your turn, somebody else's turn, and the weeks where
+  // the meeting is about something other than what it was supposed to be about.
+  if (ctx.present) {
+    const pool = GROUP_POOL.filter(id => eventById[id] && eligible(s, eventById[id], ctx));
+    if (pool.length) queue.push(pickWeighted(s, pool, id => (id === 'group_present' ? 1.3 : 1)));
+  }
   const isDay = ctx.tempo === 'day';
   const isMonth = ctx.tempo === 'month' || ctx.tempo === 'season';
   const cap = ctx.tempo === 'season' ? 5 : isMonth ? 4 : isDay ? 1 : 2;

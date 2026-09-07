@@ -23,7 +23,7 @@ import { trackById, ACADEMIC } from '../data/tracks.js';
 import { drawWeather, weatherLine, openBoard } from './market.js';
 import { beginRevisions, revise, deposit, canDeposit, revisionMonth, revisionsLeft } from './thesis.js';
 import { openTimeline, playTimelineMove, canAskTimeline, timelineDrift } from './timeline.js';
-import { crunchOf, tempoOf, focusOptions, focusById, crunchSnapshot, milestoneOf, seasonEligible, dayEligible, DAYS_PER_WEEK } from './time.js';
+import { crunchOf, tempoOf, focusOptions, focusById, crunchSnapshot, milestoneOf, seasonEligible, dayEligible, paceOptions, setPace, DAYS_PER_WEEK } from './time.js';
 import { applyInternships, canApplyIntern, openInternTalk, playInternMove, endInternship, ensureIntern, internWindow } from './internship.js';
 import { addFunding } from './funding.js';
 import { fundingSources } from '../data/fundingSources.js';
@@ -312,6 +312,7 @@ function monthlyDrift(s) {
 }
 
 const DAY_NAMES = () => [t('Monday'), t('Tuesday'), t('Wednesday'), t('Thursday'), t('Friday')];
+export { paceOptions } from './time.js';
 export const dayName = s => DAY_NAMES()[(s.dayIndex || 0) % DAYS_PER_WEEK];
 export const daysLeftInWeek = s => DAYS_PER_WEEK - (s.dayIndex || 0);
 
@@ -653,6 +654,13 @@ export function dispatch(state, action) {
     case 'SKIP_APPROVAL': if (!(s.tempo === 'week' && s.week >= 2) && !['checkedOut', 'traveling'].includes(s.advisorMode?.id)) throw new Error(t('You can only skip the advisor’s read late in a crunch, or when they are unreachable.')); skipApproval(s); break;
     case 'SET_TARGET': { if (!p || !editable(p) && p.status !== 'Ready') throw new Error(t('Pick an editable project first.')); const v = venueById[a.id]; if (!v || v.rolling || !venuesForTopic(p.topic).includes(v)) throw new Error(t('That venue does not fit this project.')); if (!setTarget(s, p, a.id)) throw new Error(t('No upcoming deadline for that venue within this run.')); break; }
     case 'CLEAR_TARGET': if (!p) throw new Error(t('No project.')); clearTarget(s, p); log(s, t('Target cleared. The deadline still exists; it just isn’t yours.')); break;
+    case 'SET_PACE': {
+      const note = setPace(s, a.id);
+      s.crunch = crunchSnapshot(s); s.tempo = tempoOf(s); s.focus = null;
+      if (s.report) s.report.monthsCovered = s.tempo === 'season' ? 3 : 1;
+      if (note) log(s, t(note));
+      break;
+    }
     case 'ZOOM': if (s.week !== 0 || crunchOf(s)) throw new Error(t('You can only zoom in at the start of a calm month.')); s.flags.zoomMonth = s.flags.zoomMonth === s.month ? -1 : s.month; s.crunch = crunchSnapshot(s); s.tempo = tempoOf(s); s.focus = null; log(s, s.tempo === 'week' ? t('Taking this month week by week.') : t('Back to the monthly view.')); break;
     case 'PACE': s.pace = s.pace === 'month' ? 'auto' : 'month'; s.tempo = tempoOf(s); s.report.monthsCovered = s.tempo === 'season' ? 3 : 1; log(s, s.pace === 'month' ? t('Taking it month by month.') : t('Letting calm seasons pass in one step.')); break;
     case 'START_THESIS': if (s.milestones.proposal !== 'pass') throw new Error(t('The dissertation starts after the proposal is accepted.')); if (s.month < 54) throw new Error(t('Too early. The committee expects a dissertation in year five or six; so does your advisor, for different reasons.')); if (s.projects.some(p => p.kind === 'thesis')) throw new Error(t('The dissertation already exists, in the sense that a file exists.')); createThesis(s); break;
