@@ -74,7 +74,7 @@ function makeAdvisors(s) {
       ...Object.fromEntries(traitNames.map((t, j) => [t, jitter(s, archetype.traits[j])])),
       // Their own clock, so the pressure standing behind them is a property of every run.
       stage: pickWeighted(s, Object.keys(stageWeights[archetype.id] || stageWeights.parent), k => (stageWeights[archetype.id] || stageWeights.parent)[k]) || 'mid_career',
-      fellowship: random(s) < .2, hints: [], revealed: 0,
+      fellowship: random(s) < .1, hints: [], revealed: 0,
     };
     a.hints = advisorHints(s, a);
     return a;
@@ -177,7 +177,7 @@ export function populateLab(s) {
   if (s.mutators.includes('rentspike')) s.housing.rentDelta += Math.round(s.program.rent * .08);
   if (s.mutators.includes('tenure')) s.advisor.ambition = clamp(s.advisor.ambition + 10);
   s.cadence = cadenceFor(s.advisor);
-  s.ta = s.advisor.funding < 50;
+  s.ta = true;                       // year one teaches; see the note in game.js
 }
 
 export function cadenceFor(a) {

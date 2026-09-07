@@ -96,6 +96,10 @@ export function eligible(s, e, ctx = {}) {
   }
   if (c.mutator && !s.mutators.includes(c.mutator)) return false;
   if (c.flag && !s.flags[c.flag]) return false;
+  // Scenes that prepare you for an exam must stop once you have sat it. meet_prelim fired 55 times
+  // across 30 runs after the prelim had been passed — an advisor coaching you for something that
+  // already happened, which reads as the game not keeping track.
+  if (c.before && s.milestones?.[c.before] === 'pass') return false;
   if (c.notFlag && s.flags[c.notFlag]) return false;
   if (c.ta !== undefined && !!s.ta !== c.ta) return false;
   if (c.internship !== undefined && !!s.internship !== c.internship) return false;

@@ -16,7 +16,7 @@
 // hope both became real systems that is the outcome the model produces.
 
 import { createRun } from '../src/engine/state.js';
-import { dispatch, focusOptions } from '../src/engine/game.js';
+import { dispatch, focusOptions, canStartMain } from '../src/engine/game.js';
 import { schools } from '../src/data/catalog.js';
 import { interviewStep } from '../src/engine/apply.js';
 import { templateById } from '../src/engine/events.js';
@@ -202,8 +202,11 @@ async function run(seed, style) {
       { const pt = s.projects.find(x => x.id === s.activeProjectId); if (pt && !pt.targetVenueId && pt.progress >= 45 && pt.status !== 'Accepted') { try { s = act(s, { type: 'SET_TARGET', id: 'neuripsy' }); } catch {} } }
       { const pr = s.projects.find(x => x.id === s.activeProjectId); if (pr && pr.status === 'Rejected') { try { s = act(s, { type: 'RECYCLE', id: 'revise' }); } catch {} } }
       { const pb2 = s.projects.find(x => x.id === s.activeProjectId); if (pb2 && pb2.status === 'Rebuttal') { try { s = act(s, { type: 'REBUT', id: 'careful' }); } catch {} } }
-      if (!s.projects.length) { try { s = act(s, { type: 'START_PROJECT' }); } catch {} }
-      if (s.milestones.proposal === 'pass' && !s.milestones.thesisStarted && s.month >= 54) { try { s = act(s, { type: 'START_THESIS' }); } catch {} }
+      // The same wrong condition the game had: an Accepted paper stays in s.projects forever, so
+      // `!s.projects.length` is only ever true before the first one and the harness measured a
+      // player who publishes once and then spends four years on nothing.
+      if (canStartMain(s)) { try { s = act(s, { type: 'START_PROJECT' }); } catch {} }
+      if (s.milestones.proposal === 'pass' && !s.milestones.thesisStarted && s.month >= 44) { try { s = act(s, { type: 'START_THESIS' }); } catch {} }
       const p = s.projects.find(x => x.id === s.activeProjectId);
       if (p && p.status === 'Drafting' && p.draft >= 60 && p.progress >= 40) { try { s = act(s, { type: 'SEND_ADVISOR' }); } catch {} }
       if (p && p.status === 'Ready' && p.kind !== 'thesis') {

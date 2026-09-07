@@ -23,7 +23,8 @@ import group from './events/group.js';
 import middle from './events/middle.js';
 import spinout from './events/spinout.js';
 import fired from './events/fired.js';
+import cs from './events/cs.js';
 
-export const events = [...application, ...holiday, ...life, ...research, ...advisor, ...review, ...department, ...career, ...lab, ...peer, ...crunch, ...urgent, ...conference, ...late, ...divergence, ...more, ...funding, ...cage, ...fate, ...visa, ...succession, ...group, ...middle, ...spinout, ...fired]
+export const events = [...application, ...holiday, ...life, ...research, ...advisor, ...review, ...department, ...career, ...lab, ...peer, ...crunch, ...urgent, ...conference, ...late, ...divergence, ...more, ...funding, ...cage, ...fate, ...visa, ...succession, ...group, ...middle, ...spinout, ...fired, ...cs]
   .map(e => ({ cooldown: 99, probability: .5, weight: 1, conditions: {}, ...e }));
 export const eventById = Object.fromEntries(events.map(e => [e.id, e]));

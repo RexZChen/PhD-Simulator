@@ -50,7 +50,12 @@ export function createThesis(s) {
   log(s, t('Started the dissertation. {n} chapter(s) already exist as papers; the introduction does not.', { n: accepted.length }));
   return p;
 }
-export const canStartMain = s => !s.projects.some(p => p.kind === 'main' && !['Accepted', 'Abandoned'].includes(p.status)) && !s.projects.some(p => p.kind === 'thesis');
+// The day after the deadline you start the next paper, precisely because the last one is out of
+// your hands for three months. Blocking on Submitted and Rebuttal deleted the single most
+// characteristic rhythm of CS publishing and capped the degree at a median of one accepted paper,
+// against a real four to six. Rejected still blocks: deciding what a rejected paper becomes before
+// starting something else is true, and it is a real decision.
+export const canStartMain = s => !s.projects.some(p => p.kind === 'main' && !['Accepted', 'Abandoned', 'Submitted', 'Rebuttal'].includes(p.status)) && !s.projects.some(p => p.kind === 'thesis');
 export const canStartSide = s => s.month >= 4 && !s.projects.some(p => p.kind === 'side' && !['Accepted', 'Abandoned'].includes(p.status)) && s.projects.some(p => p.kind === 'main' && p.progress >= 40);
 
 export const paperQuality = p => p.novelty * .18 + p.technicalDepth * .15 + p.evidence * .29 + p.writingQuality * .23 + p.reproducibility * .15;

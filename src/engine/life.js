@@ -218,7 +218,7 @@ export const crisisMoveList = s => s.crisis && !s.crisis.resolved ? Object.value
 export function monthlyLedger(s) {
   const interning = s.internship && s.month >= s.internship.start && s.month <= s.internship.end;
   const m = monthOf(s.month);
-  const summerGap = [6, 7, 8].includes(m) && s.ta && !interning && !s.flags.summerTA && !s.flags.summerCovered;
+  const summerGap = [6, 7, 8].includes(m) && s.ta && s.month >= 12 && !interning && !s.flags.summerTA && !s.flags.summerCovered;
   const stipend = interning
     ? Math.round(s.internship.salary || s.program.stipend * 1.75)   // what the offer actually said, which is sometimes worse
     : Math.round(s.program.stipend * (summerGap ? .4 : 1) * (s.flags.fundingGap ? .7 : 1)) + (s.flags.raise ? 150 : 0);

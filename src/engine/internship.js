@@ -99,7 +99,7 @@ export const collisionWeight = (s, offer) => Math.min(3, collisions(s, offer).le
 // Sibling of the graduation negotiation: shorter, and about twelve weeks rather than a year.
 export function internWillingness(s, offer) {
   const a = s.advisor, r = s.relationship, ty = internTypes[offer.typeId];
-  return clamp(48
+  return clamp(60
     + (a.caring - 50) * .40 + (r.trust - 50) * .30 + (r.satisfaction - 50) * .22
     - (a.ambition - 50) * .42 - (a.toxicity - 40) * .50
     - (a.funding >= 45 ? 8 : 0) + (a.connections > 70 ? 6 : 0)
@@ -107,7 +107,7 @@ export function internWillingness(s, offer) {
     - collisionWeight(s, offer) * 9
     + s.counts.accepted * 5
     - (s.month < 20 ? 8 : 0)
-    - ((s.intern?.history.length || 0) ? 6 : 0));
+    - ((s.intern?.history.length || 0) ? 6 : 0), 0, 140);
 }
 export const internObjectionIsFair = (s, offer) => collisionWeight(s, offer) >= 2 || internWillingness(s, offer) >= 40;
 

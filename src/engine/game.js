@@ -135,7 +135,7 @@ function monthStart(s, first = false, intermediate = false) {
   const m = monthOf(s.month);
   if (!first) {
     const interning = s.internship && s.month >= s.internship.start && s.month <= s.internship.end;
-    const summerGap = isSummer(s.month) && s.ta && !interning && !s.flags.summerTA && !s.flags.summerCovered;
+    const summerGap = isSummer(s.month) && s.ta && s.month >= 12 && !interning && !s.flags.summerTA && !s.flags.summerCovered;
     monthlyLedger(s);
     if (summerGap && m === 6) log(s, t('Summer funding gap. The stipend has become a suggestion.'));
     if (s.debt > 4000 && !s.flags.debtNoticed) {
@@ -147,7 +147,13 @@ function monthStart(s, first = false, intermediate = false) {
     if (s.flags.forceLean && s.budget !== 'lean') s.budget = 'lean';
   }
   if (m === 9 || m === 1) {
-    s.ta = !s.flags.fellow && (s.advisor.funding < 50 || !!s.flags.extraTA);
+    // Almost every US CS PhD student teaches in year one — it is usually a programme requirement,
+    // not a funding accident — and then moves onto RA money once there is a project to be paid
+    // from. Keying it purely on the advisor's grant meant a well-funded advisor produced a student
+    // who never taught in six years, which was 52% of runs against a real ~5%.
+    const firstYear = s.month < 12;
+    const covered = s.flags.fellow && s.month < 12;
+    s.ta = !covered && (firstYear || s.advisor.funding < 50 || !!s.flags.extraTA || !!s.flags.hardTA);
     if (s.ta) s.counts.taSemesters = (s.counts.taSemesters || 0) + 1;   // what you taught, not what you are teaching
     if (m === 9) { s.flags.summerTA = false; s.flags.summerCovered = false; }
   }
@@ -259,7 +265,7 @@ function applyTurn(s) {
   clearSummons(s);
   s.turnBite = 0;
   if (leave) { effects(s, { energy: 12 * leave, stress: -10 * leave, hope: 4 * leave }); log(s, leave === weeks ? t('On leave. The laptop stayed closed for a whole week, which counts as a miracle.') : t('A week of leave, then back to it.')); }
-  const commute = s.housing.commute * .5, taDrag = s.ta ? .8 : 0, stressDrag = s.player.hidden.stress > 65 ? 1.5 : 0, health = s.flags.resolutionHealth ? .5 : 0, cat = s.flags.cat ? .3 : 0;
+  const commute = s.housing.commute * .5, taDrag = s.ta ? (s.month < 12 ? .45 : .8) : 0, stressDrag = s.player.hidden.stress > 65 ? 1.5 : 0, health = s.flags.resolutionHealth ? .5 : 0, cat = s.flags.cat ? .3 : 0;
   const openRequests = s.requests.filter(r => r.status === 'open').length;
   effects(s, { energy: (3.2 - commute - taDrag - stressDrag + health + cat) * weeks, stress: (-.5 + (s.pressure > 60 ? .5 : 0) + (tempo === 'week' ? 1.5 : 0) + openRequests * .5) * weeks });
   vitalsDrift(s, weeks);
@@ -624,9 +630,10 @@ export function dispatch(state, action) {
       answerBeat(s, a.id);
       if (s.epilogue.finished) {
         const years = 5 + Math.round(random(s) * 4);
-        finish(s, `phd_${s.jobs.chosen}`, t('Dr. {name}', { name: s.player.name }),
-          t('{years} years later, the degree is a line on a page and everything else it gave you is not. You can read a hard paper and know within ten minutes whether it is true. You can sit with a problem that does not resolve. You know what it costs to find something out, and you are one of a small number of people on earth who has done it.\n\nYou still email {advisor}. Not often. Enough.\n\nA PhD is not for everyone, and nobody should pretend otherwise. It is long, it is underpaid, and it will ask for more than is reasonable. It was also the six years you learned to think. Both of those are true, and you are allowed to keep both.',
-            { years, advisor: t('Prof. {name}', { name: lastName(s.advisor.name) }) }));
+        const track = trackEndings[s.jobs.chosen] || trackEndings.unplaced;
+        finish(s, `phd_${s.jobs.chosen}`, t(track.title),
+          `${t(track.text)}\n\n${t('{years} years later, the degree is a line on a page and everything else it gave you is not. You can read a hard paper and know within ten minutes whether it is true. You can sit with a problem that does not resolve. You know what it costs to find something out, and you are one of a small number of people on earth who has done it.\n\nYou still email {advisor}. Not often. Enough.\n\nA PhD is not for everyone, and nobody should pretend otherwise. It is long, it is underpaid, and it will ask for more than is reasonable. It was also the six years you learned to think. Both of those are true, and you are allowed to keep both.',
+            { years, advisor: t('Prof. {name}', { name: lastName(s.advisor.name) }) })}`);
         s.finalEpilogue = s.epilogue;
       }
       return s;
@@ -722,7 +729,7 @@ export function dispatch(state, action) {
     }
     case 'ZOOM': if (s.week !== 0 || crunchOf(s)) throw new Error(t('You can only zoom in at the start of a calm month.')); s.flags.zoomMonth = s.flags.zoomMonth === s.month ? -1 : s.month; s.crunch = crunchSnapshot(s); s.tempo = tempoOf(s); s.focus = null; log(s, s.tempo === 'week' ? t('Taking this month week by week.') : t('Back to the monthly view.')); break;
     case 'PACE': s.pace = s.pace === 'month' ? 'auto' : 'month'; s.tempo = tempoOf(s); s.report.monthsCovered = s.tempo === 'season' ? 3 : 1; log(s, s.pace === 'month' ? t('Taking it month by month.') : t('Letting calm seasons pass in one step.')); break;
-    case 'START_THESIS': if (s.milestones.proposal !== 'pass') throw new Error(t('The dissertation starts after the proposal is accepted.')); if (s.month < 54) throw new Error(t('Too early. The committee expects a dissertation in year five or six; so does your advisor, for different reasons.')); if (s.projects.some(p => p.kind === 'thesis')) throw new Error(t('The dissertation already exists, in the sense that a file exists.')); createThesis(s); break;
+    case 'START_THESIS': if (s.milestones.proposal !== 'pass') throw new Error(t('The dissertation starts after the proposal is accepted.')); if (s.month < 44) throw new Error(t('Too early. The committee expects a dissertation in year five or six; so does your advisor, for different reasons.')); if (s.projects.some(p => p.kind === 'thesis')) throw new Error(t('The dissertation already exists, in the sense that a file exists.')); createThesis(s); break;
     case 'SCHEDULE_DEFENSE': {
       const th = s.projects.find(p => p.kind === 'thesis');
       if (!th || th.status !== 'Ready') throw new Error(t('The committee needs an approved dissertation draft first.'));

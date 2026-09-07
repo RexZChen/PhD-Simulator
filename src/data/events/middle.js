@@ -98,8 +98,13 @@ export default [
     ] },
 
   // ── The year the money went ────────────────────────────────────────────────────────────────
+  // Fired in 100% of runs at month 0 before this: `urgent` bypasses the probability roll and there
+  // were no conditions at all, so the scene about losing your funding arrived before you had any.
+  // A grant not renewing is a real and common thing; it happens in the middle years, to about a
+  // third of students, and never in the first term.
   { id: 'ra_lost', title: 'The renewal did not come through', category: 'advisor', scene: 'office', speaker: 'advisor', urgent: true,
     probability: 1, once: true, cooldown: 99,
+    conditions: { minMonth: 14, maxMonth: 56, maxFunding: 62 },
     text: ['{advisor} closes the door, which they do not usually do.\n\n“The renewal did not come through. I have appealed and I will not win. I can cover you until the end of May and after that the department will pick you up as a TA.”\n\nA pause. “You will not lose any money. I want to be clear about that first, because everybody hears the other thing first.”',
       'It is in the budget spreadsheet before it is in a conversation. Your name moves from one column to another, and the column it moves to is the one with the course numbers in it, and the total at the bottom does not change.'],
     choices: [

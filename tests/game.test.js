@@ -2180,3 +2180,28 @@ test('the paper you arrived with is a real paper, and quality actually drives ci
   assert.ok(avg(great) > avg(fine) * 2.5,
     `a genuinely good paper earns ${Math.round(avg(great))} against ${Math.round(avg(fine))} — quality barely matters`);
 });
+
+test('scenes about a first happen the first time, and the twelve endings are reachable', async () => {
+  // All 26 firstyear_* events shipped with `probability: .5, cooldown: 14` and no conditions at
+  // all, so "The first check lands on the thirtieth" and "The first one-on-one" could fire in
+  // year six. And a first-year asking YOU for advice required you not to be one.
+  const { events } = await import('../src/data/events.js');
+  const firstYear = events.filter(e => e.id.startsWith('firstyear_'));
+  assert.ok(firstYear.length >= 20);
+  const ungated = firstYear.filter(e => e.conditions?.maxMonth === undefined);
+  assert.deepEqual(ungated.map(e => e.id), [], 'a scene about your first year can fire in your sixth');
+  assert.ok((events.find(e => e.id === 'midphd_first_year_question')?.conditions?.minMonth ?? 0) >= 12,
+    'a first-year asks you for advice while you are one');
+
+  // Twelve ~250-word career endings were authored and none reached a player: the branch that
+  // reads them needs stage 'milestone', and graduating sets stage 'commencement'. Every doctorate
+  // in the game ended on the same paragraph.
+  const { trackEndings } = await import('../src/data/endings.js');
+  const src = await import('node:fs').then(fs => fs.readFileSync('src/engine/game.js', 'utf8'));
+  assert.ok(src.includes('trackEndings[s.jobs.chosen]'),
+    'the epilogue does not read the track ending, so all twelve are dead content');
+  assert.ok(Object.keys(trackEndings).length >= 10);
+  for (const [id, e] of Object.entries(trackEndings)) {
+    assert.ok(e.title && e.text && e.text.length > 200, `${id} is not a real ending`);
+  }
+});

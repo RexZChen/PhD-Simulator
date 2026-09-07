@@ -135,7 +135,7 @@ export const meetings = [
     text: '“{labmate} is behind on their deadline. Can you spend a few days on their pipeline?” The days are yours. The deadline is theirs. The paper will be neither of yours.',
     choices: [c('help', 'Help', 'Bond, trust; progress lost', { progress: -5, energy: -7, trust: 4 }, { bond: 12, personality: 'peoplePleaser' }),
       c('decline', 'Decline', 'Boundary; satisfaction', { satisfaction: -6 }, { bond: -3, personality: 'boundarySetter' })] },
-  { id: 'meet_prelim', title: 'About the prelim', probability: .8, cooldown: 3, conditions: { minMonth: 16 },
+  { id: 'meet_prelim', title: 'About the prelim', probability: .8, cooldown: 3, conditions: { minMonth: 16, before: 'prelim' },
     text: ['“Let’s talk about the committee.” {advisor} names two people. One of them rejected your paper. They do not know that; you do.', '“The prelim is a formality.” Everyone who has failed one was told this.'],
     choices: [c('practice', 'Schedule a practice talk', 'Readiness', { readiness: 8, energy: -4 }, { personality: 'perfectionist' }),
       c('committee', 'Ask them to suggest friendly members', 'Connections check', {}, { check: { advisor: 'connections', difficulty: 50 }, successEffects: { readiness: 6, trust: 3 }, failureEffects: { stress: 4 }, successText: 'Two names, both kind, both busy. They agree in one email each.', failureText: '“Anyone is fine.” Anyone is not fine.' }),
