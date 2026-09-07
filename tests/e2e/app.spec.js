@@ -1203,3 +1203,46 @@ test('the patent is a process with its own clock, and it lands on Scholar', asyn
   await expect(page.locator('.patent-row')).toBeVisible();
   await expect(page.locator('.patent-row')).toContainText(/Patent/);
 });
+
+test('the optional questionnaire is optional, and answering it changes the story', async ({ page }) => {
+  await fresh(page);
+  await page.getByRole('button', { name: /New applicant/ }).click();
+  await page.getByRole('button', { name: /Next >/ }).click();
+  await page.check('#eula');
+  await page.getByRole('button', { name: /Next >/ }).click();
+
+  // Collapsed by default, so ten required fields are still ten required fields.
+  const block = page.locator('.optional-block');
+  await expect(block).toBeVisible();
+  await expect(block.locator('select')).toHaveCount(5);
+  expect(await block.evaluate(el => el.open)).toBe(false);
+
+  // Leaving them alone must produce a run with nulls, not defaults that gate things.
+  await page.getByRole('button', { name: /Create applicant/ }).click();
+  await closeDialogs(page);
+  const skipped = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const p = loadSave(localStorage)?.run?.player?.profile;
+    return { why: p?.whyHere, house: p?.household, fear: p?.fear };
+  });
+  expect(skipped.why).toBeNull();
+  expect(skipped.house).toBeNull();
+  expect(skipped.fear).toBeNull();
+
+  // And the seven conversations they unlock are gated on them, both ways.
+  const gates = await page.evaluate(async () => {
+    const { createRun } = await import('/src/engine/state.js');
+    const { eligible } = await import('/src/engine/events.js');
+    const { eventById } = await import('/src/data/events.js');
+    const mk = extra => { const s = createRun(3, { background: 'masters', topic: 'ml', international: false, ...extra });
+      s.phase = 'playing'; s.month = 32; s.player.hidden.stress = 70; s.projects = []; return s; };
+    const off = mk({});
+    const on = mk({ whyHere: 'question', household: 'kids', fear: 'fraud', dealbreaker: 'health' });
+    const ids = ['opt_the_question', 'opt_small_child', 'opt_fraud', 'opt_dealbreaker'];
+    return ids.map(id => ({ id, off: eligible(off, eventById[id], {}), on: eligible(on, eventById[id], {}) }));
+  });
+  for (const g of gates) {
+    expect(g.off, `${g.id} must not fire for a player who skipped`).toBe(false);
+    expect(g.on, `${g.id} must fire for a player who answered`).toBe(true);
+  }
+});

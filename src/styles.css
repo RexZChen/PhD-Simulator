@@ -1134,3 +1134,9 @@ table.mini th { background: var(--face); }
 .pace-step:hover:not(:disabled) { background: #e9eef8; }
 .pace-step.on { background: var(--sel); color: var(--sel-text); border-color: var(--shadow) var(--hi) var(--hi) var(--shadow); font-weight: 700; }
 .pace-step:disabled { color: var(--disabled); background: var(--face); cursor: default; }
+
+/* The optional half of the questionnaire: present, collapsed, and clearly not required. */
+.optional-block { margin-top: 10px; border-top: 1px solid var(--shadow); padding-top: 8px; }
+.optional-block > summary { cursor: pointer; font-size: 13px; font-weight: 700; padding: 2px 0; }
+.optional-block > summary::marker { color: var(--accent); }
+.optional-block .form { margin-top: 6px; }

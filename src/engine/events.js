@@ -46,6 +46,12 @@ export function eligible(s, e, ctx = {}) {
   if (c.maxHealth !== undefined && s.player.stats.health > c.maxHealth) return false;
   if (c.minHealth !== undefined && s.player.stats.health < c.minHealth) return false;
   if (c.background && !c.background.includes(s.player.profile.background)) return false;
+  // Optional questionnaire answers. A null answer gates nothing in either direction.
+  if (c.whyHere && !c.whyHere.includes(s.player.profile.whyHere)) return false;
+  if (c.household && !c.household.includes(s.player.profile.household)) return false;
+  if (c.firstGen !== undefined && s.player.profile.firstGen !== c.firstGen) return false;
+  if (c.fear && !c.fear.includes(s.player.profile.fear)) return false;
+  if (c.dealbreaker && !c.dealbreaker.includes(s.player.profile.dealbreaker)) return false;
   if (c.travelled !== undefined && !!s.lastTrip !== c.travelled) return false;
   if (c.minIgnored !== undefined && (s.counts.crisisIgnored || 0) < c.minIgnored) return false;
   if (c.minLowHealth !== undefined && (s.counts.lowHealthMonths || 0) < c.minLowHealth) return false;

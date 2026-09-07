@@ -109,6 +109,13 @@ export function createRun(seed = Date.now() >>> 0, answers = {}) {
     style: answers.style || pick(s, ['independent', 'collaborative']),
     experience: answers.experience || pick(s, ['none', 'some', 'extensive']),
     publications: answers.publications || 'none',
+    // Optional answers. `skip` (or absent) means the field gates nothing — the run is identical
+    // except that a handful of conversations never come up.
+    whyHere: answers.whyHere && answers.whyHere !== 'skip' ? answers.whyHere : null,
+    household: answers.household && answers.household !== 'skip' ? answers.household : null,
+    firstGen: answers.firstGen && answers.firstGen !== 'skip' ? answers.firstGen : null,
+    fear: answers.fear && answers.fear !== 'skip' ? answers.fear : null,
+    dealbreaker: answers.dealbreaker && answers.dealbreaker !== 'skip' ? answers.dealbreaker : null,
   };
   s.player = {
     name: String(answers.name || 'Alex Student').trim().slice(0, 40) || 'Alex Student',

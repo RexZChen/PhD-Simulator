@@ -36,7 +36,17 @@ ${esc(t('By continuing you agree that: (1) nobody in this game is real; (2) any 
     ${select(t('Domestic / international'), 'international', [['false', t('Domestic student')], ['true', t('International student')]])}
     ${select(t('Research interest'), 'topic', Object.entries(topics))}
     ${select(t('Career ambition'), 'ambition', [['undecided', t('Keep my options open')], ['academic', t('An academic career')], ['industry', t('Research in industry')]])}
-    ${select(t('Preferred research style'), 'style', [['collaborative', t('Think with other people')], ['independent', t('Figure things out alone')]])}</div><p class="tiny muted" style="margin-top:8px">${t('International status changes which situations you encounter (visas, taxes, distance), not your ability.')}</p></form>`;
+    ${select(t('Preferred research style'), 'style', [['collaborative', t('Think with other people')], ['independent', t('Figure things out alone')]])}</div>
+    <details class="optional-block"><summary>${t('A few optional ones (they change which story you get)')}</summary>
+    <p class="tiny muted">${t('Every one of these can be left as “rather not say.” They do not make the run easier or harder; they decide which conversations you end up in.')}</p>
+    <div class="form">
+    ${select(t('Why are you actually doing this?'), 'whyHere', [['skip', t('Rather not say')], ['question', t('There is one question I want answered')], ['prove', t('To prove I can')], ['love', t('I like the work and nothing else fits')], ['stuck', t('It was the next thing on the list')], ['visa', t('It is also the way I get to stay')]])}
+    ${select(t('Who else is in your life right now?'), 'household', [['skip', t('Rather not say')], ['alone', t('Nobody, currently')], ['partner', t('A partner')], ['partnerFar', t('A partner, in another city')], ['kids', t('A partner and a small child')], ['parent', t('A parent who needs me')]])}
+    ${select(t('First in your family to do this?'), 'firstGen', [['skip', t('Rather not say')], ['yes', t('Yes — nobody at home has a doctorate')], ['no', t('No — somebody at home has been through it')]])}
+    ${select(t('What are you most afraid of here?'), 'fear', [['skip', t('Rather not say')], ['fraud', t('Being found out')], ['money', t('Running out of money')], ['waste', t('Wasting the years')], ['letdown', t('Disappointing someone specific')]])}
+    ${select(t('What would actually make you leave?'), 'dealbreaker', [['skip', t('Rather not say')], ['health', t('If it started costing my health')], ['money', t('If the arithmetic stopped working')], ['meaning', t('If I stopped believing the work mattered')], ['never', t('Nothing. I am finishing this.')]])}
+    </div></details>
+    <p class="tiny muted" style="margin-top:8px">${t('International status changes which situations you encounter (visas, taxes, distance), not your ability.')}</p></form>`;
     buttons = `${btn(t('< Back'), 'wiz-back')}${btn(t('Create applicant'), 'wiz-submit', { cls: 'primary', attrs: 'data-default="1"' })}`;
   }
   return `<div class="wizard-body">${banner}<div class="wizard-page">${page}</div></div><div class="wizard-buttons">${buttons}${btn(t('Cancel'), 'wiz-cancel')}</div>`;

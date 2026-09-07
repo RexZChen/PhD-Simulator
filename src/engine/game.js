@@ -13,6 +13,7 @@ import { patentMonth, openPatent, doPatentMeeting, answerOfficeAction, nextPaten
 import { networkMonth, netTalk, netCollab, doCollab, askNetLetter, netIntro, meetContact } from './network.js';
 import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, expireRequests, doRequest, pushbackRequest, declineRequest, ask, updatePressure, advisorPing, shiftCadence, revealHint, reviewLatencyWeeks, advisorResponds, newAdvisor } from './advisor.js';
 import { monthlyChatter, monthlyMail, fieldNote } from './lab.js';
+import { hardTaMonth, onHardTA } from './life.js';
 import { monthlyLedger, monthlyLife, vitalsDrift, doLifeAction, visitClinic, payDebt, setBudget, coffee, skipMeal, charge, caffeineState, crisisDue, openCrisis, resolveCrisis, crisisMoveList } from './life.js';
 import { popIns, runIns, dayWeather } from '../data/day.js';
 import { accrueCitations } from './scholar.js';
@@ -152,7 +153,7 @@ function monthStart(s, first = false, intermediate = false) {
   if (s.burnoutMonths > 0) s.burnoutMonths--;
   if (s.flags.recovery) { s.burnoutMonths = Math.max(0, s.burnoutMonths - 1); s.flags.recovery = false; }
   updateAdvisorMode(s);
-  if (!first) { updatePressure(s); advisorPing(s); monthlyChatter(s); monthlyMail(s); monthlyLife(s); accrueCitations(s); updateStanding(s); updateQuitPressure(s); revisionMonth(s); timelineDrift(s); jobsMonth(s); networkMonth(s); patentMonth(s); }
+  if (!first) { updatePressure(s); advisorPing(s); monthlyChatter(s); monthlyMail(s); monthlyLife(s); accrueCitations(s); updateStanding(s); updateQuitPressure(s); revisionMonth(s); timelineDrift(s); jobsMonth(s); networkMonth(s); patentMonth(s); hardTaMonth(s); }
   // The body does not wait for a convenient month.
   // The window where "I am still not right" is a thing you can say closes; after that it is just
   // how you are now.

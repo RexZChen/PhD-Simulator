@@ -51,7 +51,7 @@ switched at any point mid-run, including for mail and chat you have already rece
 
 ```bash
 npm test          # 96 deterministic engine tests (node --test)
-npm run test:e2e  # 36 Playwright browser flows (uses installed Google Chrome)
+npm run test:e2e  # 37 Playwright browser flows (uses installed Google Chrome)
 npm run build     # production build
 npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
 npm run i18n      # plays real runs in Chinese and lists anything still in English
@@ -101,6 +101,13 @@ interest. Debt that compounds quietly and gets paid down when there is slack.
 **International students** carry it differently and the model says so: higher loneliness, visa fees,
 CPT paperwork, remittances home, employers that will not sponsor, national labs that are closed to
 them outright, and travel that needs a visa which usually comes through and sometimes does not.
+
+**The questionnaire has an optional half.** Five fields, collapsed, every one answerable with
+"rather not say": why you are actually doing this, who else is in your life, whether you are the
+first in your family, what you are most afraid of, and what would genuinely make you leave. They do
+not make the run easier or harder. They decide which conversations you end up in — the question you
+came here with and have never once worked on, the nursery that closes at six, the call from home,
+the two a.m. certainty that you have been faking it for three years.
 
 **Storylines that run for years.** The spinout: Technology Transfer emails about your paper, your
 advisor raises commercialising at the end of a meeting about something else, and then there is a cap
@@ -194,7 +201,7 @@ days. And your advisor can leave before you do — tenure denied, emeritus, an o
 you have heard of, or an email that goes out at 7:40 in the morning — and you have to find somebody
 else, or race their clock, or inherit the lab.
 
-**Endings and achievements.** 24 endings and 100 achievements, in a register that refuses to call
+**Endings and achievements.** 24 endings and 103 achievements, in a register that refuses to call
 you a failure for any of them.
 
 ## How it is built

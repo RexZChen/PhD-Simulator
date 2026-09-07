@@ -185,6 +185,10 @@ export const achievements = {
 
   askedforamonth: { name: 'You Asked For A Month', desc: 'Ask for time off after an acceptance. You got two weeks, which is more than you have had in three years.' },
 
+  theyearthemoneywent: { name: 'The Year The Money Went', desc: 'Come out the other side of a year of forced teaching. Your funding package was intact the whole time and only that sentence appears in any document.' },
+
+  heldtheline: { name: 'The Line You Drew', desc: 'Stop where you said you would stop, before you started. The person who set that line had more perspective than the person reading it.' },
+
   // ── The patent ─────────────────────────────────────────────────────────────────────────────
   namedinventor: { name: 'Named Inventor', desc: 'Get an application filed. It appears on your Scholar profile about a year later, indexed next to your papers as though it were one.' },
   patentgranted: { name: 'Two Years, Four Months', desc: 'Argue a rejection down to a granted patent. There is a certificate. It is genuinely beautiful and it arrives in a cardboard tube.' },

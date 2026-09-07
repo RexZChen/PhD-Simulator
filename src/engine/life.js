@@ -2,6 +2,7 @@
 // Everything here is deterministic given the seed; nothing here calls the UI.
 import { t } from '../i18n/index.js';
 import { crises, crisisMoves, afterCrisis, CRISIS_HEALTH, CRISIS_COOLDOWN } from '../data/crisis.js';
+import { HARD_TA, raLostText, raBackText, raExtendText } from '../data/hardta.js';
 import { conditions as conditionDefs, clinicById, clinics, budgets, lifeActionById, COFFEE } from '../data/life.js';
 import { monthOf } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
@@ -406,3 +407,53 @@ export function monthlyLife(s) {
   if (s.player.stats.health < 32) s.counts.lowHealthMonths = (s.counts.lowHealthMonths || 0) + 1;
   if (s.player.hidden.stress > 72) s.counts.highStressMonths = (s.counts.highStressMonths || 0) + 1;
 }
+
+// ── The year the money went ──────────────────────────────────────────────────────────────────
+// Rare, and it happens to somebody in every cohort. The package is intact — that is the whole
+// point of it — and the research year is gone, and only the first of those appears in a document.
+export const onHardTA = s => !!s.raLost && s.month < s.raLost.until;
+
+export function hardTaMonth(s) {
+  if (s.phase !== 'playing') return;
+  if (s.raLost) {
+    if (s.month >= s.raLost.until) {
+      // Either the money came back, or it did not and the year runs again.
+      const back = roll(s, clamp(.45 + (s.advisor.funding - 40) / 90, .12, .9));
+      if (back) {
+        s.raLost = null; s.flags.hardTA = false;
+        effects(s, { hope: 10, stress: -10 });
+        log(s, t(pick(s, raBackText)));
+        award(s, 'theyearthemoneywent');
+      } else {
+        s.raLost.until = s.month + HARD_TA.semesters * 5;
+        s.raLost.years = (s.raLost.years || 1) + 1;
+        effects(s, { hope: -12, stress: 10 });
+        log(s, t(pick(s, raExtendText)));
+      }
+      return;
+    }
+    // The month itself.
+    effects(s, { energy: HARD_TA.energy, progress: HARD_TA.progress, teaching: 2, stress: 3 });
+    return;
+  }
+  // Does it start? Rare, and it needs the money to actually be gone.
+  if (s.month < 14 || s.flags.fellow || s.milestones.graduated) return;
+  if (s.month - (s.lastRaCheck ?? -99) < 6) return;
+  s.lastRaCheck = s.month;
+  // roll() floors its chance at 3%, so a computed risk of zero is not zero — with a check every
+  // six months that turns "well funded, cannot happen" into about a quarter of all runs. Guard the
+  // zero explicitly, and keep the rate genuinely rare: this is the thing that happens to somebody
+  // in every cohort and almost never to you.
+  // roll() both floors its chance at 3% and ceilings it at 97%, so it cannot express anything
+  // rarer than 3% — with a check every six months that is a quarter of all runs, whatever number
+  // you pass it. For genuinely rare things, compare against random() directly.
+  const risk = (44 - s.advisor.funding) / 2200;
+  if (risk <= 0 || random(s) >= risk) return;
+  s.raLost = { since: s.month, until: s.month + HARD_TA.semesters * 5, years: 1 };
+  s.ta = true;
+  s.flags.hardTA = true;
+  log(s, t(pick(s, raLostText)));
+  pushHardTa(s);
+}
+// The conversation is an event so it has choices; life.js only owns the clock.
+function pushHardTa(s) { s.eventQueue = [...(s.eventQueue || []), 'ra_lost']; }

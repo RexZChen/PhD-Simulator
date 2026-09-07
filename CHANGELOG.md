@@ -4,6 +4,34 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.8.0] — 2026-09-07
+
+Two more storylines, and a questionnaire whose optional half decides which one you get.
+
+### Added
+- **The year the money went.** Rare, and it happens to somebody in every cohort. The renewal does
+  not come through, and the department keeps you whole by teaching you out of a different budget —
+  the package is intact, the tuition waiver is intact, the stipend arrives on the same day of the
+  month. You are also teaching two sections and grading for two hundred and forty people for two
+  semesters, and your research does approximately nothing for a year, and nobody involved has done
+  anything wrong. Four beats, and it can extend for a second year if the money does not come back.
+  Gated on the advisor's funding: ~19% of runs under a nearly broke advisor, 3% under a marginal
+  one, and impossible above 44.
+- **An optional half to the applicant questionnaire.** Five fields, collapsed by default, every one
+  answerable with "rather not say": why you are actually doing this, who else is in your life, first
+  in your family, what you are most afraid of, and what would actually make you leave. They do not
+  make the run easier or harder — they decide which conversations you end up in. Seven events exist
+  only for a player who answered: the question you came here with and have never worked on, the
+  person you were proving it to, two cities, a nursery that closes at six, the call from home, the
+  two a.m. certainty that you have been faking it, and the line you drew before you started.
+- 2 achievements, for 103.
+
+### Fixed
+- **`roll()` floors its chance at 3% and ceilings it at 97%**, so it cannot express a rare event at
+  all. A funding collapse computed at "impossible" was firing in a quarter of runs, because a check
+  every six months at an enforced 3% floor compounds. Rare things now compare against `random()`
+  directly, and the zero case is guarded explicitly rather than passed to `roll`.
+
 ## [1.7.0] — 2026-09-07
 
 Storylines rather than events: arcs that run for years, one decision at a time.
