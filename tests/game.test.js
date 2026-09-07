@@ -1953,3 +1953,35 @@ test('the labmate who is pushed out stays the same person, and can become a cont
   assert.equal(activeContacts(other).some(c => c.name === who.name), false);
   assert.equal(other.fired.kept, false);
 });
+
+test('each thing on the desk says its own line, including when it has nothing to say', async () => {
+  // The bug this guards: an idle click deliberately does not write to the history (looking at a
+  // fridge is not an event), and the UI was reading s.notice — so a fixture on cooldown displayed
+  // whatever was logged last. Erase the whiteboard once and every object on the desk said the
+  // eraser line, forever, which is exactly what it looked like from the outside.
+  const { useFixture } = await import('../src/engine/desk.js');
+  const { plantLines, chairLines, fridgeLines } = await import('../src/data/desk.js');
+  const pools = {
+    plant: [plantLines.discover, ...plantLines.after, ...plantLines.idle],
+    chair: [chairLines.discover, ...chairLines.after, ...chairLines.idle],
+    fridge: [fridgeLines.discover, ...fridgeLines.after, ...fridgeLines.idle],
+  };
+  const s = enterProgram(3);
+  s.month = 26; s.week = 0;
+  // Something unrelated writes to the log, the way erasing the whiteboard does.
+  s.notice = 'The eraser leaves a grey ghost of everything.';
+  for (const id of ['plant', 'chair', 'fridge']) {
+    const first = useFixture(s, id);
+    assert.ok(pools[id].includes(first.line), `${id} first click returned a line from another object`);
+    assert.equal(s.deskSaid, first.line, `${id} did not record what it said`);
+    // Same week again: on cooldown, and it must still answer for itself.
+    const again = useFixture(s, id);
+    assert.equal(again.again, false, `${id} cooldown did not hold`);
+    const idle = { plant: plantLines.idle, chair: chairLines.idle, fridge: fridgeLines.idle }[id];
+    assert.ok(idle.includes(again.line), `${id} idle click did not use its own idle lines`);
+    assert.notEqual(again.line, s.notice, 'the idle line is the last thing logged, not this object speaking');
+    assert.equal(s.deskSaid, again.line, `${id} idle click did not record its line`);
+  }
+  // The whiteboard is a door, not a ritual: it must never go through the engine at all.
+  assert.equal(useFixture(s, 'board'), null);
+});

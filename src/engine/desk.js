@@ -80,11 +80,17 @@ const HANDLER = { plant: usePlant, chair: useChair, fridge: useFridge };
 const IDLE = { plant: plantLines.idle, chair: chairLines.idle, fridge: fridgeLines.idle };
 
 export function useFixture(s, id) {
+  if (fixtures[id]?.opens) return null;          // that one is a door, not a ritual
   const st = slotOf(s, id);
-  if (!st) return null;
-  if (!canUse(s, id)) return { line: t(pick(s, IDLE[id])), again: false };
+  if (!st || !HANDLER[id]) return null;
+  // The line is recorded on the run so the UI can show THIS fixture's answer. Reading s.notice
+  // instead meant an idle click — which deliberately does not write to the history, because
+  // looking at a fridge is not an event — displayed whatever was logged last. If you had erased
+  // the whiteboard at any point, every object on the desk said the eraser line forever.
+  const said = line => { s.deskSaid = line; return line; };
+  if (!canUse(s, id)) return { line: said(t(pick(s, IDLE[id]))), again: false };
   st.lastWeek = weekStamp(s);
-  return { line: HANDLER[id](s, st), again: true };
+  return { line: said(HANDLER[id](s, st)), again: true };
 }
 
 // The old name, still used by the tests and by anything that only cares about the plant.

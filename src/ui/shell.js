@@ -6,7 +6,6 @@ import { lastName, noticeText } from '../engine/state.js';
 import { fixtures, fixtureOrder } from '../data/desk.js';
 import { MODES } from '../engine/advisor.js';
 import { managerApp, reportDialog } from './apps/manager.js';
-import { whiteboardApp } from './apps/whiteboard.js';
 import { mailApp } from './apps/mail.js';
 import { chatApp } from './apps/chat.js';
 import { browserApp } from './apps/browser.js';
@@ -20,7 +19,7 @@ import { commencementScreen, epilogueScreen } from './apps/commencement.js';
 import { cities as conferenceCities } from '../data/conference.js';
 import { setupWizard, endingApp, collectionApp, aboutDialog, tipsDialog, confirmDialog, shutdownDialog } from './screens.js';
 import { gradApply, threadDialog } from './apps/gradapply.js';
-import { sceneDialog, milestoneDialog, pushbackDialog, lectureDialog, benchDialog, crisisDialog, vivaDialog, clusterDialog, patentDialog, summonsDialog, photoDialog } from './scenes.js';
+import { sceneDialog, milestoneDialog, pushbackDialog, lectureDialog, benchDialog, crisisDialog, vivaDialog, clusterDialog, patentDialog, summonsDialog, photoDialog, boardDialog } from './scenes.js';
 import { t, languages, getLanguage } from '../i18n/index.js';
 
 // Objects at the edge of the screen. No labels, no badges, no tooltips that give them away, and
@@ -29,6 +28,7 @@ const FIXTURE_ART = {
   plant: '<i class="dp-pot"></i><i class="dp-leaf a"></i><i class="dp-leaf b"></i><i class="dp-leaf c"></i>',
   chair: '<i class="dc-back"></i><i class="dc-seat"></i><i class="dc-post"></i><i class="dc-base"></i>',
   fridge: '<i class="df-body"></i><i class="df-split"></i><i class="df-handle"></i>',
+  board: '<i class="db-frame"></i><i class="db-mark a"></i><i class="db-mark b"></i><i class="db-tray"></i>',
 };
 const deskFixture = (s, id) => {
   const f = fixtures[id];
@@ -72,7 +72,7 @@ function content(s, ui, meta, saved, notices) {
   if (s.stage === 'trip' && s.trip) return tripScreen(s, ui);
   if (s.stage === 'commencement' && s.cv) return commencementScreen(s, ui);
   if (s.stage === 'epilogue' && s.epilogue) return epilogueScreen(s, ui);
-  return { dashboard: managerApp, mail: mailApp, chat: chatApp, browser: browserApp, portal: portalApp, calendar: calendarApp, life: lifeApp, scholar: scholarApp, status: statusApp, whiteboard: whiteboardApp }[ui.app || 'dashboard'](s, ui);
+  return { dashboard: managerApp, mail: mailApp, chat: chatApp, browser: browserApp, portal: portalApp, calendar: calendarApp, life: lifeApp, scholar: scholarApp, status: statusApp }[ui.app || 'dashboard'](s, ui);
 }
 
 // A compact copy of the vitals for viewports where the sidebar is hidden. Same bands as the bars,
@@ -110,6 +110,7 @@ export function shell(run, ui, meta, saved, notices = []) {
   const tint = meta.settings.quiet || (sat === 1 && bright === 1) ? '' : ` style="filter: saturate(${sat}) brightness(${bright})"`;
   return `<div class="desktop season-${season} ${stress > 70 ? 'frayed' : stress > 45 ? 'stressed' : ''} ${health < 30 ? 'unwell' : health < 50 ? 'rundown' : ''} ${meta.settings.quiet ? 'quiet' : ''}"${tint}>
   <div class="award-host" data-award-host aria-live="polite"></div>
+  <div class="desk-host" data-desk-host aria-live="polite"></div>
 
   <nav class="desktop-icons" aria-label="${esc(t('Desktop'))}">${appDefs.map(([id, ic2, label]) => `<button class="desk-icon ${canOpen && ui.app === id ? 'active' : ''}" data-action="open" data-app="${id}" ${canOpen ? '' : 'disabled'} title="${esc(t(label))}">${icon(ic2, 32)}<span>${t(label)}</span>${id === 'mail' && unreadMail ? `<b class="badge">${unreadMail}</b>` : ''}${id === 'chat' && unreadChat ? `<b class="badge" title="${esc(t('{n} unread message(s)', { n: unreadChat }))}">${unreadChat}</b>` : ''}${id === 'chat' && !unreadChat && openReq ? `<b class="badge req" title="${esc(t('{n} open request(s) from your advisor', { n: openReq }))}">!</b>` : ''}</button>`).join('')}<button class="desk-icon" data-action="collection" title="${esc(t('Achievements'))}">${icon('star', 32)}<span>${t('Achievements')}</span></button></nav>
   <main class="workspace ${playing ? '' : 'no-side'}">
@@ -124,7 +125,7 @@ export function shell(run, ui, meta, saved, notices = []) {
   <footer class="taskbar">${btn(`${icon('wizard', 18)} ${t('Start')}`, 'start-menu', { cls: 'start' })}<span class="sep"></span>${btn(`${icon(ic, 16)} <span style="overflow:hidden;text-overflow:ellipsis">${esc(title)}</span>`, 'restore', { cls: `task ${ui.minimized ? '' : 'active'}` })}<div class="tray"><span class="tray-text" title="${esc(t('Text size'))}"><button data-action="text-size" data-id="down" ${(meta.settings.textSize ?? 1) <= 0 ? 'disabled' : ''} title="${esc(t('Smaller'))}">A−</button><button data-action="text-size" data-id="up" ${(meta.settings.textSize ?? 1) >= 4 ? 'disabled' : ''} title="${esc(t('Bigger'))}">A+</button></span><button data-action="sound" title="${meta.settings.sound ? esc(t('Sound on')) : esc(t('Sound off'))}">${icon(meta.settings.sound ? 'sound' : 'mute', 16)}</button>${playing && s.tempo === 'week' ? `<span title="${esc(t('Crunch: weeks pass one at a time'))}">${icon('coffee', 16)}</span>` : ''}<span class="date">${trayDate}</span></div></footer>
   ${ui.startMenu ? `<div class="start-menu"><div class="start-brand">ACADEMIC<small>OS</small></div><div class="start-items">${playing ? appDefs.map(([id, ic2, label]) => `<button data-action="open" data-app="${id}">${icon(ic2, 18)} ${t(label)}</button>`).join('') + '<hr>' : ''}<button data-action="home">${icon('wizard', 18)} ${t('Setup / Welcome')}</button><button data-action="collection">${icon('star', 18)} ${t('Achievements')}</button><button data-action="tips">${icon('info', 18)} ${t('Tips')}</button><button data-action="about">${icon('info', 18)} ${t('About & disclaimer')}</button><hr>${languages.map(([id, label]) => `<button data-action="language" data-id="${id}">${icon('doc', 18)} ${getLanguage() === id ? '● ' : '○ '}${label}</button>`).join('')}<hr><button data-action="sound">${icon(meta.settings.sound ? 'sound' : 'mute', 18)} ${t('Sound')}: ${meta.settings.sound ? t('on') : t('off')}</button><button data-action="quiet">${icon('moon', 18)} ${t('Visual effects')}: ${meta.settings.quiet ? t('reduced') : t('on')}</button><div class="menu-stepper">${icon('doc', 18)} <span>${t('Text size')}</span><button data-action="text-size" data-id="down" title="${esc(t('Smaller'))}">A−</button><b>${esc(t(['Small', 'Normal', 'Large', 'Larger', 'Largest'][meta.settings.textSize ?? 1] || 'Normal'))}</b><button data-action="text-size" data-id="up" title="${esc(t('Bigger'))}">A+</button></div><hr><button data-action="new">${icon('paper', 18)} ${t('New run')}</button><button data-action="reset">${icon('trash', 18)} ${t('Reset save')}</button><button data-action="shutdown">${icon('computer', 18)} ${t('Shut down…')}</button></div></div>` : ''}
   <div class="balloons">${(ui.balloons || []).map(b => `<div class="balloon">${icon(b.icon || 'bell', 16)}<div><b>${esc(b.title)}</b>${esc(b.text)}</div><button class="x" data-action="dismiss-balloon" data-id="${b.id}" aria-label="${esc(t('Dismiss'))}">×</button></div>`).join('')}</div>
-  ${ui.screen === 'game' && s?.event ? sceneDialog(s) : ''}${ui.screen === 'game' && s?.pushback ? pushbackDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'minigame' && s?.minigame === 'lecture' ? lectureDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'minigame' && s?.minigame === 'bench' ? benchDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'minigame' && s?.minigame === 'viva' ? vivaDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'minigame' && s?.minigame === 'cluster' ? clusterDialog() : ''}${ui.screen === 'game' && s?.stage === 'crisis' ? crisisDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'summons' ? summonsDialog(s) : ''}${ui.screen === 'game' && s?.photo ? photoDialog(s) : ''}${playing && !s.event && s.stage === 'plan' && s.patent && ['meetings', 'action'].includes(s.patent.stage) ? patentDialog(s) : ''}${ui.screen === 'game' && s && !s.event && ui.thread ? threadDialog(s, ui) : ''}${playing && s.stage === 'report' && !s.event ? reportDialog(s) : ''}${playing && s.stage === 'milestone' && !s.event ? milestoneDialog(s) : ''}
+  ${ui.screen === 'game' && s?.event ? sceneDialog(s) : ''}${ui.screen === 'game' && s?.pushback ? pushbackDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'minigame' && s?.minigame === 'lecture' ? lectureDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'minigame' && s?.minigame === 'bench' ? benchDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'minigame' && s?.minigame === 'viva' ? vivaDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'minigame' && s?.minigame === 'cluster' ? clusterDialog() : ''}${ui.screen === 'game' && s?.stage === 'crisis' ? crisisDialog(s) : ''}${ui.screen === 'game' && s?.stage === 'summons' ? summonsDialog(s) : ''}${ui.screen === 'game' && s?.photo ? photoDialog(s) : ''}${ui.screen === 'game' && ui.board && s ? boardDialog(s) : ''}${playing && !s.event && s.stage === 'plan' && s.patent && ['meetings', 'action'].includes(s.patent.stage) ? patentDialog(s) : ''}${ui.screen === 'game' && s && !s.event && ui.thread ? threadDialog(s, ui) : ''}${playing && s.stage === 'report' && !s.event ? reportDialog(s) : ''}${playing && s.stage === 'milestone' && !s.event ? milestoneDialog(s) : ''}
   ${ui.confirm ? confirmDialog(ui) : ''}${ui.dialog === 'about' ? aboutDialog() : ''}${ui.dialog === 'tips' ? tipsDialog(s) : ''}${ui.dialog === 'shutdown' ? shutdownDialog() : ''}
   </div>`;
 }

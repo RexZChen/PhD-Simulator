@@ -1,5 +1,5 @@
 import './styles.css';
-import { createRun, chatBody, mailSubject, mailSender, requestText } from './engine/state.js';
+import { createRun, chatBody, mailSubject, mailSender, requestText, noticeText } from './engine/state.js';
 import { dispatch, prepareRun } from './engine/game.js';
 import { loadSave, saveRun, resetSave, emptyMeta } from './engine/save.js';
 import { shell } from './ui/shell.js';
@@ -13,11 +13,12 @@ import { startViva, vivaMove, stopViva, vivaRunning, examTalk, examInterrupt, ex
 import { startCluster, clusterPick, stopCluster, clusterRunning } from './ui/cluster.js';
 import { draftFor } from './ui/apps/mail.js';
 import { markBoard, eraseBoard, paintBoard, boardLines } from './ui/apps/whiteboard.js';
+import { fixtures } from './data/desk.js';
 import { chatDraft } from './ui/apps/chat.js';
 import { rebuttalDraft } from './ui/apps/browser.js';
 import { conditions as conditionDefs } from './data/life.js';
 import { achievements } from './data/catalog.js';
-import { esc } from './ui/helpers.js';
+import { esc, voiced } from './ui/helpers.js';
 import { t, pauseProvenance, resumeProvenance } from './i18n/index.js';
 const conditionNames = Object.fromEntries(Object.entries(conditionDefs).map(([k, v]) => [k, v.name]));
 
@@ -112,6 +113,28 @@ function flashAwards() {
   play('chime');
 }
 
+// Touching something on the desk says something back, and what it says is two or three sentences
+// long. The status bar truncates at about seventy characters, which cut every one of them in half.
+// So it lands on screen instead, in the same place achievements do, and wraps.
+function deskNote(text) {
+  const host = document.querySelector('[data-desk-host]');
+  if (!host || !text) return;
+  for (const old of host.querySelectorAll('.desk-note')) old.remove();
+  const el = document.createElement('div');
+  el.className = 'desk-note';
+  el.innerHTML = voiced(text);
+  host.appendChild(el);
+  setTimeout(() => el.remove(), 9000);
+}
+
+// Conversations read downward. The thread panes are rebuilt from scratch on every render, which
+// reset them to the top and left the newest message below the fold for the whole exchange.
+function followThreads() {
+  for (const log of document.querySelectorAll('.thread-log, .chat-log, .mail-thread')) {
+    log.scrollTop = log.scrollHeight;
+  }
+}
+
 function render({ restoreTyping = false, preserveScroll = true } = {}) {
   const scroll = preserveScroll ? (document.querySelector('.client')?.scrollTop || 0) : 0;
   const modalScroll = document.querySelector('.dialog .body')?.scrollTop || 0;
@@ -123,7 +146,7 @@ function render({ restoreTyping = false, preserveScroll = true } = {}) {
   if (client && preserveScroll) client.scrollTop = scroll;
   const body = document.querySelector('.dialog .body'); if (body) body.scrollTop = modalScroll;
   if (restoreTyping) document.querySelector('#typing-zone')?.focus();
-  const log = document.querySelector('.chat-log'); if (log) log.scrollTop = log.scrollHeight;
+  followThreads();
   syncSceneTimer();
   syncLecture();
   syncViva();
@@ -283,7 +306,25 @@ root.addEventListener('click', event => {
       meta.settings.textSize = Math.max(0, Math.min(TEXT_SIZES.length - 1, (meta.settings.textSize ?? 1) + dir));
       applyTextSize(); saveMeta(); render(); return;
     }
-    case 'open': if (!run || !['playing', 'ending'].includes(run.phase)) return; closeCompose(); ui.screen = 'game'; ui.app = target.dataset.app; ui.minimized = false; if (ui.app === 'mail' && !ui.selectedMail) ui.selectedMail = run.inbox[0]?.id; if (ui.app === 'chat') perform({ type: 'READ_CHAT', channel: ui.chatChannel }, { preserveScroll: false }); else render({ preserveScroll: false }); return;
+    case 'open': {
+      if (!run || !['playing', 'ending'].includes(run.phase)) return;
+      closeCompose();
+      ui.screen = 'game'; ui.app = target.dataset.app; ui.minimized = false;
+      // A jump that names a destination lands on it. "Open OpenRegret" used to open Netscope on
+      // whatever tab you last left it on, which is not what the button said.
+      const page = target.dataset.page;
+      if (page) {
+        if (ui.app === 'browser') ui.browserTab = page;
+        else if (ui.app === 'chat') ui.chatChannel = page;
+        else if (ui.app === 'life') ui.lifeTab = page;
+        else if (ui.app === 'portal') ui.portalTab = page;
+        else if (ui.app === 'mail') ui.selectedMail = page;
+      }
+      if (ui.app === 'mail' && !ui.selectedMail) ui.selectedMail = run.inbox[0]?.id;
+      if (ui.app === 'chat') perform({ type: 'READ_CHAT', channel: ui.chatChannel }, { preserveScroll: false });
+      else render({ preserveScroll: false });
+      return;
+    }
     case 'browser-tab': closeCompose(); ui.browserTab = id; render({ preserveScroll: false }); return;
     case 'job-portal': ui.jobPortal = id; render({ preserveScroll: false }); return;
     case 'bench-start': {
@@ -329,7 +370,16 @@ root.addEventListener('click', event => {
     case 'exam-talk': examTalk(id); play('click'); return;
     case 'exam-interrupt': examInterrupt(); play('click'); return;
     case 'exam-corridor': examCorridor(id); play('click'); return;
-    case 'fixture': perform({ type: 'FIXTURE', id }); return;
+    case 'fixture': {
+      if (fixtures[id]?.opens) { ui.board = true; render({ preserveScroll: false }); play('click'); return; }
+      perform({ type: 'FIXTURE', id });
+      // The line is two or three sentences and the status bar truncates it, so it goes on screen.
+      // Read what the fixture said, not the last thing logged — see the note in engine/desk.js.
+      if (run?.deskSaid) deskNote(run.deskSaid);
+      return;
+    }
+    case 'read-all-mail': perform({ type: 'READ_MAIL_ALL' }, { preserveScroll: true }); return;
+    case 'board-close': { ui.board = false; render({ preserveScroll: false }); return; }
     case 'photo-close': { if (run) { run.photo = null; persist(); render({ preserveScroll: false }); } return; }
     case 'crisis': perform({ type: 'CRISIS', id }, { preserveScroll: false }); return;
     case 'life-tab': ui.lifeTab = id; render({ preserveScroll: false }); return;

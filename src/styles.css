@@ -1422,3 +1422,25 @@ table.mini th { background: var(--face); }
 
 .ph-line { font-size: 12.5px; line-height: 1.5; margin: 6px 0; }
 .dialog .said { font-weight: 600; }
+
+/* The whiteboard, on the wall by the desk. It is not a page in the operating system. */
+.db-frame { position: absolute; left: 4px; bottom: 12px; width: 36px; height: 28px; background: #f2f2ea; border: 2px solid #9a9a90; border-radius: 2px; }
+.db-mark { position: absolute; height: 2px; background: #4a6fa5; border-radius: 1px; }
+.db-mark.a { left: 9px; bottom: 32px; width: 22px; }
+.db-mark.b { left: 9px; bottom: 26px; width: 14px; background: #a55a4a; }
+.db-tray { position: absolute; left: 8px; bottom: 9px; width: 28px; height: 3px; background: #9a9a90; border-radius: 0 0 2px 2px; }
+.dk-board:active .db-frame { filter: brightness(.97); }
+.dialog.board { max-width: 700px; }
+.dialog.board .wb-surface { min-height: 340px; }
+
+/* What the desk says back. The status bar truncates at about seventy characters and these lines
+   are two or three sentences, so they land on screen and wrap, where achievements land. */
+/* Anchored bottom-right, above the taskbar, near the objects it is talking about — not top-right,
+   where it sat on top of the vitals for nine seconds. */
+.desk-host { position: absolute; right: 12px; bottom: 40px; z-index: 6; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
+.desk-note { max-width: 300px; margin-top: 6px; padding: 9px 12px; background: var(--paper); color: var(--ink);
+  border: 2px solid; border-color: var(--hi) var(--shadow) var(--shadow) var(--hi); box-shadow: 3px 3px 0 rgba(0,0,0,.28);
+  font-size: 12.5px; line-height: 1.5; animation: dn-in .22s ease-out; }
+.desk-note .narr { display: inline; }
+@keyframes dn-in { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .desk-note { animation: none; } }

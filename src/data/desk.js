@@ -94,5 +94,7 @@ export const fixtures = {
   plant: { id: 'plant', slot: 'plant', label: 'A plant', note: plantNote, cooldown: PLANT.cooldownWeeks },
   chair: { id: 'chair', slot: 'chair', label: 'A chair', note: chairNote, cooldown: CHAIR.cooldownWeeks },
   fridge: { id: 'fridge', slot: 'fridge', label: 'A fridge', note: fridgeNote, cooldown: FRIDGE.cooldownWeeks },
+  // Not a page in the operating system — a board on the wall by the desk, which is what it is.
+  board: { id: 'board', slot: 'board', label: 'A whiteboard', note: 'A whiteboard. It costs nothing and it is not for anything.', opens: 'board' },
 };
-export const fixtureOrder = ['plant', 'chair', 'fridge'];
+export const fixtureOrder = ['plant', 'chair', 'fridge', 'board'];

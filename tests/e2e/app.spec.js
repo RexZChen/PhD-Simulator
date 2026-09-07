@@ -1444,7 +1444,8 @@ test('the scene art carries the time, the season, and how you are', async ({ pag
 
 test('the whiteboard writes something other than what you drew, and rewards losing track of time', async ({ page }) => {
   await seedPlay(page, `s.month = 14;`);
-  await page.locator('[data-action="open"][data-app="whiteboard"]').first().dblclick();
+  // It is a board on the wall by the desk now, not a page in the operating system.
+  await page.locator('[data-action="fixture"][data-id="board"]').click();
   const surf = page.locator('[data-wb-surface]');
   await expect(surf).toBeVisible();
   await expect(page.locator('.wb-mark')).toHaveCount(0);

@@ -549,8 +549,9 @@ function milestone(s, kind, strategy) {
 
 export function dispatch(state, action) {
   const s = structuredClone(state), a = action;
-  const always = ['READ_MAIL', 'READ_CHAT'];
+  const always = ['READ_MAIL', 'READ_MAIL_ALL', 'READ_CHAT'];
   if (a.type === 'READ_MAIL') { const m = s.inbox.find(x => x.id === a.id); if (m) m.read = true; return s; }
+  if (a.type === 'READ_MAIL_ALL') { s.inbox.forEach(m => { if (!a.folder || (m.folder || 'inbox') === a.folder) m.read = true; }); return s; }
   if (a.type === 'READ_CHAT') { s.chatMessages.forEach(m => { if (!a.channel || m.channel === a.channel) m.read = true; }); return s; }
   if (s.event && !['CHOICE', 'PUSHBACK', 'HESITATE', 'LECTURE'].includes(a.type) && !always.includes(a.type)) throw new Error(t('Respond to what is on screen first.'));
   if (a.type === 'CHOICE') { resolveChoice(s, a.id); if (s.phase === 'playing' && s.stage === 'plan' && s.needsBegin) beginTurn(s); return s; }

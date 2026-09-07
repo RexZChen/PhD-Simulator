@@ -55,5 +55,4 @@ export const appDefs = [
   ['life', 'heart', 'Life.exe', 'Health, money, the rest of it'],
   ['scholar', 'book', 'Gaggle Scholar', 'Citations, and who has more'],
   ['status', 'status', 'About Me', 'Stats, skills, people'],
-  ['whiteboard', 'research', 'Whiteboard', 'It costs nothing and it is not for anything'],
 ];

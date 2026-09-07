@@ -15,6 +15,7 @@ import { officeAction, patentShare, patentNote, patentMeetings, PATENT } from '.
 import { summonsKinds, summonsMoves, summonsNote, SUMMONS } from '../data/summons.js';
 import { crises, crisisMoves, CRISIS_NOTE } from '../data/crisis.js';
 import { t } from '../i18n/index.js';
+import { whiteboardApp } from './apps/whiteboard.js';
 
 // ── Scene art ────────────────────────────────────────────────────────────────────────────────
 // The strips existed but were static: the same lab at two in the morning as at three in the
@@ -222,6 +223,11 @@ export function vivaDialog(s) {
     <p class="vv-flash hidden" data-vv-flash></p>
     <p class="tiny muted">${esc(t(examNote))}</p>
   </div></section></div>`;
+}
+
+// The whiteboard, as a thing on the wall by your desk rather than a page in the operating system.
+export function boardDialog(s) {
+  return `<div class="modal"><section class="dialog board" role="dialog" aria-modal="true" aria-labelledby="wb-title"><div class="titlebar"><span class="tb-title">${icon('research', 16)}<span id="wb-title">${t('Whiteboard')}</span></span>${btn('✕', 'board-close', { cls: 'tb-x' })}</div><div class="body">${whiteboardApp(s)}</div></section></div>`;
 }
 
 // The photograph. Four people who have done this forty times, and one who has not.

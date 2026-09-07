@@ -262,18 +262,20 @@ function managerNextStep(s) {
   const p = activeProject(s);
   const open = s.requests.filter(r => r.status === 'open');
   const go = (label, action, opts = {}) => btn(label, action, { cls: 'primary small', attrs: 'data-guide="1"', ...opts });
-  const openApp = (label, app) => btn(label, 'open', { app, cls: 'primary small', attrs: 'data-guide="1"' });
+  // A jump that names a page lands on that page. "Open OpenRegret" used to open Netscope on
+  // whatever tab you happened to leave it on, which is not what the button says.
+  const openApp = (label, app, page = '') => btn(label, 'open', { app, cls: 'primary small', attrs: `data-guide="1"${page ? ` data-page="${page}"` : ''}` });
 
   if (s.stage !== 'plan') return { title: t('Something is waiting for you'), detail: t('Answer what is on screen. Number keys 1–4 pick a choice.'), cta: '' };
   if (s.thesis && !s.thesis.deposited) return canDeposit(s)
     ? { title: t('Deposit the dissertation'), detail: t('Every revision is done. The degree is conferred on deposit, not on the defense.'), cta: go(t('Deposit it →'), 'deposit') }
     : { title: t('Finish the committee’s revisions'), detail: t('{n} left. Defending was not finishing.', { n: revisionsLeft(s) }), cta: '' };
   if (!s.projects.length) return { title: t('Start a project'), detail: t('Nothing is running. A PhD is made of projects and you do not have one.'), cta: go(t('Start main project'), 'start-project', { disabled: !canStartMain(s) }) };
-  if (open.length) return { title: t('Your advisor asked for something'), detail: t('{n} open request(s). Do them, push back, or decline — ignoring them is also a choice, with a cost.', { n: open.length }), cta: openApp(t('Open LabChat'), 'chat') };
-  if (p?.status === 'Rebuttal') return { title: t('The rebuttal window is open'), detail: t('Reviews are in. The window closes at the end of this month.'), cta: openApp(t('Open OpenRegret'), 'browser') };
-  if (p?.status === 'Ready' && p.kind !== 'thesis') return { title: t('A draft is approved'), detail: t('Submit it when a venue is open.'), cta: openApp(t('Open OpenRegret'), 'browser') };
+  if (open.length) return { title: t('Your advisor asked for something'), detail: t('{n} open request(s). Do them, push back, or decline — ignoring them is also a choice, with a cost.', { n: open.length }), cta: openApp(t('Open LabChat'), 'chat', 'advisor') };
+  if (p?.status === 'Rebuttal') return { title: t('The rebuttal window is open'), detail: t('Reviews are in. The window closes at the end of this month.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
+  if (p?.status === 'Ready' && p.kind !== 'thesis') return { title: t('A draft is approved'), detail: t('Submit it when a venue is open.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
   if (p && ['Drafting', 'Experiments', 'Prototype', 'Idea'].includes(p.status) && !p.targetVenueId && p.progress >= 35)
-    return { title: t('Choose a venue'), detail: t('Work without a deadline expands, and your advisor will keep asking which one it is.'), cta: openApp(t('Set a target'), 'browser') };
+    return { title: t('Choose a venue'), detail: t('Work without a deadline expands, and your advisor will keep asking which one it is.'), cta: openApp(t('Set a target'), 'browser', 'openregret') };
   if (!s.focus) return { title: t('Decide what this {unit} goes to', { unit: s.tempo === 'day' ? t('day') : s.tempo === 'week' ? t('week') : t('month') }), detail: t('Pick a plan on the left. Continue is disabled until you do.'), cta: '' };
   return { title: t('Plan set'), detail: t('Use the desktop if you want to, then continue. Everything else is optional.'), cta: go(t('Continue →'), 'continue') };
 }
