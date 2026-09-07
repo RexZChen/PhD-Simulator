@@ -31,6 +31,9 @@ import { outputDrought, droughtBand } from '../src/engine/advisor.js';
 import { buildCV } from '../src/engine/epilogue.js';
 import { activeContacts } from '../src/engine/network.js';
 import { activeProject } from '../src/engine/state.js';
+import { nextPatentMeeting } from '../src/engine/patent.js';
+import { officeAction } from '../src/data/patent.js';
+import { pathToFileURL } from 'node:url';
 
 const SEEDS = Number(process.argv[2] || 40);
 const resolveAll = s => { let n = 0; while (s.event && n++ < 40) { const e = templateById[s.event]; const ok = e.choices.find(c => !c.ending && !c.minigame && !(c.requiresCoursework && s.coursework < c.requiresCoursework)) || e.choices[0]; s = dispatch(s, { type: 'CHOICE', id: ok.id }); if (s.stage === 'minigame') s = dispatch(s, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 }); } return s; };
@@ -68,8 +71,17 @@ function advance(s) {
 
 const venuesMod = import('../src/data/venues.js');
 const calMod = import('../src/data/calendar.js');
-async function run(seed, style) {
-  let s = createRun(seed, { background: ['masters', 'undergrad', 'industry', 'theory'][seed % 4], topic: ['ml', 'nlp', 'systems', 'theory', 'hci', 'robotics'][seed % 6], international: seed % 3 === 0 });
+export async function run(seed, style) {
+  // The optional questionnaire answers gate whole storylines — the two-cities partner, the nursery
+  // that closes at six, the parent who needs you, the question you came here with. A harness that
+  // leaves them all null cannot see any of that content, and reports full coverage while a third of
+  // the writing is unreachable to it. Vary them on coprime cycles so every combination comes up.
+  let s = createRun(seed, { background: ['masters', 'undergrad', 'industry', 'theory'][seed % 4], topic: ['ml', 'nlp', 'systems', 'theory', 'hci', 'robotics'][seed % 6], international: seed % 3 === 0,
+    whyHere: ['question', 'prove', 'love', 'stuck', 'visa', 'skip'][seed % 6],
+    household: ['alone', 'partner', 'partnerFar', 'kids', 'parent', 'skip', 'alone'][seed % 7],
+    firstGen: ['yes', 'no', 'skip'][seed % 3],
+    fear: ['fraud', 'money', 'waste', 'letdown', 'skip'][seed % 5],
+    dealbreaker: ['health', 'money', 'meaning', 'never', 'skip'][seed % 5] });
   s = act(s, { type: 'PREP', id: 'sop_draft' });
   s = act(s, { type: 'PREP', id: 'letter_ask', target: 'rec-0' });
   s = act(s, { type: 'PREP', id: 'proceed' });
@@ -113,6 +125,11 @@ async function run(seed, style) {
         }
       }
       if (style === 'diligent') for (const r of s.requests.filter(r => r.status === 'open')) { try { s = act(s, { type: 'REQUEST_DO', id: r.id }); } catch {} }
+      // The patent is a modal the moment it wants something, so a real player always answers it.
+      // A harness that does not answer leaves the run parked on `meetings` forever and reports the
+      // whole back half of the process — the filing, the rejection, the grant — as unreachable.
+      if (s.patent?.stage === 'meetings') { const m = nextPatentMeeting(s); if (m) { try { s = act(s, { type: 'PATENT_MEET', id: m.choices[style === 'lazy' ? m.choices.length - 1 : 0].id }); } catch {} } }
+      if (s.patent?.stage === 'action') { try { s = act(s, { type: 'PATENT_ACTION', id: officeAction.choices[style === 'lazy' ? officeAction.choices.length - 1 : 0].id }); } catch {} }
       // Year four: have the conversation, push once, and take the sixth year rather than drift.
       if (canAskTimeline(s) && !s.milestones.graduated) {
         try { s = act(s, { type: 'ASK_TIMELINE' }); } catch {}
@@ -229,7 +246,9 @@ async function run(seed, style) {
     const after = s.stage + ':' + s.month + ':' + s.week + ':' + (s.dayIndex || 0) + ':' + (s.epilogue?.index ?? '');
     if (after === before && !['plan', 'report', 'milestone'].includes(s.stage)) break;
   }
-  return { cvDist: (() => { try { const cv = buildCV(s); const by = {}; for (const l of cv.lines) by[l.section] = (by[l.section]||0)+l.points; return { ...by, score: cv.score }; } catch { return null; } })(), diag: s.ending?.id === 'abd' ? {
+  return { seen: Object.keys(s.seen || {}), flags: { ...(s.flags || {}) }, patentStage: s.patent?.stage || null,
+    venture: s.venture ? { stage: s.venture.stage || null, equity: s.venture.equity ?? null } : null,
+    achievements: [...(s.achievements || [])], cvDist: (() => { try { const cv = buildCV(s); const by = {}; for (const l of cv.lines) by[l.section] = (by[l.section]||0)+l.points; return { ...by, score: cv.score }; } catch { return null; } })(), diag: s.ending?.id === 'abd' ? {
     grad: s.grad ? `${s.grad.stance}/${s.grad.settled ? 'settled y' + s.grad.targetYear : 'open'}/r${s.grad.rounds}` : 'never asked',
     thesisStarted: !!s.milestones.thesisStarted,
     thesisStatus: (s.projects.find(p => p.kind === 'thesis') || {}).status || 'none',
@@ -238,7 +257,8 @@ async function run(seed, style) {
   } : null, endMoney: Math.round(s.player.stats.money), endDebt: Math.round(s.debt || 0), intl: s.player.profile.international ? 1 : 0, ledger: s.ledger, tripCost: s.lastTrip ? 1 : 0, ending: s.ending?.id || `stuck:${s.stage}`, month: s.month, minHealth: Math.round(minHealth), maxDebt, clinics, trips, coffees, accepted: s.counts.accepted, cites: Object.values(s.citations || {}).reduce((a, b) => a + b, 0), warnings: s.warnings || 0, quit: Math.round(s.quitPressure || 0), standing: Math.round(s.standing ?? 60), conds: (s.conditions || []).length, crises: s.lastCrisisMonth !== undefined ? 1 : 0, interns: s.counts.internships || 0, drought: outputDrought(s), letters: letterCount(s), packet: Math.round(packetStrength(s).score), sent: funnel(s).sent, screens: funnel(s).screens, jobOffers: funnel(s).offers, silent: funnel(s).silent, found: s.jobs?.secret?.discovered ? 1 : 0, dark: packetStrength(s).darkHorse ? 1 : 0, internHow: (s.intern?.history || []).map(h => h.how).join('+') || 'none', internType: (s.intern?.history || []).map(h => h.typeId).join('+') || 'none', research: Math.round(s.player.skills.research), net: activeContacts(s).length, netDone: (s.contacts||[]).reduce((a,c)=>a+c.done,0), netFaded: (s.contacts||[]).filter(c=>c.status!=='active').length };
 }
 
-for (const style of ['diligent', 'lazy', 'grinder']) {
+// Imported by scripts/reach.mjs, which wants run() without the report.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) for (const style of ['diligent', 'lazy', 'grinder']) {
   const rows = [];
   for (let seed = 1; seed <= SEEDS; seed++) rows.push(await run(seed, style));
   const tally = {};

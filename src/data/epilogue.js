@@ -63,6 +63,18 @@ export const epilogueBeats = [
     from: 'labmate', subject: 'guess who',
     text: '{labmate} here. I finally defended. Four months of revisions and my committee made me rerun everything, but it is done. I keep thinking about the week you sat with me in the lab at 2 a.m. when my code was broken. You probably do not remember it. I do.',
     choices: [{ id: 'reply', label: 'Reply immediately', line: 'You do remember it. You had a deadline that week and you sat with them anyway. It turns out that is the part that lasted.', effects: { hope: 14 } }] },
+  // The patent takes thirty months from the first meeting to a grant, and nobody is still a student
+  // by then. Resolving it in the run was never possible; resolving it here is not a workaround, it
+  // is the actual shape of the thing — a letter about work you did at a desk that is now a server
+  // closet, addressed to a person the university has no current address for.
+  { id: 'patent_granted', when: 3, weight: 4, needs: 'patentPending',
+    from: 'system', subject: 'US 12,4XX,XXX B2 — Notice of Allowance',
+    text: 'It is forwarded twice before it reaches you. The claims that survived are 1, 4 and 11, which are the three you argued for in a meeting you attended by phone from a parking lot.\n\nThe inventors are listed in the order the office received them: your advisor, then you. The revenue share is set out in a policy document dated eleven years before you arrived. Seventy per cent, thirty per cent, and the word used for it is “equitable”.\n\nThere is a licensing enquiry attached, from a company you have heard of. The figure, if it happens, is $41,000. Your share of the figure, if it happens, is $12,300.',
+    choices: [
+      { id: 'frame', label: 'Print it and frame it', line: 'It hangs in a hallway where nobody reads it, including you.\n\nIt cost the university $38,000 in attorney fees and it cost you the four best weekends of year four. Both numbers are on the record, in different offices, and no document anywhere contains both.', effects: { hope: 8, capital: 6 } },
+      { id: 'ask', label: 'Ask, once, how the split was decided', line: 'The reply is prompt, courteous, and quotes the policy number twice. It does not answer the question, because the question does not have an answer of the kind you were asking for. It has a policy, and a policy is what you get instead.\n\nYou stop asking. Nine years later a postdoc asks you the same thing and you hear yourself quote the same number, in the same tone, and there is a full second where you can feel yourself decide not to notice it.', effects: { hope: 4, capital: 8 } },
+      { id: 'nothing', label: 'File it in the drawer with the diploma', line: 'The licensing enquiry goes quiet in the spring, the way most of them do. Nothing arrives.\n\nThe patent stays granted, permanently, in a database, next to your name. It is the only thing you made in six years that has a number instead of a title.', effects: { hope: 6 } },
+    ] },
   { id: 'the_book', when: 6, weight: 2, needs: 'faculty',
     from: 'self', subject: 'Your first student',
     text: 'A first-year sits in your office and says they have an idea, and it is not good yet, and they are braced for you to say so.',

@@ -132,12 +132,21 @@ export function chooseActor(s, e) {
 
 // Weight for random selection: base probability × novelty within the run × frequency
 // across all runs. Counts keep rare scenes favored even after every scene has appeared once.
+// How much work an event did to be here. An event gated on "international, year two or later,
+// working in systems" is about the specific person in front of you; an event with no conditions
+// fits anybody and is therefore filler. Around eighty events are eligible on a typical month and
+// exactly one is drawn, so under flat weighting the hand-written, circumstance-matched scenes —
+// the only ones that land — are the least likely to appear, because there are so many of them and
+// each is individually rare. Measured: the whole visa storyline fired zero times across twelve
+// international runs while generic lab filler repeated. Fit earns the slot.
+const specificity = e => 1 + .34 * Object.keys(e.conditions || {}).length;
+
 export function freshness(s, e) {
   const inRun = s.seen[e.id] || 0;
   const acrossRuns = Number(s.seenBefore?.[e.id]) || 0;
   const historyWeight = acrossRuns ? 1 / (1 + .12 * acrossRuns) : 1.8;
   // A repeat inside one run is a strong signal of staleness: penalise it hard, not gently.
-  return (e.weight || 1) * (e.probability || .5) * (1 / (1 + 1.5 * inRun * inRun)) * historyWeight;
+  return (e.weight || 1) * (e.probability || .5) * specificity(e) * (1 / (1 + 1.5 * inRun * inRun)) * historyWeight;
 }
 
 export function pushEvent(s, id, actor = null) {

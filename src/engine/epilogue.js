@@ -179,13 +179,20 @@ function pickBeats(s) {
     abandoned: s.projects.some(p => p.status === 'Abandoned' || (p.status !== 'Accepted' && p.kind === 'side')),
     faculty: ACADEMIC.includes(s.jobs.chosen),   // 'faculty' is not a track id; the real ones are tenure_track etc.
     deferredCeremony: !!(s.thesis && s.thesis.deferred),
+    // Filed and not yet decided when you left. Thirty months is longer than anybody's last two
+    // years, so this is the only place the process can honestly finish.
+    patentPending: !!s.patent && !['granted', 'abandoned'].includes(s.patent.stage),
   };
   const pool = epilogueBeats.filter(b => !b.needs || has[b.needs]);
   const finals = pool.filter(b => b.choices.some(c => c.final));
   const rest = shuffle(s, pool.filter(b => !b.choices.some(c => c.final)));
+  // Two beats are promised rather than drawn. The hooding is the ceremony you deferred, and the
+  // patent is the only way a thirty-month process that started in year three ever gets an ending.
+  // Leaving either to the shuffle means a player who did the whole thing hears nothing about it.
   const hood = pool.find(b => b.id === 'hooding');
-  const chosen = rest.filter(b => b.id !== 'hooding').slice(0, hood ? 3 : 4).sort((a, b) => a.when - b.when);
-  if (hood) chosen.unshift(hood);
+  const pat = pool.find(b => b.id === 'patent_granted');
+  const promised = [hood, pat].filter(Boolean);
+  const chosen = rest.filter(b => !promised.includes(b)).slice(0, 4 - promised.length).concat(promised).sort((a, b) => a.when - b.when);
   const last = pick(s, finals.length ? finals : [epilogueBeats.find(b => b.id === 'student_email')]);
   return [...chosen, last].filter(Boolean).map(b => b.id);
 }

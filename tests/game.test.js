@@ -424,6 +424,7 @@ import { cities, venueCities, talkSlots, questioners, tripActivities } from '../
 import { prepareTrip, startTrip, scoreTalk, answerQuestion, spendTripDay, visaNeed, upgradeOptions, upgradeTrip, TRIP_DAYS } from '../src/engine/trip.js';
 import { buildCV, generateOffers, startEpilogue, answerBeat, currentBeat } from '../src/engine/epilogue.js';
 import { epilogueBeats } from '../src/data/epilogue.js';
+import { openPatent } from '../src/engine/patent.js';
 import { pushbacks } from '../src/data/minigames.js';
 import { resolvePushback, hesitate } from '../src/engine/events.js';
 
@@ -635,6 +636,31 @@ test('the epilogue runs after graduation and ends on the long view', () => {
   assert.ok(s.achievements.includes('lifelong'));
 });
 
+test('a patent left pending when you graduate is resolved in the epilogue, not dropped', () => {
+  // The process takes thirty months from the first meeting. Nobody is still a student by then, so
+  // before this beat existed the patent had no ending at all: three meetings, a year of silence,
+  // one email, and then the run was over. The grant fired in 0 of 36 measured runs.
+  let s = enterProgram(21);
+  s.month = 64; s.milestones.graduated = true; s.jobs.track = 'industry';
+  openPatent(s, s.projects[0]?.id);
+  s.patent.stage = 'filed';
+  s.cv = buildCV(s);
+  generateOffers(s, s.cv);
+  startEpilogue(s, s.jobs.market[0].kind);
+  assert.ok(s.epilogue.beats.includes('patent_granted'), 'a pending patent is promised a beat, not entered in a lottery');
+  const beat = epilogueBeats.find(b => b.id === 'patent_granted');
+  assert.ok(/70|seventy/i.test(beat.text) && /30|thirty/i.test(beat.text), 'the split is stated in the text, in the words the policy uses');
+  for (const c of beat.choices) assert.ok(c.label && c.line, 'every answer goes somewhere');
+
+  // And a run with no patent never sees it.
+  let t2 = enterProgram(21);
+  t2.month = 64; t2.milestones.graduated = true; t2.jobs.track = 'industry';
+  t2.cv = buildCV(t2);
+  generateOffers(t2, t2.cv);
+  startEpilogue(t2, t2.jobs.market[0].kind);
+  assert.ok(!t2.epilogue.beats.includes('patent_granted'), 'and it stays out of a run that never filed one');
+});
+
 test('advisor pushback is a real second beat, and hesitation has a cost', () => {
   assert.ok(pushbacks.length >= 4);
   for (const pb of pushbacks) { assert.ok(pb.text && pb.options.length >= 2); for (const o of pb.options) assert.ok(o.label && o.line); }
@@ -653,6 +679,47 @@ test('advisor pushback is a real second beat, and hesitation has a cost', () => 
   s = dispatch(s, { type: 'HESITATE' });
   assert.ok(!s.pushback, 'the moment closes');
   assert.ok(s.player.hidden.stress >= stress, 'and saying nothing is not free');
+});
+
+test('the spinout arc walks from a disclosure form to a company, and the advisor is on the cap table', () => {
+  // The user's ask, in their words: "you keep the grinding, and i get the money for free shares
+  // kinda vibe." That only lands if the whole chain is walkable — the form, the suggestion, the
+  // whiteboard with four boxes, the choice at the end — so walk it, beat by beat, and check the
+  // advisor's slice is actually on the board rather than only in the prose.
+  const beat = (st, id) => { st.event = id; st.stage = 'event'; st.eventVariant = 0; st.eventReturn = 'plan'; return st; };
+  let s = enterProgram(31);
+  s.month = 26; s.counts.accepted = 1;
+  s = dispatch(beat(s, 'spin_disclosure'), { type: 'CHOICE', id: 'file' });
+  assert.ok(s.flags.ipDisclosed, 'the form is filed');
+  assert.ok(s.patent, 'and filing it opens the patent process, which is the same paperwork');
+  assert.ok(s.scheduled.some(x => x.id === 'spin_advisor_idea'), 'the advisor gets to it a couple of months later');
+
+  s = dispatch(beat(s, 'spin_advisor_idea'), { type: 'CHOICE', id: 'keen' });
+  assert.ok(s.scheduled.some(x => x.id === 'spin_captable'), 'and the lawyer is booked');
+
+  const table = eventById.spin_captable;
+  assert.ok(table.text.some(v => /advisor takes a slice/i.test(v)), 'the advisor is on the cap table in the text');
+  assert.ok(table.choices.some(c => c.id === 'advisor'), 'and you can ask what the slice is for');
+
+  s.month = 40;
+  s = dispatch(beat(s, 'spin_captable'), { type: 'CHOICE', id: 'sign' });
+  assert.ok(s.flags.ventureTerms, 'terms exist once you sign');
+
+  // The end of the arc: three ways out, and only one of them ends the run.
+  const decide = eventById.spin_decide;
+  assert.equal(decide.choices.filter(c => c.ending).length, 1, 'exactly one answer ends the run');
+  assert.equal(decide.choices.find(c => c.ending).ending, 'spinout');
+  const board = decide.choices.find(c => c.id === 'board');
+  assert.ok(board && board.flags.ventureBoard, 'and one of them is becoming the person your advisor is');
+  assert.equal(board.achievement, 'theotherside');
+
+  s.month = 54;
+  let founder = dispatch(beat(s, 'spin_decide'), { type: 'CHOICE', id: 'go' });
+  assert.ok(founder.ending && founder.ending.id === 'spinout', `taking it ends the run as a founder (got ${JSON.stringify(founder.ending)})`);
+
+  let stayed = dispatch(beat({ ...s, seen: { ...s.seen } }, 'spin_decide'), { type: 'CHOICE', id: 'board' });
+  assert.ok(!stayed.ending, 'and staying academic does not');
+  assert.ok(stayed.achievements.includes('theotherside'), 'it makes you the other side of the table instead');
 });
 
 test('the lecture minigame turns dodging into draft progress', () => {
