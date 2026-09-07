@@ -11,8 +11,11 @@ import { milestoneOf } from './time.js';
 
 export const ensureIntern = s => (s.intern = s.intern || { season: null, offers: [], talk: null, history: [], applied: false });
 
-// Applications open in August; the summer they buy is the following June.
-export const internWindow = s => [8, 9, 10].includes(monthOf(s.month)) ? 'open' : [11, 12, 1].includes(monthOf(s.month)) ? 'late' : 'closed';
+// The cycle, as it actually runs in CS. The big industrial labs post from September and make
+// offers from December through February; the summer they buy is the following June. August used
+// to be listed as "open" and November through January as "late", which is exactly backwards —
+// November is the peak and August is the tail of last summer.
+export const internWindow = s => [9, 10, 11, 12].includes(monthOf(s.month)) ? 'open' : [1, 2].includes(monthOf(s.month)) ? 'late' : 'closed';
 export const canApplyIntern = s => s.phase === 'playing' && !s.internship && s.month >= 6 && s.month < 50
   && internWindow(s) !== 'closed' && !(s.intern && s.intern.season === seasonOf(s));
 const seasonOf = s => Math.floor((s.month + 4) / 12);

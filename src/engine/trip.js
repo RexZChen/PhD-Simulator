@@ -4,7 +4,7 @@ import { cities, venueCities, flights, hotels, talkSlots, questioners, tripActiv
 import { venueById } from '../data/venues.js';
 import { dateLabel } from '../data/calendar.js';
 import { meetContact } from './network.js';
-import { random, roll, clamp, pick, shuffle } from './probability.js';
+import { random, roll, clamp, pick, shuffle, exactly } from './probability.js';
 import { effects, log, message, chat, award, activeProject, lastName, firstName, fill } from './state.js';
 import { charge } from './life.js';
 
@@ -44,8 +44,43 @@ export function visaNeed(s, city) {
   if (easy.includes(city.country)) return { kind: 'easy', risk: .05, weeks: 3 };
   return { kind: 'hard', risk: .18, weeks: 10 };
 }
-// Re-entering the US on an expired stamp means a consulate appointment and, sometimes, months.
+// Re-entering the country you live in.
+//
+// The trip system asks whether you can get *into* Barcelona. For most of the people who play this
+// as themselves, that was never the question. An F-1 entry stamp expires on its own schedule, and
+// renewing it means an interview at a consulate in your home country — which means leaving, and
+// then finding out whether you are allowed back. Administrative processing for somebody working in
+// machine learning or systems runs anywhere from three weeks to nine months, during which you are
+// simply not in your own life: not in the lab, not at the desk, not at the defense.
+//
+// It is the single largest fact about being an international doctoral student in the United States
+// and this function was written, exported, and then never called by anything. So the risk was real
+// in the source and zero in the game.
 export const stampRisk = s => s.player.profile.international && s.month >= 30 && !s.flags.stampRenewed ? .12 : 0;
+
+// Whether this trip takes you out of the country at all. Domestic conferences carry none of this.
+// The country field in src/data/conference.js is 'USA', not 'United States' — getting that wrong
+// silently made every domestic conference a border crossing.
+export const leavesCountry = cityId => !!cities[cityId] && cities[cityId].country !== 'USA';
+
+// Called on the way home. A hit is not a punishment for a wrong choice — nothing you did caused it
+// and nothing you could have done would have prevented it, which is the part that has to be true.
+export function reentry(s) {
+  const trip = s.trip;
+  if (!trip || !leavesCountry(trip.cityId)) return null;
+  // exactly(), not roll(): roll has a 3% floor, and without it a domestic student gets held at a
+  // consulate they never went to.
+  if (!exactly(s, stampRisk(s))) return null;
+  const weeks = 3 + Math.floor(random(s) * 10);
+  s.flags.stampHeld = true;
+  s.stampHold = { since: s.month, weeks };
+  effects(s, { stress: 16, hope: -12, progress: -Math.min(22, weeks * 1.6), energy: -8 });
+  log(s, t('At the consulate they take your passport and say the words “administrative processing”, which is not a decision and cannot be appealed because there is nothing yet to appeal. It is {weeks} weeks. You attend group meeting from a time zone eleven hours out and nobody in the department knows how to mark you as present.', { weeks }));
+  message(s, t('Consular Section'), t('Your visa application requires further administrative processing'),
+    t('Your case is undergoing administrative processing. We are unable to provide an estimated completion date. Please do not make travel arrangements or resign your position until you have received your passport. Enquiries before 60 days have elapsed cannot be answered.'), 'dashboard', 'inbox', null);
+  award(s, 'thestamp');
+  return { weeks };
+}
 
 export function applyForVisa(s, cityId, choice) {
   const city = cities[cityId];
@@ -356,6 +391,7 @@ export function endTrip(s) {
   const trip = s.trip;
   const p = tripProject(s);
   const city = tripCity(s);
+  const held = reentry(s);   // the flight home is the part nobody warns you about
   // Connections made turn into future citations and a warmer field.
   const conn = trip.connections;
   s.conferenceConnections = (s.conferenceConnections || 0) + conn;

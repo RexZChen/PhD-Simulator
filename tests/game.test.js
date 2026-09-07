@@ -12,9 +12,10 @@ import { requests } from '../src/data/requests.js';
 import { asks } from '../src/data/asks.js';
 import { crisisMoveList } from '../src/engine/life.js';
 import { templateById, eligible, freshness } from '../src/engine/events.js';
-import { createProject, acceptanceChance, setTarget } from '../src/engine/paper.js';
+import { createProject, acceptanceChance, setTarget, decide } from '../src/engine/paper.js';
 import { loadSave, saveRun, validRun, emptyMeta } from '../src/engine/save.js';
 import { memeFor, memeArt } from '../src/data/memes.js';
+import { reentry, stampRisk } from '../src/engine/trip.js';
 import { setAppLanguage } from '../src/i18n/apply.js';
 import { t } from '../src/i18n/index.js';
 import { emailFollowUps, visitQuestions } from '../src/data/threads.js';
@@ -400,7 +401,8 @@ test('a student who ignores every request and every meeting is eventually remove
 
 test('passing the prelim continues into year three and seasons pass faster', () => {
   let s = enterProgram(1);
-  s.month = 23; s.week = 4; s.stage = 'report'; s.report = { before: {}, events: [], weeks: [], monthsCovered: 1 };
+  // Month 26 is November of the third academic year, which is when the exam is actually scheduled.
+  s.month = s.milestones.prelimMonth; s.week = 4; s.stage = 'report'; s.report = { before: {}, events: [], weeks: [], monthsCovered: 1 };
   s.coursework = 90; s.readiness = 90; s.relationship.trust = 90; s.relationship.satisfaction = 90; s.player.stats.confidence = 80;
   s.projects.push({ id: 'p', kind: 'main', title: 'T', topic: 'systems', novelty: 80, technicalDepth: 80, evidence: 80, writingQuality: 80, hype: 10, reproducibility: 80, topicFit: 60, progress: 95, draft: 100, scope: 30, status: 'Accepted', collaborators: [s.advisor.name], submissionHistory: [], reviewers: [], wizardStep: 0, venueId: null, targetVenueId: null, targetMonth: null, targetVenue: null, timeline: null, preprint: false, startedMonth: 0 });
   s.counts.accepted = 2;
@@ -410,7 +412,7 @@ test('passing the prelim continues into year three and seasons pass faster', () 
   let guard = 0;
   while (s.stage === 'milestone' && s.milestoneKind === 'prelim' && guard++ < 3) { s = act(s, { type: 'MILESTONE', id: 'balanced' }); if (s.stage === 'report') s = act(s, { type: 'DISMISS_REPORT' }); }
   assert.equal(s.phase, 'playing');
-  assert.ok(s.month >= 24, 'the run continues past the prelim');
+  assert.ok(s.month > 26, 'the run continues past the prelim');
   assert.ok(['month', 'season', 'week'].includes(s.tempo));
 });
 
@@ -679,6 +681,83 @@ test('advisor pushback is a real second beat, and hesitation has a cost', () => 
   s = dispatch(s, { type: 'HESITATE' });
   assert.ok(!s.pushback, 'the moment closes');
   assert.ok(s.player.hidden.stress >= stress, 'and saying nothing is not free');
+});
+
+test('coming back into the country you live in is a question the trip actually asks', () => {
+  // `stampRisk` was defined, exported, and called by nothing: the risk was real in the source and
+  // zero in the game. The trip asked whether you could get into Vienna and never whether you could
+  // get home, which is backwards for the people this is about.
+  let hits = 0;
+  for (let seed = 1; seed <= 80; seed++) {
+    let s = enterProgramWith(seed, { international: true });
+    s.month = 40;
+    s.trip = { cityId: 'vienna', projectId: null, connections: 2, cites: 1, day: 4, activities: [], upgrades: [] };
+    if (reentry(s)) { hits++; assert.ok(s.flags.stampHeld && s.stampHold.weeks >= 3, 'a hold has a length, and it is weeks not days'); }
+  }
+  assert.ok(hits > 0 && hits < 55, `it happens, and it is not the common case (${hits}/80)`);
+
+  // Never for a domestic student, and never on a domestic conference.
+  let never = 0;
+  for (let seed = 1; seed <= 30; seed++) {
+    const home = enterProgramWith(seed, { international: false });
+    home.month = 40; home.trip = { cityId: 'vienna' };
+    if (reentry(home)) never++;
+    const away = enterProgramWith(seed, { international: true });
+    away.month = 40; away.trip = { cityId: 'neworleans' };
+    if (reentry(away)) never++;
+  }
+  assert.equal(never, 0, 'a passport that opens most doors, and a conference in your own country, carry none of this');
+  // And it cannot fire before the stamp has had time to expire.
+  const early = enterProgramWith(3, { international: true });
+  early.month = 12;
+  assert.equal(stampRisk(early), 0, 'not in year one, when the stamp is still good');
+});
+
+test('overclaiming costs you in the reviews, the way it costs you at the conference', () => {
+  // trip.js already makes every hostile question 40% worse if you hyped the talk. The paper
+  // pipeline had `hype` feeding acceptance with nothing ever coming back at you, so "a general
+  // framework for" was free once the paper was in.
+  const scores = h => {
+    let total = 0, n = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      let s = enterProgram(seed);
+      const p = createProject(s);
+      p.novelty = 60; p.technicalDepth = 55; p.evidence = 50; p.writingQuality = 55; p.reproducibility = 50;
+      p.hype = h; p.status = 'Submitted'; p.venueId = 'neuripsy';
+      p.submissionHistory = [{ venue: 'NeurIPSy', month: s.month }];
+      decide(s, p, 0);
+      for (const r of p.reviewers || []) { total += r.score; n++; }
+    }
+    return total / n;
+  };
+  const honest = scores(10);
+  const hyped = scores(95);
+  assert.ok(hyped < honest - .2, `a hyped paper reads worse to a hard reviewer (${hyped.toFixed(2)} vs ${honest.toFixed(2)})`);
+});
+
+test('you can predict a review score from its first sentence', () => {
+  // The single most reliable fact about a review. The text used to be drawn from the reviewer's
+  // disposition and the score from a quality model with nothing joining them, so a reviewer could
+  // hand you a 7 and write "the authors should consider whether this is a paper".
+  const KILL = /consider whether this is a paper|not commensurate with the venue|unconvinced this problem needs to exist|is a 404|did not address my concern|comfortable with that|six months of compute|special case of a result/i;
+  const PRAISE = /convincing|can take the weight|clean and I checked it|tighter than I expected|The code runs|Reproduced Table 4|a real contribution|I enjoyed reading this|honest is rarer/i;
+  let seen = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    let s = enterProgram(seed);
+    const p = createProject(s);
+    p.novelty = 20 + (seed * 7) % 78; p.technicalDepth = 15 + (seed * 13) % 80;
+    p.evidence = 10 + (seed * 17) % 85; p.writingQuality = 20 + (seed * 11) % 75;
+    p.reproducibility = 10 + (seed * 19) % 85;
+    p.status = 'Submitted'; p.venueId = 'neuripsy';
+    p.submissionHistory = [{ venue: 'NeurIPSy', month: s.month }];
+    decide(s, p, 0);
+    for (const r of p.reviewers || []) {
+      seen++;
+      if (r.score >= 7) assert.ok(!KILL.test(r.text), `a ${r.score} does not say "${r.text}"`);
+      if (r.score <= 4) assert.ok(!PRAISE.test(r.text), `a ${r.score} does not say "${r.text}"`);
+    }
+  }
+  assert.ok(seen >= 150, `enough reviews to mean something (${seen})`);
 });
 
 test('an easter egg you have not found does not describe itself in the locked list', () => {
@@ -1257,11 +1336,13 @@ import { applyInternships, canApplyIntern, internWindow, internWillingness, inte
 import { nextIndexFor } from '../src/data/calendar.js';
 import { skillNames } from '../src/data/catalog.js';
 
-const AUGUST = nextIndexFor(8, 12);   // the first August after enrolment
+// The cycle opens in September, not August: the big industrial labs post from September and make
+// offers December through February. August is the tail of last summer.
+const OCTOBER = nextIndexFor(10, 12);   // the first October after enrolment, mid-window
 const admitted = seed => { try { return enterProgram(seed); } catch { return null; } };
 function summerCandidate(seed, mutate = () => {}) {
   const s = enterProgram(seed);
-  s.month = AUGUST;
+  s.month = OCTOBER;
   s.counts.accepted = 1;
   s.player.skills.coding = 70; s.player.skills.research = 65;
   mutate(s);
@@ -1285,16 +1366,20 @@ test('every internship type is playable: a label, a real skill delta, and somewh
   assert.ok(internTypes.research.skills.research > 0, 'a research internship should build it');
 });
 
-test('the window is August, opens once a cycle, and closes behind you', () => {
+test('the window is autumn, opens once a cycle, and closes behind you', () => {
+  // September through December is the peak of the CS cycle, January and February are the tail,
+  // and August — which this used to call "open" — is last summer, not next.
   const s = summerCandidate(11);
   assert.equal(internWindow(s), 'open');
   assert.ok(canApplyIntern(s));
-  s.month = AUGUST + 3;           // November: late, still possible
+  s.month = OCTOBER - 2;          // August: nothing is posted yet
+  assert.equal(internWindow(s), 'closed');
+  s.month = OCTOBER + 3;          // January: late, still possible
   assert.equal(internWindow(s), 'late');
-  s.month = AUGUST + 6;           // February: gone
+  s.month = OCTOBER + 6;          // April: gone
   assert.equal(internWindow(s), 'closed');
   assert.equal(canApplyIntern(s), false);
-  s.month = AUGUST;
+  s.month = OCTOBER;
   applyInternships(s);
   assert.equal(canApplyIntern(s), false, 'one cycle, one application season');
   assert.throws(() => applyInternships(s));

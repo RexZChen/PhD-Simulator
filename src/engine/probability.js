@@ -7,7 +7,18 @@ export function random(state) {
   t ^= t + Math.imul(t ^ t >>> 7, t | 61);
   return ((t ^ t >>> 14) >>> 0) / 4294967296;
 }
+// The house rule: nothing in this game is ever certain and nothing is ever impossible, so a
+// designer's number is squeezed into [3%, 97%]. That is deliberate and it is load-bearing for
+// every hand-authored probability in src/data.
+//
+// It also means roll(s, 0) is a three per cent chance rather than never, which has bitten twice:
+// a domestic student held at a consulate they never visited, and a paper that earned no citations
+// this month picking some up anyway. Whenever the argument is *computed* rather than authored —
+// a rate that can legitimately reach zero or one — use exactly() instead and say why.
 export const roll = (state, chance) => random(state) < clamp(chance, .03, .97);
+
+// No floor, no ceiling. For computed rates where 0 must mean never and 1 must mean always.
+export const exactly = (state, chance) => random(state) < chance;
 export const pick = (state, values) => values[Math.floor(random(state) * values.length)];
 export const jitter = (state, value, width = 14) => Math.round(clamp(value + (random(state) * 2 - 1) * width));
 export function shuffle(state, values) {

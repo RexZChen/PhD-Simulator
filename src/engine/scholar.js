@@ -3,7 +3,7 @@ import { t } from '../i18n/index.js';
 import { meetContact } from './network.js';
 import { venueById } from '../data/venues.js';
 import { calendarOf } from '../data/calendar.js';
-import { random, roll, clamp, pick } from './probability.js';
+import { random, roll, clamp, pick, exactly } from './probability.js';
 import { award, message, log, lastName, firstName } from './state.js';
 import { firstNames, surnames } from '../data/names.js';
 import { schools } from '../data/catalog.js';
@@ -61,7 +61,10 @@ export function accrueCitations(s) {
     const quality = [.22, .38, .7, 1.5, 2.8][q - 1] ?? .7;
     const expected = tierPull * curve * quality * (1 + p.hype / 400);
     let n = Math.floor(expected);
-    if (roll(s, expected - n)) n++;
+    // The fractional remainder, exactly. roll() has a 3% floor, so a paper that genuinely earns
+    // nothing this month was still picking citations up — which is part of why the Scholar page
+    // used to look like a function of time rather than of work.
+    if (exactly(s, expected - n)) n++;
     // And it arrives in lumps. Nothing for two months, then a survey cites you and eleven people
     // find it in a fortnight. A smooth curve is the one thing a real Scholar page never is.
     if (q >= 4 && since >= 6 && random(s) < .055 + (q - 4) * .04) {

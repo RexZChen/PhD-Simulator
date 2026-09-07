@@ -155,15 +155,26 @@ export default [
       c('cede', 'Hand the compute-heavy part to a labmate', 'Fast. And it is their result now.', { energy: -3, progress: 8, satisfaction: 3, confidence: -8 },
         { labBond: 6, personality: 'peoplePleaser' }),
     ] },
-  { id: 'opt_countdown', title: 'Sixty days, and then what', category: 'career', scene: 'home',
+  // The sixty-day grace period is what happens if you do *not* file OPT, and almost nobody does
+  // not file OPT. The real shape is twelve months of OPT, then a twenty-four month STEM extension
+  // if your field qualifies — which in this game it always does — and then a lottery. The game's
+  // own memes file had this right ("ELEVEN BOXES, ONE EXIT / THE EXIT IS A LOTTERY") while this
+  // scene said something an international student would catch in one reading.
+  { id: 'opt_countdown', title: 'Eleven boxes, one exit', category: 'career', scene: 'home',
     probability: .4, once: true, cooldown: 99, conditions: { international: true, minMonth: 52 },
-    text: 'The grace period after you deposit is sixty days. Not sixty working days. The job market runs from September to March and the sixty days start whenever your committee decides they are satisfied, which is a date nobody will give you in writing.\n\nSo the actual question in front of you is not what you want to do next. It is whether you can afford to graduate on time.',
+    text: 'You file the OPT application ninety days out, because that is the earliest you are allowed to, and because the processing time is a range rather than a number. Twelve months, then twenty-four more on the STEM extension, and CS qualifies, so on paper you have three years.\n\nThree years is four attempts at the H-1B lottery, at somewhere around a one-in-three chance each time, and the arithmetic on that is not reassuring in the direction people assume. Your employer files; you wait for a result in March. There is also a ninety-day limit on being unemployed during OPT, which nobody mentions until you are laid off on day one of it.\n\nAnd there is the queue after that, the one that ends in a green card, which for somebody born where you were born is currently measured in decades. Your labmate from Ottawa does not have any of these numbers and has never had to learn them.',
     choices: [
-      c('delay', 'Slow the defense to protect the runway', 'The move everyone makes and nobody writes down', { hope: -4, stress: -8, money: -200 },
-        { flags: { visaDelay: true }, successText: 'You find three more months of work that genuinely needs doing. Some of it genuinely needed doing.' }),
-      c('sprint', 'Deposit and take the sixty days', 'Brave, and the arithmetic is the arithmetic', { stress: 16, hope: 6, energy: -6 },
-        { personality: 'riskTaker', successText: 'Sixty days is nine weeks. Nine weeks is two rounds of interviews if nothing slips, and something always slips.' }),
+      c('bigco', 'Optimise the whole search for a company that files reliably', 'The single most consequential filter, and it is not about the work', { hope: -6, stress: -4, career: 4 },
+        { flags: { visaFiltered: true }, personality: 'cynic',
+          result: 'You take three companies off the list because their immigration page is vague, and one of them was the interesting one. This is the decision, and you make it in about four minutes, and you do not tell anyone you made it.' }),
+      c('sprint', 'Take the best offer and let the lottery be the lottery', 'Brave. The arithmetic is still the arithmetic.', { stress: 16, hope: 8, energy: -6 },
+        { personality: 'riskTaker',
+          result: 'You take the job you actually want. In March you refresh a status page at 6 a.m. for four days. It is a coin that somebody else is flipping and you have no move to make while it is in the air.' }),
       c('postdoc', 'Line up a postdoc as an insurance policy', 'A real job, taken for a paperwork reason', { energy: -8, career: 6, hope: 2 },
-        { flags: { insurancePostdoc: true }, successText: 'You will take it if nothing else lands, and you will be good at it, and you will spend a year not saying out loud why you took it.' }),
+        { flags: { insurancePostdoc: true },
+          result: 'A university can file a cap-exempt petition, which is the actual reason you are considering it, and you will not say that in the interview. You will take it if nothing else lands, and you will be good at it, and you will spend a year not saying out loud why you took it.' }),
+      c('home', 'Start looking at jobs where you are from', 'Not a defeat. Also not nothing.', { hope: 4, stress: -6, career: -2 },
+        { flags: { lookingHome: true },
+          result: 'The salaries are lower and the work is real and your parents are twenty minutes away instead of eleven time zones. You keep the tab open for a month without applying, which is its own answer for now.' }),
     ] },
 ];

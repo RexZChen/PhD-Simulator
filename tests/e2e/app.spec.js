@@ -617,9 +617,11 @@ test('mail, chat and the log follow the language, mid-run', async ({ page }) => 
   expect(errs, 'no console errors').toEqual([]);
 });
 
-test('the summer: applying in August, an advisor who wants it back, and going anyway', async ({ page }) => {
-  // August of year two, a strong applicant, and an advisor with every reason to say no.
-  await seedPlay(page, `s.month = 11;
+test('the summer: applying in October, an advisor who wants it back, and going anyway', async ({ page }) => {
+  // October of year two, a strong applicant, and an advisor with every reason to say no. The
+  // window is September to December — the industrial labs post from September and decide over
+  // the winter — not August, which is the tail of the summer that just ended.
+  await seedPlay(page, `s.month = 13;
     s.counts.accepted = 2;
     s.player.skills.coding = 92; s.player.skills.research = 85; s.player.skills.networking = 80;
     s.advisor.caring = 12; s.advisor.toxicity = 85; s.advisor.ambition = 95; s.advisor.funding = 88;

@@ -235,21 +235,55 @@ function reject(s, p, reason) {
   if (['checkedOut', 'traveling'].includes(s.advisorMode?.id)) return;
   chat(s, 'advisor', s.advisor.name, pick(s, s.advisor.caring > 60 ? [t('Reviewers. Let’s talk about where next. This is normal.'), t('Disappointing, not surprising. Two of these reviews are wrong; fix the third.')] : [t('I told you it needed the other baseline.'), t('Let’s discuss. Bring a plan.')]));
 }
+// The reviews.
+//
+// The text used to be drawn from the reviewer's disposition and the score from a quality model,
+// with nothing joining them, so a reviewer could hand you a 7 and write "the authors should
+// consider whether this is a paper". A person who did this for a living spotted it in one run.
+// The most reliable fact about a review is that you can predict the number from the first
+// sentence, and decoupling them destroys the dread and the joke at the same time. So the band
+// comes first and the disposition only chooses the flavour inside it.
+const REVIEW_TEXT = {
+  warm: {
+    empirical: ['The empirical results are convincing. I would like one more seed and I am aware that is a lot to ask in the rebuttal period.', 'Table 2 is doing a lot of lifting and, unusually, it can take the weight.'],
+    theory: ['The construction in Section 3 is clean and I checked it. Theorem 2 is the paper.', 'The bound is tighter than I expected and the proof is shorter than it needs to be, which I mean as a compliment.'],
+    repro: ['The code runs. I ran it. This should not be remarkable and it is.', 'Reproduced Table 4 on the first attempt. Raising my score for that alone, which tells you something about this field.'],
+    mild: ['A real contribution, clearly written. My concerns are all presentational.', 'I enjoyed reading this, which I do not write often. Accept.', 'Incremental but honest, and honest is rarer. Weak accept.'],
+  },
+  borderline: {
+    empirical: ['The empirical results are interesting; the baselines need work.', 'More seeds, more datasets, more everything.', 'The gains are within noise on two of the four benchmarks and the text does not say so.'],
+    theory: ['The theoretical novelty is not yet clear.', 'Theorem 1 appears to be a restatement of the assumption.', 'What is the bound in the general case?'],
+    repro: ['I could not reproduce Table 4.', 'Hyperparameters appear to have been chosen by vibes.', 'The appendix promises a release "upon publication", which is a promise about a different paper.'],
+    mild: ['A promising contribution, with room for clearer framing.', 'Well written. I have concerns I cannot articulate, so I will lower the score instead.', 'Good work. The related work is missing my paper.', 'I am between a 5 and a 6 and I will decide during the discussion period, which is to say the area chair will decide.'],
+  },
+  hostile: {
+    empirical: ['The authors should evaluate on the other four benchmarks, at the larger scale, with the ablation. I recognise this is roughly six months of compute.', 'Why not just use a bigger model?', 'The comparison is against a baseline the authors implemented themselves. I would want the authors’ numbers checked against the original.'],
+    theory: ['I am unconvinced this problem needs to exist.', 'The assumption in Section 2 removes the difficulty, and the rest of the paper solves what is left.', 'This is a special case of a result from 2016 that is not cited.'],
+    repro: ['The code link is a 404, which is itself a result.', 'Nothing here can be checked, and the authors appear comfortable with that.'],
+    mild: ['The authors should consider whether this is a paper.', 'The contribution is not commensurate with the venue. I would encourage submission to a workshop.', 'I have read the rebuttal. The authors did not address my concern.'],
+  },
+};
+const bandOf = score => (score >= 7 ? 'warm' : score >= 5 ? 'borderline' : 'hostile');
+
 function makeReviewers(s, p) {
+  const v = venueById[p.venueId];
   const noisy = s.mutators.includes('reviewers') ? 1.5 : 1;
-  const texts = {
-    harsh: [t('I am unconvinced this problem needs to exist.'), t('The authors should consider whether this is a paper.'), t('Why not just use a bigger model?')],
-    empirical: [t('The empirical results are interesting; the baselines need work.'), t('Table 2 is doing a lot of lifting for a table.'), t('More seeds, more datasets, more everything.')],
-    theory: [t('The theoretical novelty is not yet clear.'), t('Theorem 1 appears to be a restatement of the assumption.'), t('What is the bound in the general case?')],
-    repro: [t('I could not reproduce Table 4.'), t('The code link is a 404, which is itself a result.'), t('Hyperparameters appear to have been chosen by vibes.')],
-    mild: [t('A promising contribution, with room for clearer framing.'), t('Well written. I have concerns I cannot articulate, so I will lower the score instead.'), t('Good work. The related work is missing my paper.')],
-  };
-  return Array.from({ length: 3 }, (_, i) => {
+  // Three used to be the number everywhere. The big venues now routinely assign four to six, and
+  // the fourth reviewer is very often the one who decides it.
+  const n = 3 + (random(s) < .55 ? 1 : 0) + (random(s) < .22 ? 1 : 0);
+  return Array.from({ length: n }, (_, i) => {
     const r = { name: t('Reviewer {n}', { n: i + 1 }), theory: random(s), empirical: random(s), novelty: random(s), writing: random(s), reproducibility: random(s), familiarity: random(s), harshness: random(s) };
     const w = r.theory + r.empirical + r.novelty + r.writing + r.reproducibility;
     const weighted = (p.technicalDepth * r.theory + p.evidence * r.empirical + p.novelty * r.novelty + p.writingQuality * r.writing + p.reproducibility * r.reproducibility) / w;
-    r.score = Math.round(clamp(weighted / 10 + (random(s) - .5) * 4 * noisy - (r.harshness - .5) * 3, 1, 10));
-    r.text = pick(s, r.harshness > .7 ? texts.harsh : r.empirical > .65 ? texts.empirical : r.theory > .65 ? texts.theory : r.reproducibility > .6 ? texts.repro : texts.mild);
+    // Overclaiming costs you here, the way it costs you at a conference: `trip.js` already makes
+    // every hostile question 40% worse if you hyped the talk, and the paper pipeline had `hype`
+    // feeding acceptance with nothing ever coming back at you. A reviewer who is already inclined
+    // to be hard reads "a general framework for" as a promise and marks against the promise.
+    const overclaim = Math.max(0, p.hype - (v?.hypeTolerance ?? 45)) / 100;
+    r.score = Math.round(clamp(weighted / 10 + (random(s) - .5) * 4 * noisy - (r.harshness - .5) * 3 - (r.harshness > .55 ? overclaim * 12 : 0), 1, 10));
+    const band = REVIEW_TEXT[bandOf(r.score)];
+    const lens = r.empirical > .65 ? 'empirical' : r.theory > .65 ? 'theory' : r.reproducibility > .6 ? 'repro' : 'mild';
+    r.text = t(pick(s, band[lens] || band.mild));
     r.confidence = 3 + Math.round(random(s) * 2);
     return r;
   });
