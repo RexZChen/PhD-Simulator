@@ -199,7 +199,14 @@ export function scheduleTurnEvents(s, ctx) {
   if (queue.filter(id => !URGENT.includes(id)).length < cap && roll(s, randomChance)) {
     const pool = events.filter(e => !e.scheduledOnly && !URGENT.includes(e.id) && e.category !== 'holiday' && e.category !== 'meeting' && !queue.includes(e.id) && eligible(s, e, ctx)
       && (isMonth ? e.category !== 'crunch' : (e.category === 'crunch' || random(s) < (isDay ? .25 : .15))));
-    const e = pickWeighted(s, pool, x => freshness(s, x));
+    // Half the time, only the scenes written about this player are in the running. Weighting alone
+    // was not enough: an event gated on four conditions and marked once-only has a window of maybe
+    // twenty months, and against eighty competitors that is a coin flip on whether the player it
+    // was written for ever sees it. Nobody writes "the nursery closes at six" for a coin flip.
+    // This does not add events — the draw is still one — it changes which one you get.
+    const mine = pool.filter(e => Object.keys(e.conditions || {}).length >= 3);
+    const from = mine.length && roll(s, .34) ? mine : pool;
+    const e = pickWeighted(s, from, x => freshness(s, x));
     if (e) queue.push(e.id);
   }
   if (isMonth && queue.filter(id => !URGENT.includes(id)).length < cap && roll(s, .65)) {
