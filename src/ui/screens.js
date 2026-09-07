@@ -11,7 +11,7 @@ const select = (label, name, options, value) => `<label class="field"><span>${la
 export function setupWizard(ui, meta, saved, notices) {
   const step = ui.wizardStep || 0;
   const choice = ui.wizardChoice || (saved && saved.phase !== 'ending' ? 'continue' : 'new');
-  const banner = `<div class="wizard-banner">${icon('wizard', 40)}<h2>Academic OS<br>${t('Setup')}</h2><small>US CS PhD Simulator<br>${t('Build 1.2 · offline · no account')}</small><small style="margin-top:auto">${t('{e} endings · {a} achievements found on this computer', { e: meta.endings.length, a: meta.achievements.length })}</small></div>`;
+  const banner = `<div class="wizard-banner">${icon('wizard', 40)}<h2>Academic OS<br>${t('Setup')}</h2><small>US CS PhD Simulator<br>${t('Build 1.3 · offline · no account')}</small><small style="margin-top:auto">${t('{e} endings · {a} achievements found on this computer', { e: meta.endings.length, a: meta.achievements.length })}</small></div>`;
   const langRow = `<div class="row" style="margin-top:10px"><span class="small muted">${t('Language')} / 语言:</span>${languages.map(([id, label]) => btn(label, 'language', { id, cls: `small ${getLanguage() === id ? 'primary' : ''}` })).join('')}</div>`;
   let page = '', buttons = '';
   if (step === 0) {

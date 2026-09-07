@@ -51,7 +51,7 @@ switched at any point mid-run, including for mail and chat you have already rece
 
 ```bash
 npm test          # 96 deterministic engine tests (node --test)
-npm run test:e2e  # 28 Playwright browser flows (uses installed Google Chrome)
+npm run test:e2e  # 29 Playwright browser flows (uses installed Google Chrome)
 npm run build     # production build
 npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
 npm run i18n      # plays real runs in Chinese and lists anything still in English

@@ -889,3 +889,32 @@ test('the desktop never gets brighter as you get worse', async ({ page }) => {
   expect(stressedOnly).toBeLessThan(1);
   expect(stressedAndRundown).toBeLessThanOrEqual(stressedOnly);
 });
+
+test('the archive stays open: Scholar and the other tabs after the run concludes', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(async () => {
+    const st = await import('/src/engine/state.js');
+    const { dispatch } = await import('/src/engine/game.js');
+    const { schools } = await import('/src/data/catalog.js');
+    const { saveRun, emptyMeta } = await import('/src/engine/save.js');
+    let s = st.createRun(9001, { background: 'masters', topic: 'ml', international: false });
+    s.phase = 'admissions'; s.offers = [schools[0].id];
+    s.applications = [{ schoolId: schools[0].id, effort: 'generic', poiId: s.advisors[0].id, status: 'admitted', funding: 'RA' }];
+    s = dispatch(s, { type: 'ENROLL', id: s.advisors[0].id });
+    s.month = 60;
+    st.finish(s, 'phd_product_eng', 'Software Engineer', 'They bring you in at mid-level.');
+    saveRun(localStorage, s, emptyMeta());
+  });
+  await page.reload();
+  await page.locator('.boot').click();
+  await page.getByRole('button', { name: /Review the last run/ }).click();
+  await page.locator('[data-action="wiz-next"]').click();
+  await closeDialogs(page);
+  // Six years of mail, citations and a submission history are the point of having played; the
+  // desktop does not get taken away at the end.
+  for (const app of ['scholar', 'mail', 'browser', 'calendar']) {
+    await page.locator(`[data-action="open"][data-app="${app}"]`).first().dblclick();
+    await expect(page.locator('.window .client')).toBeVisible();
+    await expect(page.locator(`[data-action="open"][data-app="${app}"]`).first()).toHaveClass(/active/);
+  }
+});
