@@ -47,6 +47,16 @@ function enterProgram(seed = 1) {
     try { return enterProgramOnce(seed + bump * 1000); } catch (e) { if (bump === 11) throw e; }
   }
 }
+// Enrol at one specific school, for the tests that are about that school's economics.
+function enterProgramAt(schoolId, seed = 7) {
+  let s = createRun(seed, { background: 'masters', topic: 'ml', international: false });
+  const poi = s.advisors.find(a => a.schoolId === schoolId);
+  s.phase = 'admissions';
+  s.offers = [schoolId];
+  s.applications = [{ schoolId, effort: 'tailored', contact: false, poiId: poi.id, status: 'admitted', funding: 'RA' }];
+  return dispatch(s, { type: 'ENROLL', id: poi.id });
+}
+
 // Same walk, with the questionnaire answers under test.
 function enterProgramWith(seed, extra) {
   for (let bump = 0; bump < 12; bump++) {
@@ -2240,4 +2250,99 @@ test('saved runs: three slots beside the autosave, and deleting one never touche
   assert.equal(listSlots(mem)[1].run, null);
   assert.equal(loadSave(mem).meta.achievements.length, before, 'deleting a run deleted achievements');
   assert.ok(loadSave(mem).run, 'deleting a slot ended the run that was open');
+});
+
+test('the paper you arrived with is on Scholar while you are still applying', async () => {
+  // It was seeded at enrolment, so a student who answered "At least one paper" saw an empty
+  // Scholar page for the whole application season — the one stretch where it matters most,
+  // because it is the thing that is on the CV a committee is reading.
+  const { myProfile } = await import('../src/engine/scholar.js');
+  const withPaper = createRun(21, { background: 'masters', topic: 'ml', international: false, publications: 'yes' });
+  const without = createRun(21, { background: 'masters', topic: 'ml', international: false, publications: 'none' });
+  assert.equal(withPaper.phase, 'prep', 'this is the application phase, before any enrolment');
+  assert.equal(myProfile(withPaper).papers.length, 1, 'the prior paper is missing before enrolment');
+  assert.equal(myProfile(without).papers.length, 0);
+  // And enrolling must not give them a second copy of it.
+  const { seedPriorWork } = await import('../src/engine/state.js');
+  seedPriorWork(withPaper);
+  assert.equal(myProfile(withPaper).papers.length, 1, 'enrolling duplicated the prior paper');
+});
+
+test('the stuck panel always says which door would help, even when that door is shut', async () => {
+  // The fit marker only rendered on an UNBLOCKED door, and `scope` had exactly one fitting door —
+  // so a scope problem with a travelling advisor highlighted nothing at all and the panel looked
+  // broken. Knowing which door is right and being unable to open it is information.
+  const { doorOptions, obstacleOf, askDoor } = await import('../src/engine/stuck.js');
+  const { doors, doorOrder, OBSTACLES } = await import('../src/data/stuck.js');
+
+  // Every kind of stuck has at least two doors that fit it, so one being shut is never a dead end.
+  for (const ob of Object.values(OBSTACLES)) {
+    const fitting = doorOrder.filter(d => doors[d].fit.includes(ob.id));
+    assert.ok(fitting.length >= 2, `"${ob.id}" has only ${fitting.length} fitting door(s)`);
+  }
+
+  const s = enterProgram(9);
+  s.month = 26;
+  if (!s.projects.length) Object.assign(s, dispatch(s, { type: 'START_PROJECT' }));
+  s.projects[0].progress = 55; s.projects[0].scope = 72;
+  s.advisorMode = { id: 'traveling' };                       // the advisor door is shut
+  assert.equal(obstacleOf(s).id, 'scope');
+  const opts = doorOptions(s);
+  assert.ok(opts.find(o => o.id === 'advisor').blocked, 'the advisor should be unreachable here');
+  assert.ok(opts.filter(o => o.fits).length >= 2, 'nothing is marked as fitting a scope problem');
+  assert.ok(opts.some(o => o.fits && !o.blocked), 'every fitting door is shut, so the panel offers nothing');
+
+  // And the two scope doors are a real trade rather than one being strictly better: the labmate
+  // hits more often, the advisor is the only one who can actually authorise the cut.
+  const run = (id) => {
+    let wins = 0, cut = 0;
+    for (let i = 1; i <= 200; i++) {
+      const x = enterProgram(9 + i);
+      x.month = 26;
+      if (!x.projects.length) Object.assign(x, dispatch(x, { type: 'START_PROJECT' }));
+      x.projects[0].progress = 55; x.projects[0].scope = 72;
+      x.labmates.forEach(l => { l.status = 'active'; });
+      const before = x.projects[0].scope;
+      try { if (askDoor(x, id).won) { wins++; if (x.projects[0].scope < before) cut++; } } catch { /* blocked */ }
+    }
+    return { wins, cut };
+  };
+  const adv = run('advisor'), mate = run('labmate');
+  assert.ok(adv.cut > 0, 'the advisor never actually cuts the scope, so the risk buys nothing');
+  assert.equal(mate.cut, 0, 'the labmate should not be able to authorise a cut');
+});
+
+test('every school is survivable, and rent is a lever the player can actually pull', async () => {
+  // "Validate living expenses, rent, and stipend per school more closely." The per-school numbers
+  // are credible — annual stipends $28.8k–$48k against a real ~$30–50k, rent 29–83% of stipend —
+  // but rent could only move through events, so a student in an expensive city was structurally
+  // short every month with nothing to do about it, while the two things every real graduate student
+  // in that position actually does were not in the game.
+  const { monthlyLedger, lifeActionAvailable } = await import('../src/engine/life.js');
+  const { housingMoves } = await import('../src/data/life.js');
+  const { schools } = await import('../src/data/catalog.js');
+
+  // The numbers themselves stay in the believable band.
+  for (const sc of schools) {
+    const annual = sc.stipend * 12;
+    assert.ok(annual >= 25000 && annual <= 55000, `${sc.name} pays $${annual}/yr, which is not a US CS stipend`);
+    const share = sc.rent / sc.stipend;
+    assert.ok(share > .2 && share < .9, `${sc.name} rent is ${Math.round(share * 100)}% of stipend`);
+  }
+
+  const balance = s => {
+    const l = monthlyLedger(s);
+    return l.stipend + (l.support || 0) - l.rent - l.food - l.premium - (l.fees || 0) - (l.other || 0);
+  };
+  // Take the worst case in the game and prove a player can get out of it.
+  const worst = [...schools].sort((a, b) => (b.rent / b.stipend) - (a.rent / a.stipend))[0];
+  const s = enterProgramAt(worst.id);
+  s.month = 14;
+  const before = balance(s);
+  const moves = housingMoves.filter(h => !lifeActionAvailable(s, h));
+  assert.ok(moves.length >= 1, `at ${worst.name} the player has no housing move available`);
+  const after = balance(dispatch(s, { type: 'LIFE', id: 'roommate' }));
+  assert.ok(after > before + 300, 'a roommate barely changes the arithmetic');
+  const lean = balance(dispatch(dispatch(s, { type: 'LIFE', id: 'roommate' }), { type: 'BUDGET', id: 'lean' }));
+  assert.ok(lean > 0, `${worst.name} is unsurvivable even with a roommate and a lean budget ($${lean}/mo)`);
 });

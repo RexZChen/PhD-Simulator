@@ -151,7 +151,13 @@ export function threadDialog(s, ui) {
   if (kind === 'interview') {
     const app = s.applications.find(a => a.schoolId === id); const poi = s.advisors.find(a => a.id === app?.poiId); if (!app?.interview) return '';
     const q = interviewStep(app);
-    return dialog(t('MeetMe — interview with Prof. {name}', { name: poi.name }), 'chat', `<div class="thread">${avatar(poi.id, 64)}<div class="thread-log">${app.interview.questions.map(x => `<div class="msg advisor"><span class="av">${esc(poi.name[0])}</span><div><div class="who"><b>${esc(lastName(poi.name))}</b></div><p>${esc(x.them)}</p></div></div><div class="msg mine"><span class="av">Y</span><div><div class="who"><b>${you}</b></div><p>${esc(x.you)}</p></div></div><div class="msg"><span class="av">·</span><div><p class="muted small">${esc(x.reply)}</p></div></div>`).join('')}${q && !app.interview.done ? `<div class="msg advisor"><span class="av">${esc(poi.name[0])}</span><div><div class="who"><b>${esc(lastName(poi.name))}</b></div><p>${esc(q.them)}</p></div></div>` : ''}</div></div>`,
+    return dialog(t('MeetMe — interview with Prof. {name}', { name: poi.name }), 'chat', `<div class="thread"><div class="thread-log">${app.interview.questions.map((x, i) => `
+        <div class="tl-turn">
+          <div class="tl-msg them"><span class="tl-av">${avatar(poi.id, 26)}</span><div><span class="tl-who">${esc(lastName(poi.name))}</span><p>${esc(x.them)}</p></div></div>
+          <div class="tl-msg you"><div><span class="tl-who">${you}</span><p>${esc(x.you)}</p></div><span class="tl-av you-av">${esc(String(you)[0] || 'Y')}</span></div>
+          <p class="tl-beat">${esc(x.reply)}</p>
+        </div>`).join('')}${q && !app.interview.done ? `
+        <div class="tl-turn open"><div class="tl-msg them"><span class="tl-av">${avatar(poi.id, 26)}</span><div><span class="tl-who">${esc(lastName(poi.name))}</span><p>${esc(q.them)}</p></div></div></div>` : ''}</div></div>`,
       q && !app.interview.done ? `<div class="choices">${q.options.map((o, i) => `<button class="btn choice" data-action="interview" data-id="${o.id}" data-target="${id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(o.label)}</b><small>${o.check ? t('{what} check', { what: t(o.check.skill || o.check.stat) }) : t('safe')}</small></span><span class="arrow">→</span></button>`).join('')}</div>` : `<p class="small muted">${t('The call ends. “We’ll be in touch.” They will be in touch in March.')}</p>`);
   }
   const a = s.advisors.find(x => x.id === id); if (!a) return '';

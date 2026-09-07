@@ -109,6 +109,11 @@ export const priorZh = {
 
 // 存档管理：三个存档位、自动存档，以及删除时那句「成就不受影响」——因为那才是人们真正害怕的事。
 export const savesZh = {
+  "You are running on nothing": "你已经没油了",
+  "Everything costs Energy and you are out. Life.exe → Body has the things that give it back; every one of them costs you something else.": "所有事都要花精力，而你没有了。Life.exe → 身体 里有把它补回来的办法；每一个都会花掉你别的东西。",
+  "Open Life.exe": "打开 Life.exe",
+  "Nothing unread.": "没有未读。",
+  "This is the one that would help. It is not open to you today.": "这一扇才是管用的那扇。今天它对你不开。",
   "Abandon run": "放弃这一局",
   "Achievements, endings and everything the machine has seen are kept across all runs and are never deleted here.": "成就、结局，以及这台机器见过的一切，在所有存档之间共享，在这里永远不会被删掉。",
   "Applying": "申请中",
@@ -142,4 +147,19 @@ export const savesZh = {
   "This ends the run that is open. Save it to a slot first if you want it back.": "这会结束当前打开的这一局。如果你还想要它，先把它存到一个存档位。",
   "There is no run to save.": "没有可保存的存档。",
   "Browser storage is full. Delete a saved run and try again.": "浏览器存储空间已满。删掉一个存档再试。",
+};
+
+// 你住在哪儿：房租是账本上最大的一项，也是唯一一项你真的动得了的。
+export const housingZh = {
+  "Find a roommate": "找个室友",
+  "A second-year from another department, a lease with both names on it, and a shared wall you will come to know the acoustic properties of intimately. Four hundred and twenty dollars a month, which is the difference between the arithmetic working and not working.": "另一个系的二年级，一份签着两个人名字的租约，和一堵你将会对其声学特性了如指掌的隔墙。每个月四百二十美元——而这正是账算得平和算不平之间的差额。",
+  "Move further out": "搬得远一点",
+  "Forty minutes each way on a train that is fine, mostly. You get the rent down by five hundred and sixty dollars and you get back eighty minutes a day less of your life, and for about six months you will believe you are reading on the train.": "单程四十分钟，车还行，大部分时候。房租降了五百六十美元，而你每天少了八十分钟的人生；接下来大约六个月，你会相信自己在车上是在读论文的。",
+  "Move closer in": "搬回近一点",
+  "Eleven minutes on foot. It costs four hundred and eighty dollars a month and it buys back the hour and twenty that the train was taking, and the first week you keep leaving too early out of habit.": "步行十一分钟。每个月多花四百八十美元，换回被那趟车拿走的一小时二十分钟；头一个星期你还是会出于习惯提前太久出门。",
+  "Where you live": "你住在哪儿",
+  "Rent is the largest line on the ledger and the only one you can actually move.": "房租是账本上最大的一项，也是唯一一项你真的动得了的。",
+  "Your rent is not the problem.": "你的问题不在房租上。",
+  "You already live close in.": "你已经住得够近了。",
+  "The lease is signed. The rent line on your ledger is a different number from next month.": "租约签了。从下个月起，账本上房租那一行是另一个数字。",
 };

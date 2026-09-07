@@ -56,6 +56,7 @@ function doorOdds(s, d, fits) {
 }
 
 export function askDoor(s, id) {
+  const ob = obstacleOf(s);
   const opt = doorOptions(s).find(o => o.id === id);
   if (!opt) throw new Error(t('That is not one of the options.'));
   if (opt.blocked) throw new Error(opt.blocked);
@@ -75,7 +76,10 @@ export function askDoor(s, id) {
   if (won) {
     effects(s, { progress: 7, hope: 4, stress: -6, confidence: 3 });
     if (p) p.evidence = clamp((p.evidence || 0) + 3);
-    if (id === 'advisor') effects(s, { satisfaction: 3, trust: 3 });
+    if (id === 'advisor') {
+      effects(s, { satisfaction: 3, trust: 3 });
+      if (p && ob.id === 'scope') { p.scope = clamp(p.scope - 14); log(s, t('They say the sentence that lets you cut it, which is a sentence only they can say.'), true); }
+    }
     if (id === 'labmate') effects(s, { labBond: 4 });
     if (id === 'sleep') effects(s, { energy: 10, health: 2 });
     s.counts.unstuck = (s.counts.unstuck || 0) + 1;

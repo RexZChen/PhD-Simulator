@@ -102,7 +102,27 @@ export const recharges = [
     line: 'It is prescribed to somebody else and it is in an unlabelled section of a pill organiser and the person who gave it to you was being kind. You get eleven hours that feel like a superpower and you do not sleep that night, and the day after the day after is the price, and you will pay it then rather than now, which is the entire appeal.' },
 ];
 
-export const lifeActionById = Object.fromEntries([...lifeActions, ...recharges].map(a => [a.id, a]));
+// ── Where you live ────────────────────────────────────────────────────────────────────────────
+// Rent could only move through events, so a student in an expensive city was structurally short
+// every month with nothing to do about it — while the two things every real graduate student in
+// that position actually does were not in the game. Both are permanent, both cost something that
+// is not money, and both are the correct answer at different times.
+export const housingMoves = [
+  { id: 'roommate', name: 'Find a roommate', icon: 'people', cooldown: 99, housing: true, cost: { energy: 6 },
+    effects: { rentDelta: -420, loneliness: -8, stress: 3 },
+    conditions: { minRent: 1200 },
+    line: 'A second-year from another department, a lease with both names on it, and a shared wall you will come to know the acoustic properties of intimately. Four hundred and twenty dollars a month, which is the difference between the arithmetic working and not working.' },
+  { id: 'further', name: 'Move further out', icon: 'home', cooldown: 99, housing: true, cost: { energy: 8, money: 900 },
+    effects: { rentDelta: -560, commute: 2, hope: -3 },
+    conditions: { minRent: 1400 },
+    line: 'Forty minutes each way on a train that is fine, mostly. You get the rent down by five hundred and sixty dollars and you get back eighty minutes a day less of your life, and for about six months you will believe you are reading on the train.' },
+  { id: 'closer', name: 'Move closer in', icon: 'home', cooldown: 99, housing: true, cost: { energy: 8, money: 900 },
+    effects: { rentDelta: 480, commute: -2, hope: 4 },
+    conditions: { minCommute: 1 },
+    line: 'Eleven minutes on foot. It costs four hundred and eighty dollars a month and it buys back the hour and twenty that the train was taking, and the first week you keep leaving too early out of habit.' },
+];
+
+export const lifeActionById = Object.fromEntries([...lifeActions, ...recharges, ...housingMoves].map(a => [a.id, a]));
 
 // Coffee. The engine's only renewable resource, and a liar.
 export const COFFEE = {

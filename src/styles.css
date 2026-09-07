@@ -146,7 +146,10 @@ table.grid td.num, table.grid th.num { text-align: right; }
 .desk-icon { position: relative; width: 84px; padding: 5px 2px 4px; border: 1px solid transparent; background: transparent; color: #fff; text-shadow: 1px 1px #000; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: var(--fs-sm); line-height: 1.15; }
 .desk-icon .ico { color: #f4f8f6; filter: drop-shadow(1px 1px 0 rgba(0,0,0,.6)); }
 .desk-icon:hover:not(:disabled), .desk-icon.active { background: rgba(10,36,106,.55); border: 1px dotted #fff; }
-.desk-icon:disabled { opacity: .5; cursor: default; }
+.desk-icon:disabled { opacity: .34; cursor: default; filter: grayscale(1); }
+.desk-icon:disabled .ico { filter: none; }
+.desk-icon:not(:disabled) { cursor: pointer; }
+.desk-icon:not(:disabled):hover .ico { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.6)) brightness(1.15); }
 .desk-icon .badge { position: absolute; top: 2px; right: 8px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #c0392b; border: 1px solid #fff; color: #fff; text-shadow: none; font: 700 11px/16px inherit; }
 .workspace { position: absolute; top: 8px; left: 100px; right: 12px; bottom: 36px; display: grid; grid-template-columns: minmax(0, 1fr) 236px; gap: 10px; z-index: 1; }
 .workspace.no-side { grid-template-columns: minmax(0, 1fr); }
@@ -1331,6 +1334,9 @@ table.mini th { background: var(--face); }
 .stuck-door:hover:not(:disabled) { background: #e9eef8; border-color: #b9c6e0; }
 .stuck-door:disabled { color: var(--disabled); cursor: default; }
 .stuck-door.fits:not(:disabled) { border-color: #b9d6c0; background: #f2f9f4; }
+.stuck-door.fits:disabled { border-left: 3px solid #b9d6c0; }
+.stuck-door.fits:disabled .sd-fit { color: var(--disabled); }
+.stuck-door.apart { margin-top: 5px; border-top-style: dashed; }
 .sd-who { display: grid; place-items: center; }
 .sd-who svg { border-radius: 2px; display: block; }
 .stuck-door:disabled .sd-who { opacity: .4; filter: grayscale(1); }
@@ -1623,3 +1629,27 @@ table.mini th { background: var(--face); }
 .wiz-repo { margin-top: 6px; opacity: .7; font-size: var(--fs-xs); }
 .wiz-repo a { color: inherit; text-decoration: underline; }
 .end-repo { margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--shadow); font-size: var(--fs-sm); }
+
+/* The interview transcript. It is a conversation and it should read as one: what they asked, what
+   you said, and what that did — the third of which is not a speaker and must not look like one.
+   Before this `.msg` carried only a border-bottom, so the avatar initials rendered as bare letters
+   on their own lines and all three kinds of line were identical blocks. */
+.thread { display: block; }
+.thread-log { background: var(--paper); border: 1px solid var(--shadow); padding: 10px 12px; max-height: 300px; overflow: auto; }
+.tl-turn { padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--shadow); }
+.tl-turn:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 2px; }
+.tl-msg { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.tl-msg.you { justify-content: flex-end; margin-left: 32px; }
+.tl-msg.them { margin-right: 32px; }
+.tl-msg > div { min-width: 0; padding: 6px 10px; border: 1px solid var(--shadow); border-radius: 2px; }
+.tl-msg.them > div { background: #fff; }
+.tl-msg.you > div { background: #e7eef9; border-color: #b9c6e0; text-align: right; }
+.tl-msg p { margin: 2px 0 0; font-size: var(--fs-sm); line-height: 1.45; }
+.tl-who { font-size: var(--fs-xs); font-weight: 700; color: var(--disabled); letter-spacing: .02em; }
+.tl-av { flex: 0 0 auto; display: grid; place-items: center; width: 26px; height: 26px; overflow: hidden; }
+.tl-av.you-av { background: var(--accent); color: #fff; border-radius: 50%; font-size: var(--fs-xs); font-weight: 700; }
+.tl-av .avatar { width: 26px; height: 26px; border: 0; }
+/* What the answer did. Not a speaker: no avatar, no name, set in and italic. */
+.tl-beat { margin: 4px 0 0 34px; padding-left: 9px; border-left: 2px solid var(--shadow);
+  font-size: var(--fs-sm); font-style: italic; color: var(--disabled); line-height: 1.45; }
+.tl-turn.open .tl-msg.them > div { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }

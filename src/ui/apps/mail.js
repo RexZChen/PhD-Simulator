@@ -78,7 +78,7 @@ export function mailApp(s, ui) {
   return `<div class="outlook">
     ${ribbon(s, m, ui)}
     <div class="outlook-body">
-      <div class="mail-folders">${folders}<div class="mf-stat tiny muted">${t('{n} messages · {u} unread', { n: s.inbox.length, u: s.inbox.filter(x => !x.read).length })}</div>${s.inbox.some(x => !x.read) ? btn(t('Mark all read'), 'read-all-mail', { cls: 'small' }) : ''}</div>
+      <div class="mail-folders">${folders}<div class="mf-stat tiny muted">${t('{n} messages · {u} unread', { n: s.inbox.length, u: s.inbox.filter(x => !x.read).length })}</div>${btn(t('Mark all read'), 'read-all-mail', { cls: 'small', disabled: !s.inbox.some(x => !x.read), title: s.inbox.some(x => !x.read) ? '' : t('Nothing unread.') })}</div>
       <div class="mail-list sunken">${rows}</div>
       <div class="mail-read sunken">${reading}</div>
     </div>

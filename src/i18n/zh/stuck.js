@@ -3,6 +3,7 @@
 // 六扇门的文案。英文原文的分寸是「具体、克制、不解释笑点」，中译沿用：不加感叹号，不把
 // 「这很荒谬」说出来，让读者自己认出这是自己经历过的那个下午。
 export const stuckZh = {
+  "They say the sentence that lets you cut it, which is a sentence only they can say.": "他说出了那句让你可以砍掉它的话——而那句话只有他说得出来。",
   // 五种卡住
   "The method does not work": "这个方法不管用",
   "It runs. The numbers are wrong and you do not know why.": "它能跑。数字是错的，而你不知道为什么。",
@@ -71,7 +72,7 @@ export const stuckZh = {
 
   // 回家
   "Stop and go home": "停下，回家",
-  "The one that always works and that nobody counts as work. It costs you a piece of the month, because it is a piece of the month.": "那个总是有效、而没人把它算作工作的选项。它会花掉你这个月的一部分——因为它本来就是这个月的一部分。",
+  "Not the month off — tonight. The one that always works and that nobody counts as work, and it still costs you a piece of the month.": "不是请一个月的假——是今晚。那个总是有效、而没人把它算作工作的选项；它照样会花掉你这个月的一部分。",
   "You wake up at ten past six knowing what is wrong. Nothing happened in between. This is the least explicable and most reliable debugging technique in the field.": "你六点十分醒来，知道哪里错了。中间什么都没发生。这是本领域最无法解释、也最可靠的调试手段。",
   "In the shower, unbidden, with shampoo in your hand: the assumption you never checked. You are back at the desk in forty minutes.": "洗澡的时候，没来由地，手里还捏着洗发水：那个你从来没验证过的假设。四十分钟后你已经坐回桌前。",
   "You sleep badly and think about it the whole time, which is the worst of both and is what \"stop and go home\" usually means at this stage.": "你睡得很差，而且整晚都在想它——两头都占了最坏的一半，而这就是这个阶段的“停下，回家”通常的意思。",

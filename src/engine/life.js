@@ -372,6 +372,8 @@ export function lifeActionAvailable(s, a) {
   if (a.offCampus && s.player.profile.international) return t('Your visa does not permit off-campus work. The rule is the rule.');
   if (a.conditions?.minMonth !== undefined && s.month < a.conditions.minMonth) return t('not yet');
   if (a.conditions?.maxMoney !== undefined && s.player.stats.money > a.conditions.maxMoney) return t('you are not there yet, thankfully');
+  if (a.conditions?.minRent !== undefined && (s.program.rent + (s.housing.rentDelta || 0)) < a.conditions.minRent) return t('Your rent is not the problem.');
+  if (a.conditions?.minCommute !== undefined && (s.housing.commute || 0) < a.conditions.minCommute) return t('You already live close in.');
   if ((a.cost?.energy || 0) > s.player.stats.energy) return t('Not enough Energy.');
   return null;
 }
@@ -386,6 +388,7 @@ export function doLifeAction(s, id) {
   if (money) s.player.stats.money = Math.round(s.player.stats.money + money);
   if (loneliness) s.player.hidden.loneliness = clamp((s.player.hidden.loneliness || 0) + loneliness);
   if (a.peerBond) for (const p of s.peers) p.bond = clamp(p.bond + a.peerBond);
+  if (a.housing) log(s, t('The lease is signed. The rent line on your ledger is a different number from next month.'), true);
   if (a.personality) s.player.personality[a.personality]++;
   for (const [k, v] of Object.entries(a.flags || {})) s.flags[k] = v;
   s.lifeCooldowns = { ...(s.lifeCooldowns || {}), [id]: absWeek(s) + a.cooldown };

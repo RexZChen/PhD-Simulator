@@ -37,7 +37,7 @@ export const doors = {
   labmate: {
     id: 'labmate', label: 'Ask a labmate', icon: 'people',
     hint: 'Free, immediate, and they may not actually be listening.',
-    fit: ['bug', 'method'], energy: 2,
+    fit: ['bug', 'method', 'scope'], energy: 2,
     good: [
       'They look at it for eleven seconds and say “that is a version thing.” It is a version thing. This is the single highest-yield interaction available to anybody in a building.',
       'They hit exactly the same wall in March and did not tell anybody, and now you both know, and you are quietly furious that this was not written down anywhere.',
@@ -92,7 +92,7 @@ export const doors = {
   },
   sleep: {
     id: 'sleep', label: 'Stop and go home', icon: 'moon',
-    hint: 'The one that always works and that nobody counts as work. It costs you a piece of the month, because it is a piece of the month.',
+    hint: 'Not the month off — tonight. The one that always works and that nobody counts as work, and it still costs you a piece of the month.',
     fit: ['motivation', 'bug'], energy: 0, restore: 6,
     good: [
       'You wake up at ten past six knowing what is wrong. Nothing happened in between. This is the least explicable and most reliable debugging technique in the field.',

@@ -132,6 +132,7 @@ export function createRun(seed = Date.now() >>> 0, answers = {}) {
   if (profile.experience === 'none') s.player.skills.research = clamp(s.player.skills.research - 5);
   s.advisors = makeAdvisors(s);
   s.prep = null; s.threads = {};
+  seedPriorWork(s);
   log(s, t('Created an applicant. An optimistic use of a form.'));
   return s;
 }
@@ -141,6 +142,7 @@ export function createRun(seed = Date.now() >>> 0, answers = {}) {
 // read the answer, which made it a question about nothing.
 export function seedPriorWork(s) {
   if (s.player.profile.publications !== 'yes') return;
+  if (s.projects.some(p => p.id === 'prior-0')) return;      // already have it; enroll() calls this too
   const topic = s.player.profile.topic;
   const pool = priorTitles[topic] || priorTitles.ml;
   const title = pick(s, pool);

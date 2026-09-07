@@ -276,6 +276,11 @@ function managerNextStep(s) {
   if (p?.status === 'Ready' && p.kind !== 'thesis') return { title: t('A draft is approved'), detail: t('Submit it when a venue is open.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
   if (p && ['Drafting', 'Experiments', 'Prototype', 'Idea'].includes(p.status) && !p.targetVenueId && p.progress >= 35)
     return { title: t('Choose a venue'), detail: t('Work without a deadline expands, and your advisor will keep asking which one it is.'), cta: openApp(t('Set a target'), 'browser', 'openregret') };
+  // Running out of Energy is the wall the player hits most often, and the way out is in another
+  // app on a tab they have no reason to have opened. Say so, once, when it is true.
+  if (s.player.stats.energy < 22) return { title: t('You are running on nothing'),
+    detail: t('Everything costs Energy and you are out. Life.exe → Body has the things that give it back; every one of them costs you something else.'),
+    cta: openApp(t('Open Life.exe'), 'life', 'body') };
   if (!s.focus) return null;
   return { title: t('Plan set'), detail: t('Use the desktop if you want to, then continue. Everything else is optional.'), cta: go(t('Continue →'), 'continue') };
 }
@@ -331,10 +336,10 @@ function stuckPanel(s) {
     <div class="stuck-head"><b>${esc(t(ob.label))}</b><span class="tiny muted">${esc(t(ob.hint))}</span></div>
     <div class="stuck-doors">${opts.map(o => {
       const face = who[o.id] ? avatar(who[o.id], 26) : icon(o.icon, 20);
-      return `<button class="stuck-door ${o.fits ? 'fits' : ''}" data-action="stuck-ask" data-id="${o.id}" ${o.blocked || !plan ? 'disabled' : ''} title="${esc(o.blocked || t(o.hint))}">
+      return `<button class="stuck-door ${o.fits ? 'fits' : ''} ${o.id === 'sleep' ? 'apart' : ''}" data-action="stuck-ask" data-id="${o.id}" ${o.blocked || !plan ? 'disabled' : ''} title="${esc(o.blocked || t(o.hint))}">
         <span class="sd-who">${face}</span>
         <span class="sd-l"><b>${esc(t(o.label))}</b><small>${esc(o.blocked || t(o.hint))}</small></span>
-        ${o.fits && !o.blocked ? `<span class="sd-fit" title="${esc(t('Suited to this kind of stuck'))}">●</span>` : ''}
+        ${o.fits ? `<span class="sd-fit" title="${esc(o.blocked ? t('This is the one that would help. It is not open to you today.') : t('Suited to this kind of stuck'))}">●</span>` : ''}
       </button>`;
     }).join('')}</div>
     <p class="tiny muted">${esc(t(stuckNote))}</p>
