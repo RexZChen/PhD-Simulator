@@ -30,6 +30,13 @@ function advance(s) {
   // grinder does the minimum; lazy ignores it and pays for that later.
   if (s.stage === 'crisis') return dispatch(s, { type: 'CRISIS', id: s.__style === 'diligent' ? 'treat' : s.__style === 'grinder' ? 'minimum' : 'ignore' });
   if (s.stage === 'pushback') { const pb = pushbacks.find(x => x.id === s.pushback.id); return dispatch(s, { type: 'PUSHBACK', id: pb.options[0].id }); }
+  if (s.stage === 'minigame' && s.minigame === 'viva') {
+    // Diligent knows their own work and says so when they do not; lazy bluffs and goes quiet.
+    const tally = s.__style === 'diligent' ? { land: 4, concede: 2, caught: 0, silent: 0, composure: 82 }
+      : s.__style === 'grinder' ? { land: 3, concede: 0, caught: 3, silent: 0, composure: 52 }
+      : { land: 1, concede: 1, caught: 3, silent: 1, composure: 28 };
+    return dispatch(s, { type: 'VIVA', tally });
+  }
   if (s.stage === 'minigame') return dispatch(s, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 });
   if (s.stage === 'trip') {
     if (s.trip.phase === 'visa') return dispatch(s, { type: 'TRIP_VISA', id: 'normal' });

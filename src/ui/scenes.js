@@ -8,6 +8,8 @@ import { fill, lastName, labmateById } from '../engine/state.js';
 import { prelimChance, proposalChance, defenseChance } from '../engine/game.js';
 import { pushbacks, lectureLines } from '../data/minigames.js';
 import { benchNote } from '../data/bench.js';
+import { vivaMoves, examiners } from '../data/viva.js';
+import { clusterNote } from '../data/cluster.js';
 import { crises, crisisMoves, CRISIS_NOTE } from '../data/crisis.js';
 import { t } from '../i18n/index.js';
 
@@ -136,3 +138,39 @@ export function milestoneDialog(s) {
   <div class="choices">${choices.map(([id, label, h], i) => `<button class="btn choice" data-action="${kind === 'graduation' ? 'graduate' : 'milestone'}" data-id="${id}" data-hotkey="${i + 1}" ${id === 'master' && s.coursework < 55 ? 'disabled' : ''}><span><kbd>${i + 1}</kbd></span><span><b>${esc(label)}</b><small>${esc(h)}</small></span><span class="arrow">→</span></button>`).join('')}</div></div></section></div>`;
 }
 export const prelimDialog = milestoneDialog;
+
+// Room 214. Same shape as the lecture and the bench: the dialog is a shell, its innards are
+// painted by viva.js's own interval, so a re-render never restarts the exam.
+export function vivaDialog(s) {
+  const kind = s.viva?.kind || 'prelim';
+  const title = { prelim: t('Preliminary examination — Room 214'), proposal: t('Thesis proposal — Room 214'), defense: t('Dissertation defense — Room 214') }[kind];
+  const moves = Object.values(vivaMoves);
+  return `<div class="modal"><section class="dialog viva" role="dialog" aria-modal="true" aria-labelledby="vv-title"><div class="titlebar"><span class="tb-title">${icon('flag', 16)}<span>${esc(title)}</span></span></div><div class="body" data-vv>
+    <div class="vv-head">
+      <div><h2 id="vv-title" data-vv-who></h2><p class="tiny muted" data-vv-note></p></div>
+      <b class="tiny muted" data-vv-count></b>
+    </div>
+    <div class="vv-meters">
+      <span class="tiny muted">${t('Composure')}</span><div class="vv-track"><i data-vv-composure class="vv-fill"></i></div>
+      <span class="tiny muted">${t('The room is waiting')}</span><div class="vv-track"><i data-vv-clock class="vv-fill"></i></div>
+    </div>
+    <p class="vv-q" data-vv-q></p>
+    <p class="vv-flash hidden" data-vv-flash></p>
+    <div class="choices vv-moves">${moves.map((m, i) => `<button class="btn choice" data-action="viva-move" data-id="${m.id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(m.label))}</b><small>${esc(t(m.hint))}</small></span><span class="arrow">→</span></button>`).join('')}</div>
+    <p class="tiny muted" data-vv-tally></p>
+    <p class="tiny muted">${t('Your advisor is at the back of the room and may not speak. That is what they are here for.')}</p>
+  </div></section></div>`;
+}
+
+// 04:12. A wall of output and a reservation that is running out. The log itself is painted by
+// cluster.js; this is the frame around it.
+export function clusterDialog() {
+  return `<div class="modal"><section class="dialog cluster" role="dialog" aria-modal="true" aria-labelledby="cl-title"><div class="titlebar"><span class="tb-title">${icon('computer', 16)}<span>${t('gpu-0417')}</span></span></div><div class="body" data-cl>
+    <div class="vv-head"><h2 id="cl-title" data-cl-title></h2><b class="tiny muted" data-cl-count></b></div>
+    <p class="tiny muted" data-cl-hint></p>
+    <div class="vv-meters"><span class="tiny muted" data-cl-left></span><div class="vv-track"><i data-cl-clock class="vv-fill"></i></div></div>
+    <div class="cl-log" data-cl-log></div>
+    <p class="vv-flash hidden" data-cl-flash></p>
+    <p class="tiny muted">${esc(t(clusterNote))}</p>
+  </div></section></div>`;
+}

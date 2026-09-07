@@ -4,6 +4,31 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.4.0] — 2026-09-07
+
+Two minigames, and one of them replaces a dice roll on the three most consequential days of a PhD.
+
+### Added
+- **Room 214.** The prelim, the proposal and the defense used to be one click and a roll. Now four
+  examiners ask you six questions with eleven seconds each, and the mechanic is the lesson: an oral
+  exam tests whether you know the *edge* of what you know. Conceding — "I do not know, and here is
+  how I would find out" — is safe on the field, the method and the motivation, and is the one thing
+  the room cannot forgive on your own chapter. Answering is the only move that rolls, so the risk
+  lives in exactly one place. Composure carries between questions, which is unfair and accurate.
+  19 questions across the three milestones. The room shifts the odds by at most ±0.2 and never
+  replaces them, because six years of record should still outweigh one afternoon.
+- **04:12.** The job died. Four logs, one reservation that does not reset between them, and one line
+  in each that is actually the problem — never the one that raised, and never the last one. Clicking
+  the error message costs you five seconds, which is the correct punishment. Every stage is a real
+  failure mode: `$USER` unset on the compute nodes, a gitignored config that silently did not
+  override, `grad_norm=inf` one step before the loss went to nan, and a relative output path that
+  the scheduler wrote into its own spool and then deleted. Visual search under a dying clock —
+  a mechanic none of the other four use.
+- 4 achievements, for 86: four-for-four on the logs, debugging without once clicking the error,
+  conceding three questions and never being caught, and holding the room for all six.
+- 159 strings of new prose in Simplified Chinese. The log lines stay in English, because they are
+  machine output and translating a stack trace would be a lie.
+
 ## [1.3.0] — 2026-09-07
 
 The run can now end in ways you did not choose, the body is no longer optional, and being here on

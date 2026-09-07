@@ -42,6 +42,22 @@ async function clickInPanel(page, selector, panel = '.summertalk') {
   return true;
 }
 
+
+// Choosing an approach at a milestone opens Room 214. Answer the six questions and let the
+// committee's verdict land, so tests about what happens *after* the exam stay about that.
+async function sitTheExam(page) {
+  const room = page.locator('[data-vv]');
+  if (!(await room.count())) return;
+  for (let i = 0; i < 8; i++) {
+    if (!(await room.count())) break;
+    const move = room.locator('[data-action="viva-move"]:not([disabled])').first();
+    if (!(await move.count())) { await page.waitForTimeout(400); continue; }
+    await move.click({ timeout: 4000 }).catch(() => {});
+    await page.waitForTimeout(2800);
+  }
+  await expect(page.locator('[data-vv]')).toHaveCount(0, { timeout: 15_000 });
+}
+
 test('setup wizard requires the license, then the questionnaire creates an applicant', async ({ page }) => {
   await fresh(page);
   await expect(page.getByRole('heading', { name: /Setup Wizard/ })).toBeVisible();
@@ -356,6 +372,7 @@ test('defending is not finishing: revisions, format review, then commencement', 
     const th = paper.createThesis(s); th.draft = 96; th.status = 'Ready';
     s.milestones.defenseMonth = 62; s.stage = 'milestone'; s.milestoneKind = 'defense';`);
   await page.locator('[data-action="milestone"][data-id="balanced"]').click();
+  await sitTheExam(page);
 
   // You passed, and you are not done.
   await expect(page.locator('.revisions')).toBeVisible();
@@ -917,4 +934,83 @@ test('the archive stays open: Scholar and the other tabs after the run concludes
     await expect(page.locator('.window .client')).toBeVisible();
     await expect(page.locator(`[data-action="open"][data-app="${app}"]`).first()).toHaveClass(/active/);
   }
+});
+
+test('Room 214: the committee asks, and what you do with not knowing is the exam', async ({ page }) => {
+  await seedPlay(page, `
+    s.month = 22; s.coursework = 70; s.readiness = 60;
+    s.stage = 'milestone'; s.milestoneKind = 'prelim';
+  `, undefined, 9001, true);
+  const approach = page.locator('[data-action="milestone"][data-id="balanced"]');
+  await expect(approach).toBeVisible();
+  // Choosing an approach used to roll the dice. Now it opens the door.
+  await approach.click();
+  const room = page.locator('[data-vv]');
+  await expect(room).toBeVisible();
+  await expect(page.locator('[data-vv-q]')).not.toBeEmpty();
+  await expect(page.locator('[data-vv-who]')).not.toBeEmpty();
+
+  // Six questions. Answer each the moment it appears; the clock is real, so do not dawdle.
+  for (let i = 0; i < 6; i++) {
+    if (!(await room.count())) break;
+    const btn = room.locator('[data-action="viva-move"]:not([disabled])').first();
+    await btn.click({ timeout: 4000 }).catch(() => {});
+    // The outcome holds on screen for a beat before the next question.
+    await page.waitForTimeout(2800);
+  }
+  // The room resolves into the milestone outcome, not back into itself.
+  await expect(page.locator('[data-vv]')).toHaveCount(0, { timeout: 10_000 });
+  const st = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const run = loadSave(localStorage)?.run;
+    return { stage: run?.stage, prelim: run?.milestones?.prelim, viva: run?.viva };
+  });
+  expect(st.viva).toBeFalsy();
+  expect(['pass', 'conditional', 'retake', 'fail']).toContain(st.prelim);
+});
+
+test('04:12: the error is never the last line', async ({ page }) => {
+  test.setTimeout(60_000);
+  await seedPlay(page, `p.progress = 45; p.status = 'Experiments'; s.player.stats.energy = 80;`);
+  await page.locator('[data-action="open"][data-app="browser"]').first().dblclick();
+  const start = page.locator('[data-action="cluster-start"]');
+  await expect(start).toBeEnabled();
+  await start.click();
+  await expect(page.locator('[data-cl-log]')).toBeVisible();
+  await expect(page.locator('.cl-line')).not.toHaveCount(0);
+
+  // Clicking the line that raised is the instinct, and it costs you the reservation.
+  const before = await page.locator('[data-cl-left]').innerText();
+  const decoy = page.locator('.cl-line', { hasText: /Traceback|OutOfMemoryError|loss=nan|slurmstepd|Cleaning up/ }).first();
+  if (await decoy.count()) {
+    await decoy.click();
+    await expect(page.locator('[data-cl-flash]')).not.toHaveClass(/hidden/);
+    expect(await page.locator('[data-cl-left]').innerText()).not.toBe(before);
+  }
+
+  // Then find the line that is actually the problem, in each of the four logs.
+  const realLines = await page.evaluate(async () => {
+    const { clusterStages } = await import('/src/data/cluster.js');
+    return clusterStages.map(st => st.lines.find(l => l.real).t);
+  });
+  for (let i = 0; i < 4; i++) {
+    if (!(await page.locator('[data-cl-log]').count())) break;
+    for (const text of realLines) {
+      const line = page.locator('.cl-line', { hasText: text.slice(0, 40) });
+      if (await line.count()) { await line.first().click().catch(() => {}); break; }
+    }
+    await page.waitForTimeout(3200);
+  }
+
+  // It resolves into a turn rather than hanging, and it spends the action.
+  await expect(page.locator('[data-cl]')).toHaveCount(0, { timeout: 20_000 });
+  const st = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const run = loadSave(localStorage)?.run;
+    return { stage: run?.stage, minigame: run?.minigame, done: run?.actions?.cluster, evidence: run?.projects?.[0]?.evidence };
+  });
+  expect(st.stage).toBe('plan');
+  expect(st.minigame).toBeFalsy();
+  expect(st.done).toBe(true);
+  expect(st.evidence).toBeGreaterThan(0);
 });

@@ -1055,3 +1055,29 @@ table.mini th { background: var(--face); }
 .energy-meter .em-track i { background: linear-gradient(180deg, #7ec97e, #3f8f3f); }
 .dialog.crisis .titlebar { background: linear-gradient(90deg, #8a2020, #c05050); }
 .dialog.crisis { border-color: var(--face-light) #6a1818 #6a1818 var(--face-light); }
+
+/* Room 214. The exam dialog: two meters, a question, and three ways to be in the room. */
+.dialog.viva { max-width: 620px; }
+.vv-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.vv-head h2 { margin: 0; font-size: 16px; }
+.vv-meters { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 8px; margin: 8px 0; }
+.vv-track { height: 10px; background: var(--paper); border: 1px solid; border-color: var(--shadow) var(--hi) var(--hi) var(--shadow); box-shadow: inset 1px 1px var(--dark); }
+.vv-fill { display: block; height: 100%; transition: width .12s linear; }
+.vv-fill.b-ok { background: #5f9a5f; } .vv-fill.b-warn { background: #c2ad4e; } .vv-fill.b-spent { background: #b45a5a; }
+.vv-q { font-size: 15px; line-height: 1.45; margin: 10px 0 6px; min-height: 3em; }
+.vv-flash { border-left: 3px solid var(--accent); padding: 6px 10px; margin: 6px 0; background: var(--paper); font-size: 13px; line-height: 1.45; min-height: 3.2em; }
+.vv-flash.hidden { visibility: hidden; }
+.vv-flash.good { border-left-color: #5f9a5f; }
+.vv-flash.ok { border-left-color: #c2ad4e; }
+.vv-flash.bad { border-left-color: #b45a5a; }
+.vv-moves .choice small { opacity: .8; }
+[data-vv].resolving .vv-moves { opacity: .55; }
+
+/* 04:12. A wall of output you have to read rather than skim. */
+.dialog.cluster { max-width: 700px; }
+.cl-log { display: flex; flex-direction: column; gap: 1px; margin: 8px 0; background: #14161a; padding: 4px; max-height: 40vh; overflow: auto; }
+.cl-line { display: block; width: 100%; text-align: left; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; line-height: 1.5; color: #cfd6dd; background: transparent; border: 1px solid transparent; padding: 2px 6px; white-space: pre-wrap; word-break: break-word; }
+.cl-line:hover:not(:disabled) { background: #232833; border-color: #3d4757; color: #fff; }
+.cl-line.wrong { color: #7d848c; text-decoration: line-through; }
+.cl-line.right { background: #1f3a24; border-color: #5f9a5f; color: #d7f0d7; }
+.cl-line:disabled { cursor: default; }

@@ -173,6 +173,12 @@ export const achievements = {
   keptemeritus: { name: 'Advisor Of Record, Emeritus', desc: 'Keep a retiring advisor to the end by finding someone to sign the form.' },
   labinheritor: { name: 'Where Everything Is Kept', desc: 'Take on the lab\u2019s unfinished work. A form of power and a form of sentence.' },
 
+  // ── Four in the morning, and Room 214 ──────────────────────────────────────────────────────
+  fourinthemorning: { name: 'Four For Four', desc: 'Find the real line in all four logs before the reservation runs out. Nobody teaches this and everybody grades you on it.' },
+  notthelastline: { name: 'Not The Last Line', desc: 'Debug a job without once clicking the error message. The error is never the last line.' },
+  saidido: { name: '“I Do Not Know”', desc: 'Get through an oral exam conceding three questions and never being caught out. It is a correct answer and almost nobody believes it.' },
+  heldtheroom: { name: 'Held The Room', desc: 'Answer six committee questions without once being caught out.' },
+
   // ── The long game ──────────────────────────────────────────────────────────────────────────
   askedeverything: { name: 'Asked The Hard One', desc: 'Ask your advisor twelve different questions across one run. Most people ask three.' },
   saidstillrecovering: { name: 'Said It Out Loud', desc: 'Tell your advisor you are not back at a hundred per cent. Then watch what they do with it.' },

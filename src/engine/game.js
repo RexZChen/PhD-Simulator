@@ -8,7 +8,7 @@ import { clamp, random, roll, pick, pickFresh } from './probability.js';
 import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS, vars } from './state.js';
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
-import { createProject, createThesis, benchSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
+import { createProject, createThesis, benchSession, clusterSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
 import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, expireRequests, doRequest, pushbackRequest, declineRequest, ask, updatePressure, advisorPing, shiftCadence, revealHint, reviewLatencyWeeks, advisorResponds, newAdvisor } from './advisor.js';
 import { monthlyChatter, monthlyMail, fieldNote } from './lab.js';
 import { monthlyLedger, monthlyLife, vitalsDrift, doLifeAction, visitClinic, payDebt, setBudget, coffee, skipMeal, charge, caffeineState, crisisDue, openCrisis, resolveCrisis, crisisMoveList } from './life.js';
@@ -430,14 +430,42 @@ export function defenseChance(s) {
   const support = (s.relationship.trust + s.relationship.satisfaction) / 2;
   return clamp(.3 + Math.min(.4, s.counts.accepted * .12) + (thesis ? paperQuality(thesis) * .003 : 0) + s.readiness * .002 + support * .002 - (s.program.difficulty - 60) * .0015, .1, .96);
 }
+// The exam performance shifts the odds; it never replaces them. Same principle as papers: a good
+// defense can still get revisions and a shaky one can still pass, because the room is four people
+// having a day. Bounded at roughly ±0.2 so six years of record still dominate one afternoon.
+export function vivaModifier(viva) {
+  if (!viva || !viva.tally) return 0;
+  const { land = 0, concede = 0, caught = 0, silent = 0, composure = 60 } = viva.tally;
+  const answered = land + concede + caught + silent;
+  if (!answered) return 0;
+  // Conceding is worth real credit — knowing the edge of what you know is what is being examined —
+  // but it is worth less than landing it, and silence is worth less than being caught trying.
+  const score = (land * 1 + concede * .55 - caught * .8 - silent * 1.1) / answered;
+  return Math.max(-.2, Math.min(.2, score * .17 + (composure - 60) * .0011));
+}
+
 function milestone(s, kind, strategy) {
   const m = s.milestones;
   const continueAt = () => { s.stage = 'plan'; advanceMonths(s, 1); };
+  // Three of the most consequential days of a PhD used to be one click. The room comes first.
+  if (['prelim', 'proposal', 'defense'].includes(kind) && strategy !== 'master' && !s.viva) {
+    s.viva = { kind, strategy, tally: null };
+    s.stage = 'minigame'; s.minigame = 'viva';
+    return;
+  }
+  const viva = s.viva && s.viva.kind === kind ? s.viva : null;
+  const room = vivaModifier(viva);
+  if (viva?.tally) {
+    const { land = 0, concede = 0, caught = 0, silent = 0 } = viva.tally;
+    if (concede >= 3 && caught + silent === 0) award(s, 'saidido');
+    if (caught + silent === 0 && land + concede >= 6) award(s, 'heldtheroom');
+  }
+  s.viva = null;
   if (kind === 'prelim') {
     if (!['balanced', 'honest', 'bold', 'master'].includes(strategy)) throw new Error(t('Choose a presentation approach.'));
     if (strategy === 'master') { finish(s, 'master', t('Mastered Out'), t('You choose the MS exit. This is a degree, not an apology.')); return; }
     m.prelimAttempts++;
-    const chance = prelimChance(s, strategy), r = random(s);
+    const chance = clamp(prelimChance(s, strategy) + room, .04, .96), r = random(s);
     if (r < chance) { m.prelim = 'pass'; award(s, 'prelim'); effects(s, { hope: 12, confidence: 10, stress: -12, academicCapital: 5 }); log(s, t('Prelim passed. The committee agrees you can keep doing this. Years three to five are now your problem.')); message(s, t('Graduate Studies'), t('Preliminary examination: PASS'), t('Congratulations. You are advanced to candidacy pending the thesis proposal, expected by May 2032. Forms are attached in a format from 2009.'), 'portal', 'inbox', 'prelimPass'); continueAt(); return; }
     if (r < chance + (1 - chance) * .4) { m.prelim = 'conditional'; effects(s, { hope: -4, stress: 6 }); log(s, t('Conditional pass. The committee would like “a little more research maturity,” operationalized as one accepted paper by August 2031.')); message(s, t('Graduate Studies'), t('Preliminary examination: CONDITIONAL PASS'), t('You may continue. Condition: at least one accepted publication by the end of August 2031. Nobody can define research maturity; the committee has decided it looks like a paper.'), 'portal', 'inbox', 'policies'); continueAt(); return; }
     if (m.prelimAttempts < 2 && (s.coursework >= 45 || s.readiness >= 40)) { m.prelim = 'retake'; m.prelimMonth = s.month + 6; effects(s, { hope: -12, confidence: -8, stress: 12 }); log(s, t('Retake. The committee will see you again in {month}. They say this kindly, which is worse.', { month: calLabel(s.month + 6) })); continueAt(); return; }
@@ -447,7 +475,7 @@ function milestone(s, kind, strategy) {
     if (!['balanced', 'honest', 'bold', 'master'].includes(strategy)) throw new Error(t('Choose an approach.'));
     if (strategy === 'master') { finish(s, 'master', t('Mastered Out'), t('You take the MS and a job. The dissertation you did not write is the best one you ever wrote.')); return; }
     m.proposalAttempts++;
-    const chance = proposalChance(s) + (strategy === 'honest' ? .03 : strategy === 'bold' ? (s.player.stats.confidence - 55) * .002 : 0), r = random(s);
+    const chance = clamp(proposalChance(s) + room + (strategy === 'honest' ? .03 : strategy === 'bold' ? (s.player.stats.confidence - 55) * .002 : 0), .04, .96), r = random(s);
     if (r < chance) { m.proposal = 'pass'; award(s, 'candidate'); effects(s, { hope: 10, confidence: 8, stress: -10, academicCapital: 6, dependency: -5 }); log(s, t('Proposal accepted. You are a candidate. The word means “someone who has not finished,” but with a title.')); continueAt(); return; }
     if (r < chance + (1 - chance) * .45 && m.proposalAttempts < 3) { m.proposal = 'conditional'; m.proposalMonth = s.month + 4; effects(s, { hope: -5, stress: 8 }); log(s, t('Revise and re-present in {month}. The committee wants “a clearer arc.” Arcs are for stories; this is a thesis.', { month: calLabel(s.month + 4) })); continueAt(); return; }
     if (m.proposalAttempts < 2) { m.proposal = 'retake'; m.proposalMonth = s.month + 6; effects(s, { hope: -12, confidence: -8, stress: 12 }); log(s, t('The proposal was not accepted. Again in {month}.', { month: calLabel(s.month + 6) })); continueAt(); return; }
@@ -456,7 +484,7 @@ function milestone(s, kind, strategy) {
   if (kind === 'defense') {
     if (!['balanced', 'honest', 'bold'].includes(strategy)) throw new Error(t('Choose an approach.'));
     m.defenseAttempts++;
-    const chance = defenseChance(s) + (strategy === 'honest' ? .03 : strategy === 'bold' ? (s.player.stats.confidence - 55) * .002 : 0), r = random(s);
+    const chance = clamp(defenseChance(s) + room + (strategy === 'honest' ? .03 : strategy === 'bold' ? (s.player.stats.confidence - 55) * .002 : 0), .04, .96), r = random(s);
     if (r < chance || m.defenseAttempts >= 2) {
       award(s, 'doctor');
       if (s.month < 60) award(s, 'express');
@@ -597,6 +625,16 @@ export function dispatch(state, action) {
   if (a.type === 'SELECT_PROJECT') { if (!s.projects.some(p => p.id === a.id)) throw new Error(t('No such project.')); s.activeProjectId = a.id; return s; }
   if (a.type === 'DISMISS_REPORT') { dismissReport(s); return s; }
   if (a.type === 'CRISIS') { if (s.stage !== 'crisis') throw new Error(t('There is nothing to deal with.')); resolveCrisis(s, a.id); if (s.phase === 'playing' && s.stage === 'plan' && s.needsBegin) beginTurn(s); return s; }
+  // The room's verdict, carried back from Room 214. Like CRISIS and MILESTONE it has to sit above
+  // the "stage must be plan" guard, because the whole point is that you are not on the plan screen.
+  if (a.type === 'VIVA') {
+    if (s.stage !== 'minigame' || s.minigame !== 'viva' || !s.viva) throw new Error(t('You are not in the room.'));
+    s.viva.tally = a.tally || null;
+    s.stage = 'milestone'; s.minigame = null;
+    milestone(s, s.viva.kind, s.viva.strategy);
+    if (s.phase === 'playing' && s.stage === 'plan' && s.needsBegin) beginTurn(s);
+    return s;
+  }
   if (a.type === 'PRELIM' || a.type === 'MILESTONE') { if (s.stage !== 'milestone') throw new Error(t('The committee is not assembled yet.')); if (a.id === 'master' && s.coursework < 55) throw new Error(t('The MS exit requires 55 coursework progress.')); milestone(s, s.milestoneKind, a.id); if (s.phase === 'playing' && s.stage === 'plan' && s.needsBegin) beginTurn(s); return s; }
   if (s.stage !== 'plan') throw new Error(s.stage === 'report' ? t('Close the monthly report first.') : t('Finish what is on screen first.'));
   if (a.type === 'PLAN') { const f = focusById(s, a.id); if (!f) throw new Error(t('That is not an option right now.')); if (f.disabled) throw new Error(f.disabled); s.focus = a.id; return s; }
@@ -718,6 +756,7 @@ export function dispatch(state, action) {
     case 'ASK_TIMELINE': openTimeline(s); break;
     case 'TIMELINE_MOVE': playTimelineMove(s, a.id); break;
     case 'BENCH': benchSession(s, a.tally); break;
+    case 'CLUSTER': clusterSession(s, a.result); break;
     case 'REACT': react(s, a.id, a.reaction); break;
     case 'CHAT_REPLY': replyTo(s, a.id, a.kind, a.text || ''); break;
     case 'DM': sendDm(s, a.id, a.opener, a.text || ''); break;

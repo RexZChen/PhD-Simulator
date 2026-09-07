@@ -1,6 +1,7 @@
 import { venues, venueById, nextDeadline, acceptsThisMonth, timelineFor, topicFit, venuesForTopic } from '../data/venues.js';
 import { t } from '../i18n/index.js';
 import { BENCH_ENERGY, benchGrades } from '../data/bench.js';
+import { CLUSTER_ENERGY, clusterGrades } from '../data/cluster.js';
 import { rebuttals, topics } from '../data/catalog.js';
 import { monthOf, dateLabel } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
@@ -73,6 +74,32 @@ export function syncProject(s) {
 
 
 // A session at the bench. Timing is the skill and the outcome is real work, or real time lost.
+// The night the job died. Evidence and reproducibility, because that is what debugging actually
+// produces, and a real energy cost, because it is four in the morning.
+export function clusterSession(s, result = { solved: 0, stages: 4, misses: 0, secondsLeft: 0 }) {
+  const p = activeProject(s);
+  if (!p) throw new Error(t('There is no project to work on.'));
+  const { solved = 0, stages = 4, misses = 0 } = result;
+  const evidence = solved * 6 - misses;
+  const progress = solved * 4 - misses;
+  p.progress = clamp(p.progress + progress);
+  p.evidence = clamp((p.evidence || 0) + evidence);
+  p.reproducibility = clamp((p.reproducibility || 0) + solved * 3);
+  effects(s, {
+    energy: -CLUSTER_ENERGY - misses,
+    stress: 6 - solved,
+    coding: solved,
+    confidence: solved - misses,
+  });
+  s.lastOutputMonth = s.month;
+  s.actions.cluster = true;
+  const grade = solved >= stages ? 'great' : solved >= stages - 1 ? 'good' : solved >= 1 ? 'ok' : 'rough';
+  log(s, joined(t(clusterGrades[grade]), ' ', t('Progress {p}, evidence {e}.', { p: progress >= 0 ? `+${progress}` : String(progress), e: evidence >= 0 ? `+${evidence}` : String(evidence) })));
+  if (solved >= stages) award(s, 'fourinthemorning');
+  if (misses === 0 && solved >= 1) award(s, 'notthelastline');
+  return { grade, progress, evidence };
+}
+
 export function benchSession(s, tally = { crit: 0, hit: 0, miss: 0 }) {
   const p = activeProject(s);
   if (!p) throw new Error(t('There is no project to work on.'));

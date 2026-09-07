@@ -1,0 +1,174 @@
+// Room 214.
+//
+// The prelim, the proposal and the defense used to be one click and a dice roll — three of the most
+// consequential days of a PhD, resolved faster than choosing a plan for the month. This is what
+// actually happens in that room.
+//
+// The mechanic is the lesson. An oral exam is not testing whether you know everything; it is testing
+// whether you know the edge of what you know. "I do not know, and here is how I would find out" is a
+// correct answer, and almost every student refuses to believe that until someone tells them. So:
+// conceding is cheap and safe on a question about the field or the method, and expensive on a
+// question about your own chapter, because not knowing your own work is the one thing the room
+// cannot forgive. Bluffing is the only move that can go badly wrong, and the only one that can go
+// brilliantly right. Saying nothing at all is always the worst outcome, which is also true.
+
+export const VIVA_SECONDS = 11;      // per question, before the silence answers for you
+export const VIVA_QUESTIONS = 6;
+
+// Who is in the room. Your advisor is at the back and may not speak, which is the point of them
+// being there.
+export const examiners = {
+  chair: { id: 'chair', label: 'The chair', note: 'Runs the clock, owns the forms, has done this two hundred times.' },
+  reader: { id: 'reader', label: 'The one who read it', note: 'Printed it. Annotated it. Has a page number ready.' },
+  outsider: { id: 'outsider', label: 'From another subfield', note: 'Does not know your literature and is not embarrassed about it.' },
+  method: { id: 'method', label: 'The methodologist', note: 'Went straight to the tables. Is already looking at Table 4.' },
+};
+
+// domain decides which moves are honest and which are theatre:
+//   own        — your chapter, your numbers. Conceding here is the one that hurts.
+//   method     — statistics, baselines, ablations. Conceding is fine; redirecting is not.
+//   field      — the literature around you. Conceding is fine and redirecting works.
+//   motivation — why any of this matters. Redirecting is the whole skill.
+export const vivaQuestions = {
+  prelim: [
+    { id: 'p_contribution', who: 'reader', domain: 'own', hard: 46,
+      q: '“In one sentence, and without using the word ‘framework’ — what is the contribution?”',
+      land: 'You say it in one sentence. It takes you four seconds and it took you two years, and the chair writes it down verbatim, which is the best thing that happens all afternoon.',
+      caught: 'Your sentence has three clauses and a “in some sense.” They wait to see whether a fourth is coming. One is.',
+      concede: 'You cannot say “I do not know” about your own contribution. You try a version of it anyway and the room goes politely quiet.',
+      redirect: 'You answer a different, easier question. Everyone notices, including you, halfway through.' },
+    { id: 'p_baseline', who: 'method', domain: 'method', hard: 55,
+      q: '“Why is the obvious baseline missing from Table 2?”',
+      land: 'Because it does not apply, and you explain in two sentences exactly why, and they nod and move on and that is a question you will never be asked again.',
+      caught: '“It was not applicable” is a sentence you have now said out loud without being able to finish it.',
+      concede: '“It should be there. I did not run it and I should have.” The methodologist writes one word and looks almost pleased. That is the correct answer and it cost you nothing.',
+      redirect: 'You start describing a different table. They let you finish and then repeat the question with the same intonation.' },
+    { id: 'p_related', who: 'outsider', domain: 'field', hard: 60,
+      q: '“How does this relate to the work in control theory that solved a version of it in the nineties?”',
+      land: 'You know the paper. You know why it does not carry over. You say so and the outsider sits back, satisfied, having got the answer they wanted rather than the one that flatters them.',
+      caught: 'You attempt a bridge between two literatures in real time. It holds for about nine seconds.',
+      concede: '“I do not know that literature well enough to answer properly. If you can point me at the paper, I will read it this week.” They write down a citation for you. This is what the question was for.',
+      redirect: '“There is a related idea in our field —” and you take it somewhere you can stand, and the outsider goes with you, because they were curious rather than hostile.' },
+    { id: 'p_why', who: 'chair', domain: 'motivation', hard: 42,
+      q: '“Suppose none of this works. Who is worse off?”',
+      land: 'You name the person. Not a field, not an application area — a person, with a job, who currently does this by hand. The room changes temperature slightly.',
+      caught: 'You say “the community.” The chair asks which community. You say “the research community.”',
+      concede: '“Honestly, that is the question I have not answered yet.” It is a real admission and it is early enough in your degree to be the right one.',
+      redirect: 'You go to the applications slide, which exists precisely for this, and it does its job.' },
+    { id: 'p_next', who: 'chair', domain: 'motivation', hard: 48,
+      q: '“What are the next two years, concretely?”',
+      land: 'Three things, in order, with the risky one named as risky. That last part is what they were listening for.',
+      caught: 'You describe five things and the order changes twice while you are describing them.',
+      concede: '“I have a direction and not a plan. I would rather say that than invent one here.” Uncomfortable, honest, survivable.',
+      redirect: 'You go to what is already running and let the next two years fall out of it, which is a plan told backwards and is still a plan.' },
+    { id: 'p_stats', who: 'method', domain: 'method', hard: 64,
+      q: '“Five seeds. Is that variance or is that your result?”',
+      land: 'You have the numbers and you say the honest thing: the effect survives at this sample size and you would not stake the chapter on the margin.',
+      caught: 'You say the difference is “clearly significant.” They ask what test. There was no test.',
+      concede: '“I do not know. It is five seeds because that is what fit in the reservation.” The most common true answer in this field, said out loud for once.',
+      redirect: 'You mention a different experiment with more seeds. They look at Table 2 again, slowly.' },
+    { id: 'p_reading', who: 'reader', domain: 'own', hard: 52,
+      q: '“On page eleven you assume the errors are independent. Are they?”',
+      land: 'They are not, you know they are not, you know exactly where it bites, and you say so before they can. The reader closes the printout.',
+      caught: 'You say yes. There is a pause of a length that tells you the answer, and then they turn the page round so you can see the annotation.',
+      concede: 'You cannot not know about page eleven. The room understands that you did not write page eleven so much as inherit it.',
+      redirect: 'You explain what page twelve does. Page eleven remains, quietly, on the table between you.' },
+  ],
+  proposal: [
+    { id: 'r_arc', who: 'chair', domain: 'own', hard: 50,
+      q: '“You have three papers. What is the thesis?”',
+      land: 'You name the single claim all three are evidence for. It is not the claim in any of the papers, and it is better than all of them, and you have clearly known it for a while.',
+      caught: 'You describe the three papers again, in order, slightly faster.',
+      concede: '“I have three papers and I am still finding the thesis.” It is honest and it is exactly the thing this meeting exists to fix, and it costs you the afternoon.',
+      redirect: 'You go to the future work. The chair lets you, and then asks the question again with one word changed.' },
+    { id: 'r_risk', who: 'method', domain: 'method', hard: 58,
+      q: '“What is the experiment that would tell you this whole direction is wrong?”',
+      land: 'You have one. You describe it. You have not run it. Naming the thing that could kill your thesis, unprompted and precisely, is the single most convincing thing a candidate can do.',
+      caught: 'You say the direction is well supported. They ask again, in the same words, which is how you know.',
+      concede: '“I cannot think of one, and I notice that is a bad sign.” Saying the second half is what saves you.',
+      redirect: 'You describe an experiment that would confirm it. That is a different question and everyone here knows it.' },
+    { id: 'r_scope', who: 'chair', domain: 'motivation', hard: 46,
+      q: '“Which of these three chapters are you prepared to cut?”',
+      land: 'You name one without hesitating and give the reason. Being able to lose a year of work out loud is the answer they are grading.',
+      caught: '“They are all load-bearing.” Three of the four people in the room have written a thesis in which nothing was load-bearing.',
+      concede: '“I do not know yet, and I would like your help deciding.” Committees are enormously good at this question and almost never asked it.',
+      redirect: 'You explain how the three connect, and in explaining it you can hear which one is the thinnest, and so can they, and nobody has to say it.' },
+    { id: 'r_novel', who: 'outsider', domain: 'field', hard: 62,
+      q: '“Two groups are doing something adjacent. What do you do if they publish first?”',
+      land: 'You say what is yours that is not theirs, and it holds, because you worked it out at three in the morning in your second year and never stopped knowing it.',
+      caught: 'You say you are not aware of them. Two of them are on the printout in front of the reader.',
+      concede: '“Then I would have a worse thesis and I would still have a thesis.” Unexpectedly, this lands.',
+      redirect: '“The overlap is real and the framing is not —” and you take it to the framing, which is where you are strongest.' },
+    { id: 'r_timeline', who: 'chair', domain: 'motivation', hard: 52,
+      q: '“Two years. Is that a plan or a hope?”',
+      land: 'You give the dates, the dependencies, and the one that slips first. Naming what slips first is what makes the rest credible.',
+      caught: 'You say two years with a confidence that is doing a lot of work.',
+      concede: '“It is a hope with a schedule attached.” Somebody laughs. It is a real laugh and it buys you thirty seconds.',
+      redirect: 'You answer with what is already submitted and what is already written, and let the arithmetic on the rest speak for itself. It speaks quietly and it speaks.' },
+    { id: 'r_data', who: 'method', domain: 'method', hard: 60,
+      q: '“Where does the data for chapter three come from, and do you have it yet?”',
+      land: 'You have it. You say where from, under what agreement, and what happens if the agreement lapses. That last clause is why they asked.',
+      caught: '“We are in conversations with a partner.” The methodologist has been in conversations with a partner. Twice.',
+      concede: '“I do not have it and the whole chapter is contingent on it.” Ugly, true, and now it is the committee\'s problem too, which is the point of having one.',
+      redirect: 'You describe the analysis you will run on the data you do not have.' },
+  ],
+  defense: [
+    { id: 'd_ch4', who: 'reader', domain: 'own', hard: 54,
+      q: '“Chapter four. Walk me through the derivation on page ninety-one.”',
+      land: 'You walk them through it at the board, from memory, and somewhere around the third line you stop being nervous, because this is yours and you have known it longer than anyone in the room.',
+      caught: 'You get to the third line and the third line is not what you remember it being.',
+      concede: 'It is chapter four of your own dissertation. There is no version of not knowing it that reads as anything else.',
+      redirect: 'You summarise the result instead of deriving it. The reader waits, with a pen, in a way that means they will ask again.' },
+    { id: 'd_limit', who: 'method', domain: 'method', hard: 56,
+      q: '“What is the strongest argument against your main result?”',
+      land: 'You make it better than a reviewer would, and then you answer it, and the committee visibly relaxes, because you have just demonstrated the only thing a doctorate certifies.',
+      caught: 'You give a weak version of the objection and defeat it comfortably. Everybody notices which objection you chose.',
+      concede: '“There is one and I have not answered it.” Then you say what it is. That combination is a pass.',
+      redirect: 'You go to the limitations slide, which lists three limitations, none of which is the one they mean.' },
+    { id: 'd_field', who: 'outsider', domain: 'field', hard: 64,
+      q: '“Six years from now, what in this dissertation will still be true?”',
+      land: 'One thing. You name the one thing, and you are honest that the rest is scaffolding, and it is the most senior sentence you have ever said out loud.',
+      caught: 'You say all of it will hold. Four people who have watched their own dissertations age do not respond.',
+      concede: '“I genuinely do not know. Possibly the negative result in chapter two.” The outsider writes that down. It is the right answer.',
+      redirect: 'You answer about the field rather than the dissertation — where it is going, and what will still be worth doing there. It is not the question and it is a good enough neighbour of it.' },
+    { id: 'd_own', who: 'chair', domain: 'own', hard: 48,
+      q: '“Which part of this did you do, and which part did your collaborators do?”',
+      land: 'You itemise it precisely, including where you were second author and why, and the precision is itself the answer.',
+      caught: 'You use “we” eleven times in ninety seconds and the chair counts about four of them.',
+      concede: 'Not being able to say which parts are yours is the only thing in this room that can actually sink you.',
+      redirect: 'You describe the collaboration warmly and at length. The chair repeats the question with “you” emphasised.' },
+    { id: 'd_repro', who: 'method', domain: 'method', hard: 58,
+      q: '“If I gave this to a first-year, could they reproduce Figure 6?”',
+      land: 'Yes, and you say where the code is, what the seed was, and how long it takes on what hardware. Three sentences that most defenses cannot produce.',
+      caught: '“In principle.” Every person in the room has said “in principle” about their own figure and knows what it means.',
+      concede: '“Not without me sitting next to them for a day.” True of most of the field, rarely admitted, and the honesty is worth more than the yes.',
+      redirect: 'You explain why Figure 6 is interesting. It is interesting. That is not what was asked.' },
+    { id: 'd_next', who: 'chair', domain: 'motivation', hard: 44,
+      q: '“What would you do next, if you had another three years and no obligations?”',
+      land: 'You answer for ninety seconds without stopping and everyone in the room remembers why they do this. Two of them will cite it in a letter.',
+      caught: 'You describe an incremental extension of chapter three. It is a perfectly good project and it is not what was asked.',
+      concede: '“Sleep, and then I do not know.” It gets the biggest laugh of the afternoon and it costs you nothing at all.',
+      redirect: 'You talk about the two threads you had to drop, and why, and which one you would pick back up first. It is the same answer with the sadness left in.' },
+  ],
+};
+
+// What the silence costs. There is always one of these in a real exam and nobody forgets it.
+export const vivaSilence = [
+  'The clock runs out. Nobody rescues you, because rescuing you is not what they are here for.',
+  'Eleven seconds of nothing. It is the longest measurable unit of time in academia.',
+  'You say “sorry, could you repeat the question,” and they do, word for word, and you still do not have it.',
+];
+
+export const vivaMoves = {
+  answer: { id: 'answer', label: 'Answer it', hint: 'Rolls against the question. The only move that can go badly.' },
+  concede: { id: 'concede', label: 'Say what you do not know', hint: 'Safe on the field and the method. Not on your own work.' },
+  redirect: { id: 'redirect', label: 'Take it somewhere you can stand', hint: 'Works when the question is not about your chapter.' },
+};
+
+// The room reads your composure and so does the roll. This is the spiral, and it is real.
+export const vivaGrades = {
+  strong: 'You leave the room and the corridor is very bright. Somebody says your first name in a different tone than they used this morning.',
+  solid: 'It went the way these go. You answered most of it, you did not know some of it, and you said so, and that was allowed.',
+  shaky: 'Two of those will stay with you for a decade. The committee is conferring and you are looking at a poster you have walked past four hundred times.',
+  bad: 'You are asked to wait in the corridor. The corridor has one chair in it, which tells you the corridor has been used this way before.',
+};

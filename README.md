@@ -51,7 +51,7 @@ switched at any point mid-run, including for mail and chat you have already rece
 
 ```bash
 npm test          # 96 deterministic engine tests (node --test)
-npm run test:e2e  # 29 Playwright browser flows (uses installed Google Chrome)
+npm run test:e2e  # 31 Playwright browser flows (uses installed Google Chrome)
 npm run build     # production build
 npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
 npm run i18n      # plays real runs in Chinese and lists anything still in English
@@ -89,6 +89,17 @@ interest. Debt that compounds quietly and gets paid down when there is slack.
 **International students** carry it differently and the model says so: higher loneliness, visa fees,
 CPT paperwork, remittances home, employers that will not sponsor, national labs that are closed to
 them outright, and travel that needs a visa which usually comes through and sometimes does not.
+
+**Room 214.** The prelim, the proposal and the defense are not a dice roll. Four examiners, six
+questions, eleven seconds each. You can answer, you can take it somewhere you can stand, or you can
+say what you do not know — and which of those is right depends on what is being asked. Conceding is
+safe on the literature and the method and fatal on your own chapter, because not knowing your own
+work is the one thing the room cannot forgive. Answering is the only move that can go badly, and the
+only one that can go brilliantly. Composure carries between questions.
+
+**04:12.** The job died after eleven hours. Four logs, one reservation, and one line in each that is
+actually the problem — not the traceback, not the last line, not the red one. Clicking the error
+message costs you five seconds of the reservation, which is roughly what it costs in life.
 
 **Conferences.** 46 real cities that actually host these venues. Flights are red-eye and hotels are
 poor unless your advisor has funding or you pay to upgrade. A real-time presentation minigame, then
@@ -150,7 +161,7 @@ days. And your advisor can leave before you do — tenure denied, emeritus, an o
 you have heard of, or an email that goes out at 7:40 in the morning — and you have to find somebody
 else, or race their clock, or inherit the lab.
 
-**Endings and achievements.** 23 endings and 82 achievements, in a register that refuses to call
+**Endings and achievements.** 23 endings and 86 achievements, in a register that refuses to call
 you a failure for any of them.
 
 ## How it is built

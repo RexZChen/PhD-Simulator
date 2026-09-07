@@ -9,6 +9,8 @@ import { streamText, stopStream, finishStream, isStreaming, composedText } from 
 import { startTalk, pickWord, stopTalk, talkRunning, startQaTimer, stopQaTimer } from './ui/talkgame.js';
 import { startBench, strike, stopBench, benchRunning } from './ui/research.js';
 import { startLecture, toggleWork, stopLecture, lectureRunning } from './ui/lecture.js';
+import { startViva, vivaMove, stopViva, vivaRunning } from './ui/viva.js';
+import { startCluster, clusterPick, stopCluster, clusterRunning } from './ui/cluster.js';
 import { draftFor } from './ui/apps/mail.js';
 import { chatDraft } from './ui/apps/chat.js';
 import { rebuttalDraft } from './ui/apps/browser.js';
@@ -71,6 +73,16 @@ function syncLecture() {
   if (on && !lectureRunning()) startLecture((run.seed + run.month * 7) >>> 0, r => perform({ type: 'LECTURE', ...r }));
   if (!on && lectureRunning()) stopLecture();
 }
+// Room 214, same lifecycle. It survives a re-render and does not restart on one.
+function syncViva() {
+  const on = run?.stage === 'minigame' && run?.minigame === 'viva';
+  if (on && !vivaRunning()) {
+    startViva((run.seed + run.month * 31 + (run.milestones?.prelimAttempts || 0) * 7) >>> 0, run.viva.kind, run.player.skills,
+      tally => { play('chime'); perform({ type: 'VIVA', tally }, { preserveScroll: false }); });
+  }
+  if (!on && vivaRunning()) stopViva();
+  if (run?.stage !== 'minigame' || run?.minigame !== 'cluster') { if (clusterRunning()) stopCluster(); }
+}
 
 function render({ restoreTyping = false, preserveScroll = true } = {}) {
   const scroll = preserveScroll ? (document.querySelector('.client')?.scrollTop || 0) : 0;
@@ -86,6 +98,7 @@ function render({ restoreTyping = false, preserveScroll = true } = {}) {
   const log = document.querySelector('.chat-log'); if (log) log.scrollTop = log.scrollHeight;
   syncSceneTimer();
   syncLecture();
+  syncViva();
 }
 function persist() {
   if (!run) return;
@@ -252,6 +265,16 @@ root.addEventListener('click', event => {
       return;
     }
     case 'bench-strike': strike(); return;
+    case 'cluster-start': {
+      if (!run || run.stage !== 'plan') return;
+      run.stage = 'minigame'; run.minigame = 'cluster'; persist(); render({ preserveScroll: false });
+      play('click');
+      startCluster((run.seed + run.month * 17) >>> 0,
+        result => { run.stage = 'plan'; run.minigame = null; perform({ type: 'CLUSTER', result }, { preserveScroll: false }); play('chime'); });
+      return;
+    }
+    case 'cluster-line': clusterPick(Number(id)); play('click'); return;
+    case 'viva-move': vivaMove(id); play('click'); return;
     case 'crisis': perform({ type: 'CRISIS', id }, { preserveScroll: false }); return;
     case 'life-tab': ui.lifeTab = id; render({ preserveScroll: false }); return;
     case 'trip-visa': perform({ type: 'TRIP_VISA', id }, { preserveScroll: false }); return;
