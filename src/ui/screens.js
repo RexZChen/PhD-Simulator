@@ -75,14 +75,18 @@ export function collectionApp(meta, s = null) {
   const back = s && s.phase !== 'ending'
     ? btn(`← ${t('Back to the game')}`, 'back-to-game', { cls: 'primary' })
     : btn(`← ${t('Back to the Setup Wizard')}`, 'home', { cls: 'primary' });
-  return `<div class="row between" style="margin-bottom:8px">${back}<span class="tiny muted">${t('Nothing here is lost when a run ends.')}</span></div><h1>${t('Things you’ve survived')}</h1><p class="small muted">${t('Discoveries persist between runs on this computer.')}</p><div class="cols two">${group(t('Achievements'), Object.entries(achievements).map(([id, a]) => {
-    const got = meta.achievements.includes(id);
-    // A secret is not a secret if the locked row tells you to water the plant twelve times. These
-    // are the ones you are meant to find by touching something nobody told you to touch, so the
-    // row admits it exists and says nothing else until you have found it.
-    const hide = a.secret && !got;
-    return `<div class="achv ${got ? '' : 'locked'} ${hide ? 'secret' : ''}">${icon(got ? 'star' : hide ? 'key' : 'x', 18)}<div><b>${hide ? t('Something nobody mentions') : esc(a.name)}</b><div class="small muted">${hide ? t('Found by touching something nobody asked you to touch.') : esc(a.desc)}</div></div></div>`;
-  }).join(''))}<div>${group(t('Advisor archetypes discovered'), advisorArchetypes.map(a => tag(meta.archetypes.includes(a.id) ? a.name : '???', meta.archetypes.includes(a.id) ? 'ok' : '')).join(' '))}${group(t('Endings'), `<p>${t('{n} distinct ending(s)', { n: meta.endings.length })}: ${meta.endings.map(e => esc(t(e))).join(', ') || '—'}</p>`)}${group(t('Situations encountered'), `<p>${t('{n} of ~200 situations. New ones are weighted higher in future runs.', { n: meta.seenEvents.length })}</p>`)}</div></div>`;
+  return `<div class="row between" style="margin-bottom:8px">${back}<span class="tiny muted">${t('Nothing here is lost when a run ends.')}</span></div><h1>${t('Things you’ve survived')}</h1><p class="small muted">${t('Discoveries persist between runs on this computer.')}</p><div class="cols two">${(() => {
+    // A secret is not a secret if the locked row tells you to water the plant twelve times: these
+    // are meant to be found by touching something nobody told you to touch. But thirteen identical
+    // "something is here" rows in a column read as a rendering fault, not as intrigue. So the
+    // undiscovered ones are one line with a number on it, and each moves into the real list, with
+    // its real name and the line that makes it land, at the moment you find it.
+    const rows = Object.entries(achievements).filter(([id, a]) => !a.secret || meta.achievements.includes(id));
+    const hidden = Object.entries(achievements).filter(([id, a]) => a.secret && !meta.achievements.includes(id)).length;
+    const list = rows.map(([id, a]) => `<div class="achv ${meta.achievements.includes(id) ? '' : 'locked'}">${icon(meta.achievements.includes(id) ? 'star' : 'x', 18)}<div><b>${esc(a.name)}</b><div class="small muted">${esc(a.desc)}</div></div></div>`).join('');
+    const veil = hidden ? `<div class="achv secret">${icon('key', 18)}<div><b>${t('{n} things nobody mentions', { n: hidden })}</b><div class="small muted">${t('Found by touching something nobody asked you to touch.')}</div></div></div>` : '';
+    return group(t('Achievements'), list + veil);
+  })()}<div>${group(t('Advisor archetypes discovered'), advisorArchetypes.map(a => tag(meta.archetypes.includes(a.id) ? a.name : '???', meta.archetypes.includes(a.id) ? 'ok' : '')).join(' '))}${group(t('Endings'), `<p>${t('{n} distinct ending(s)', { n: meta.endings.length })}: ${meta.endings.map(e => esc(t(e))).join(', ') || '—'}</p>`)}${group(t('Situations encountered'), `<p>${t('{n} of ~200 situations. New ones are weighted higher in future runs.', { n: meta.seenEvents.length })}</p>`)}</div></div>`;
 }
 
 export const aboutDialog = () => `<div class="modal"><section class="dialog narrow" role="dialog" aria-modal="true"><div class="titlebar"><span class="tb-title">${icon('info', 16)}<span>${t('About Academic OS')}</span></span></div><div class="body"><div class="row"><span>${icon('wizard', 40)}</span><div><b>Academic OS 1.11</b><br><span class="small muted">${t('US CS PhD Simulator · runs entirely in this browser')}</span></div></div><p class="small" style="margin-top:8px">${esc(t(DISCLAIMER))}</p><p class="tiny muted">${t('Venue timing uses representative official cycles from 2025–2027 and is projected by month into later fictional years. It is not a live deadline calendar; check each venue’s official site before a real submission.')}</p>
