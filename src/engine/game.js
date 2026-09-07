@@ -15,8 +15,12 @@ import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, ex
 import { monthlyChatter, monthlyMail, fieldNote } from './lab.js';
 import { hardTaMonth, onHardTA } from './life.js';
 import { maybeSummons, answerSummons, summonsKeep, clearSummons, summonsOpen } from './summons.js';
+import { askDoor, doorOptions, obstacleOf } from './stuck.js';
 import { monthlyLedger, monthlyLife, vitalsDrift, doLifeAction, visitClinic, payDebt, setBudget, coffee, skipMeal, charge, caffeineState, crisisDue, openCrisis, resolveCrisis, crisisMoveList } from './life.js';
 import { popIns, runIns, dayWeather } from '../data/day.js';
+import { flowLine as boardFlowLine } from '../data/whiteboard.js';
+import { verdicts } from '../data/exams.js';
+import { waterPlant } from './plant.js';
 import { accrueCitations } from './scholar.js';
 import { updateStanding, updateQuitPressure, fired, quit, quitBand } from './divergence.js';
 import { prepareTrip, resolveVisa, scoreTalk, answerQuestion, spendTripDay, resolveCaught, endTrip, upgradeTrip } from './trip.js';
@@ -320,6 +324,7 @@ function monthlyDrift(s) {
 
 const DAY_NAMES = () => [t('Monday'), t('Tuesday'), t('Wednesday'), t('Thursday'), t('Friday')];
 export { paceOptions } from './time.js';
+export { doorOptions, obstacleOf } from './stuck.js';
 export const dayName = s => DAY_NAMES()[(s.dayIndex || 0) % DAYS_PER_WEEK];
 export const daysLeftInWeek = s => DAYS_PER_WEEK - (s.dayIndex || 0);
 
@@ -446,13 +451,25 @@ export function defenseChance(s) {
 // having a day. Bounded at roughly ±0.2 so six years of record still dominate one afternoon.
 export function vivaModifier(viva) {
   if (!viva || !viva.tally) return 0;
-  const { land = 0, concede = 0, caught = 0, silent = 0, composure = 60 } = viva.tally;
+  const { land = 0, concede = 0, caught = 0, silent = 0, composure = 60, talk, badCop } = viva.tally;
   const answered = land + concede + caught + silent;
   if (!answered) return 0;
   // Conceding is worth real credit — knowing the edge of what you know is what is being examined —
   // but it is worth less than landing it, and silence is worth less than being caught trying.
   const score = (land * 1 + concede * .55 - caught * .8 - silent * 1.1) / answered;
-  return Math.max(-.2, Math.min(.2, score * .17 + (composure - 60) * .0011));
+  // The talk is graded too, and lightly: a committee that has just watched you spend forty minutes
+  // reaching the results is already in a mood before the first question. Half the weight of the
+  // questions, because the questions are the exam and the talk is the day around it.
+  let room = 0;
+  if (talk) {
+    const shown = talk.covered + talk.skipped;
+    if (shown) room += ((talk.covered - talk.skipped * .7) / shown) * .07;
+    if (talk.how === 'cut') room -= .03;
+    if (talk.wasted >= 3) room -= .02;
+  }
+  if (badCop === 'handled') room += .02;
+  if (badCop === 'ignored') room -= .025;
+  return Math.max(-.24, Math.min(.24, score * .17 + (composure - 60) * .0011 + room));
 }
 
 function milestone(s, kind, strategy) {
@@ -467,9 +484,13 @@ function milestone(s, kind, strategy) {
   const viva = s.viva && s.viva.kind === kind ? s.viva : null;
   const room = vivaModifier(viva);
   if (viva?.tally) {
-    const { land = 0, concede = 0, caught = 0, silent = 0 } = viva.tally;
+    const { land = 0, concede = 0, caught = 0, silent = 0, talk, badCop, stillness } = viva.tally;
     if (concede >= 3 && caught + silent === 0) award(s, 'saidido');
     if (caught + silent === 0 && land + concede >= 6) award(s, 'heldtheroom');
+    // The quiet ones. None of these is announced anywhere and none of them changes the odds much.
+    if (stillness === 'total') award(s, 'onechair');
+    if (badCop === 'handled') award(s, 'stoppedandanswered');
+    if (talk && talk.how === 'clean' && talk.skipped === 0) award(s, 'undertime');
   }
   s.viva = null;
   if (kind === 'prelim') {
@@ -477,7 +498,7 @@ function milestone(s, kind, strategy) {
     if (strategy === 'master') { finish(s, 'master', t('Mastered Out'), t('You choose the MS exit. This is a degree, not an apology.')); return; }
     m.prelimAttempts++;
     const chance = clamp(prelimChance(s, strategy) + room, .04, .96), r = random(s);
-    if (r < chance) { m.prelim = 'pass'; award(s, 'prelim'); effects(s, { hope: 12, confidence: 10, stress: -12, academicCapital: 5 }); log(s, t('Prelim passed. The committee agrees you can keep doing this. Years three to five are now your problem.')); message(s, t('Graduate Studies'), t('Preliminary examination: PASS'), t('Congratulations. You are advanced to candidacy pending the thesis proposal, expected by May 2032. Forms are attached in a format from 2009.'), 'portal', 'inbox', 'prelimPass'); continueAt(); return; }
+    if (r < chance) { m.prelim = 'pass'; award(s, 'prelim'); effects(s, { hope: 12, confidence: 10, stress: -12, academicCapital: 5 }); log(s, t(verdicts.pass.prelim)); log(s, t(pick(s, verdicts.quickCongrats))); log(s, t('Prelim passed. The committee agrees you can keep doing this. Years three to five are now your problem.')); message(s, t('Graduate Studies'), t('Preliminary examination: PASS'), t('Congratulations. You are advanced to candidacy pending the thesis proposal, expected by May 2032. Forms are attached in a format from 2009.'), 'portal', 'inbox', 'prelimPass'); continueAt(); return; }
     if (r < chance + (1 - chance) * .4) { m.prelim = 'conditional'; effects(s, { hope: -4, stress: 6 }); log(s, t('Conditional pass. The committee would like “a little more research maturity,” operationalized as one accepted paper by August 2031.')); message(s, t('Graduate Studies'), t('Preliminary examination: CONDITIONAL PASS'), t('You may continue. Condition: at least one accepted publication by the end of August 2031. Nobody can define research maturity; the committee has decided it looks like a paper.'), 'portal', 'inbox', 'policies'); continueAt(); return; }
     if (m.prelimAttempts < 2 && (s.coursework >= 45 || s.readiness >= 40)) { m.prelim = 'retake'; m.prelimMonth = s.month + 6; effects(s, { hope: -12, confidence: -8, stress: 12 }); log(s, t('Retake. The committee will see you again in {month}. They say this kindly, which is worse.', { month: calLabel(s.month + 6) })); continueAt(); return; }
     finish(s, 'fail', t('Prelim Not Passed'), t('The committee did not pass you. You leave with what you learned and a story you will tell better in ten years.')); return;
@@ -487,7 +508,7 @@ function milestone(s, kind, strategy) {
     if (strategy === 'master') { finish(s, 'master', t('Mastered Out'), t('You take the MS and a job. The dissertation you did not write is the best one you ever wrote.')); return; }
     m.proposalAttempts++;
     const chance = clamp(proposalChance(s) + room + (strategy === 'honest' ? .03 : strategy === 'bold' ? (s.player.stats.confidence - 55) * .002 : 0), .04, .96), r = random(s);
-    if (r < chance) { m.proposal = 'pass'; award(s, 'candidate'); effects(s, { hope: 10, confidence: 8, stress: -10, academicCapital: 6, dependency: -5 }); log(s, t('Proposal accepted. You are a candidate. The word means “someone who has not finished,” but with a title.')); continueAt(); return; }
+    if (r < chance) { m.proposal = 'pass'; award(s, 'candidate'); effects(s, { hope: 10, confidence: 8, stress: -10, academicCapital: 6, dependency: -5 }); log(s, t(verdicts.pass.proposal)); log(s, t(pick(s, verdicts.quickCongrats))); log(s, t('Proposal accepted. You are a candidate. The word means “someone who has not finished,” but with a title.')); continueAt(); return; }
     if (r < chance + (1 - chance) * .45 && m.proposalAttempts < 3) { m.proposal = 'conditional'; m.proposalMonth = s.month + 4; effects(s, { hope: -5, stress: 8 }); log(s, t('Revise and re-present in {month}. The committee wants “a clearer arc.” Arcs are for stories; this is a thesis.', { month: calLabel(s.month + 4) })); continueAt(); return; }
     if (m.proposalAttempts < 2) { m.proposal = 'retake'; m.proposalMonth = s.month + 6; effects(s, { hope: -12, confidence: -8, stress: 12 }); log(s, t('The proposal was not accepted. Again in {month}.', { month: calLabel(s.month + 6) })); continueAt(); return; }
     finish(s, s.coursework >= 55 ? 'master' : 'fail', s.coursework >= 55 ? t('Mastered Out') : t('Proposal Not Accepted'), t('The committee could not see the thesis. You leave with a master’s degree and, eventually, perspective.')); return;
@@ -501,7 +522,13 @@ function milestone(s, kind, strategy) {
       if (s.month < 60) award(s, 'express');
       if (s.month >= TOTAL_MONTHS - 1) award(s, 'sixYears');
       effects(s, { hope: 20, confidence: 15, stress: -20 });
-      log(s, t('Passed. Two hours of questions, one of which was good. The committee leaves the room; the committee returns; someone says “Doctor.”'));
+      log(s, t(verdicts.pass.defense));
+      // Nobody leaves this one early. Everybody stands for the photograph, in an order they know,
+      // and four of the five faces in it have done this about forty times.
+      s.photo = { title: t('Somebody produces a phone'), lines: [verdicts.photo.line, verdicts.photo.faces, verdicts.advisorLine, verdicts.photo.after, verdicts.photo.unfinished] };
+      log(s, t(verdicts.photo.line));
+      log(s, t(verdicts.advisorLine));
+      log(s, t(verdicts.photo.unfinished));
       beginRevisions(s);   // you are Doctor. you are also still writing.
       continueAt();
       return;
@@ -635,6 +662,7 @@ export function dispatch(state, action) {
   }
   if (a.type === 'SELECT_PROJECT') { if (!s.projects.some(p => p.id === a.id)) throw new Error(t('No such project.')); s.activeProjectId = a.id; return s; }
   if (a.type === 'DISMISS_REPORT') { dismissReport(s); return s; }
+  if (a.type === 'PLANT') { waterPlant(s); return s; }
   if (a.type === 'SUMMONS') {
     if (s.stage !== 'summons') throw new Error(t('There is nothing in the calendar.'));
     answerSummons(s, a.id);
@@ -792,6 +820,20 @@ export function dispatch(state, action) {
     case 'CLUSTER': clusterSession(s, a.result); break;
     case 'PATENT_MEET': doPatentMeeting(s, a.id); break;
     case 'PATENT_ACTION': answerOfficeAction(s, a.id); break;
+    // The whiteboard. Only the earned thing reaches the run; the marks stay in the app.
+    case 'BOARD_ERASE': if (a.line) log(s, t(a.line)); break;
+    case 'BOARD_FLOW': {
+      if (s.flags.boardFlowMonth === s.month) break;
+      s.flags.boardFlowMonth = s.month;
+      const p = activeProject(s);
+      effects(s, { novelty: 5, progress: 4, stress: -6, hope: 3, energy: -1 });
+      if (p) p.evidence = clamp((p.evidence || 0) + 2);
+      s.counts.boardFlow = (s.counts.boardFlow || 0) + 1;
+      log(s, t(boardFlowLine));
+      if ((s.counts.boardFlow || 0) >= 3) award(s, 'twentyminutes');
+      break;
+    }
+    case 'STUCK_ASK': askDoor(s, a.id); break;
     case 'NET_TALK': once(`net:${a.id}`); netTalk(s, a.id); break;
     case 'NET_COLLAB': netCollab(s, a.id, a.size); break;
     case 'DO_COLLAB': doCollab(s, a.id); break;

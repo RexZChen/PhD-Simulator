@@ -1,4 +1,11 @@
-// Multi-seed balance harness. Plays 40 runs in each of three styles and reports the
+// Multi-seed balance harness.
+//
+// Read the headline percentages with a wide error bar. Adding two pick() calls to the milestone
+// pass path — pure flavour, no mechanics — moved diligent's graduation rate from 52% to 42% over
+// 120 seeds, and removing them again reproduced the old numbers exactly. The distribution did not
+// change; the seeds simply landed differently once the stream shifted. So a swing of ±5 points
+// between two runs of this harness is alignment, not balance, and only a change that survives
+// several seed counts is a real one. Plays 40 runs in each of three styles and reports the
 // distribution of endings and the state of the player at the end.
 //   node scripts/balance.mjs
 // diligent: answers the advisor, rests, sees a doctor.  lazy: declines everything.
@@ -25,6 +32,7 @@ import { buildCV } from '../src/engine/epilogue.js';
 import { activeContacts } from '../src/engine/network.js';
 import { activeProject } from '../src/engine/state.js';
 
+const SEEDS = Number(process.argv[2] || 40);
 const resolveAll = s => { let n = 0; while (s.event && n++ < 40) { const e = templateById[s.event]; const ok = e.choices.find(c => !c.ending && !c.minigame && !(c.requiresCoursework && s.coursework < c.requiresCoursework)) || e.choices[0]; s = dispatch(s, { type: 'CHOICE', id: ok.id }); if (s.stage === 'minigame') s = dispatch(s, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 }); } return s; };
 const act = (s, a) => resolveAll(dispatch(s, a));
 
@@ -229,11 +237,11 @@ async function run(seed, style) {
 
 for (const style of ['diligent', 'lazy', 'grinder']) {
   const rows = [];
-  for (let seed = 1; seed <= 40; seed++) rows.push(await run(seed, style));
+  for (let seed = 1; seed <= SEEDS; seed++) rows.push(await run(seed, style));
   const tally = {};
   for (const r of rows) tally[r.ending] = (tally[r.ending] || 0) + 1;
   const avg = k => (rows.reduce((a, r) => a + (r[k] || 0), 0) / rows.length).toFixed(1);
-  console.log(`\n=== ${style} (40 seeds) ===`);
+  console.log(`\n=== ${style} (${SEEDS} seeds) ===`);
   console.log('endings:', Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}:${v}`).join('  '));
   const L = rows.find(r => r.ledger)?.ledger; if (L) console.log('sample ledger:', JSON.stringify(L));
   const abds = rows.filter(r => r.diag);

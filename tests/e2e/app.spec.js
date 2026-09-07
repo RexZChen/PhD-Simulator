@@ -46,16 +46,30 @@ async function clickInPanel(page, selector, panel = '.summertalk') {
 // Choosing an approach at a milestone opens Room 214. Answer the six questions and let the
 // committee's verdict land, so tests about what happens *after* the exam stay about that.
 async function sitTheExam(page) {
+  // The room is a timetable now: a talk with a deck, one interruption, the questions, and the
+  // corridor. Walk whichever phase is up until the room closes, then clear the photograph.
   const room = page.locator('[data-vv]');
   if (!(await room.count())) return;
-  for (let i = 0; i < 8; i++) {
+  // A defense is six segments and about three minutes of wall clock; give it the iterations.
+  for (let i = 0; i < 240; i++) {
     if (!(await room.count())) break;
-    const move = room.locator('[data-action="viva-move"]:not([disabled])').first();
-    if (!(await move.count())) { await page.waitForTimeout(400); continue; }
-    await move.click({ timeout: 4000 }).catch(() => {});
-    await page.waitForTimeout(2800);
+    const phase = await room.getAttribute('data-phase').catch(() => null);
+    if (phase === 'talk') {
+      const cut = page.locator('[data-action="exam-interrupt"]:not(.hidden)');
+      if (await cut.count() && await cut.isVisible()) { await cut.click().catch(() => {}); await page.waitForTimeout(200); continue; }
+      const next = page.locator('[data-action="exam-talk"][data-id="next"]');
+      if (await next.count()) { await next.click().catch(() => {}); await page.waitForTimeout(200); continue; }
+    }
+    if (phase === 'qa') {
+      const move = room.locator('[data-action="viva-move"]:not([disabled])').first();
+      if (await move.count()) { await move.click({ timeout: 4000 }).catch(() => {}); await page.waitForTimeout(2800); continue; }
+    }
+    await page.waitForTimeout(300);           // intro, clearing and the corridor are waits
   }
-  await expect(page.locator('[data-vv]')).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.locator('[data-vv]')).toHaveCount(0, { timeout: 25_000 });
+  // Everybody stays for the photograph, and it is modal, so it is in the way until it is closed.
+  const photo = page.locator('.dialog.photo [data-action="photo-close"]');
+  if (await photo.count()) { await photo.click().catch(() => {}); await page.waitForTimeout(300); }
 }
 
 test('setup wizard requires the license, then the questionnaire creates an applicant', async ({ page }) => {
@@ -372,7 +386,7 @@ test('a conference trip: a real city, a talk you perform, questions, and a bill'
 });
 
 test('defending is not finishing: revisions, format review, then commencement', async ({ page }) => {
-  test.setTimeout(45_000);
+  test.setTimeout(180_000);   // the defense itself is two and a half hours of timetable now
   await seedPlay(page, `s.month = 62;
     p.status = 'Accepted'; p.venueId = 'neuripsy'; p.progress = 95; p.draft = 100;
     p.submissionHistory = [{ venueId: 'neuripsy', venue: 'NeurIPSy', month: 20, outcome: 'Accept', reviewers: [], quality: 76, diamonds: 4 }];
@@ -948,30 +962,68 @@ test('the archive stays open: Scholar and the other tabs after the run concludes
   }
 });
 
-test('Room 214: the committee asks, and what you do with not knowing is the exam', async ({ page }) => {
+test('Room 214 runs the hour: you present, they ask, you wait in the corridor', async ({ page }) => {
+  // A prelim is a talk, four questions and twelve seconds in a corridor, and it takes about a
+  // minute of real time to walk. That is the feature; the default 20s budget is not enough for it.
+  test.setTimeout(120_000);
   await seedPlay(page, `
     s.month = 22; s.coursework = 70; s.readiness = 60;
     s.stage = 'milestone'; s.milestoneKind = 'prelim';
   `, undefined, 9001, true);
   const approach = page.locator('[data-action="milestone"][data-id="balanced"]');
   await expect(approach).toBeVisible();
-  // Choosing an approach used to roll the dice. Now it opens the door.
   await approach.click();
   const room = page.locator('[data-vv]');
   await expect(room).toBeVisible();
-  await expect(page.locator('[data-vv-q]')).not.toBeEmpty();
-  await expect(page.locator('[data-vv-who]')).not.toBeEmpty();
 
-  // Six questions. Answer each the moment it appears; the clock is real, so do not dawdle.
-  for (let i = 0; i < 6; i++) {
+  // A prelim opens on the talk, not on a question. The deck is real and the clock is running.
+  await expect(room).toHaveAttribute('data-phase', 'talk');
+  await expect(page.locator('[data-vv-slide-title]')).not.toBeEmpty();
+  await expect(page.locator('[data-vv-seg]')).toContainText('40');
+
+  // Click through the deck. Somewhere in it, one of them decides to be the difficult one; that
+  // has to be reachable, because in a real room it always is.
+  let interrupted = false;
+  for (let i = 0; i < 14; i++) {
     if (!(await room.count())) break;
+    const cut = page.locator('[data-action="exam-interrupt"]:not(.hidden)');
+    if (await cut.count() && await cut.isVisible()) {
+      interrupted = true;
+      await expect(page.locator('[data-vv-interrupt]')).not.toBeEmpty();
+      await cut.click().catch(() => {});
+      await page.waitForTimeout(220);
+      continue;
+    }
+    const next = page.locator('[data-action="exam-talk"][data-id="next"]');
+    if (!(await next.count())) break;
+    await next.click().catch(() => {});
+    await page.waitForTimeout(220);
+  }
+  expect(interrupted).toBe(true);
+
+  // Then the questions, which is the exam this used to be all of.
+  await expect(room).toHaveAttribute('data-phase', 'qa', { timeout: 8000 });
+  await expect(page.locator('[data-vv-q]')).not.toBeEmpty();
+  for (let i = 0; i < 5; i++) {
+    if (!(await room.count())) break;
+    if ((await room.getAttribute('data-phase')) !== 'qa') break;
     const btn = room.locator('[data-action="viva-move"]:not([disabled])').first();
     await btn.click({ timeout: 4000 }).catch(() => {});
-    // The outcome holds on screen for a beat before the next question.
     await page.waitForTimeout(2800);
   }
-  // The room resolves into the milestone outcome, not back into itself.
-  await expect(page.locator('[data-vv]')).toHaveCount(0, { timeout: 10_000 });
+
+  // And then you are put outside while they decide, out loud, without you.
+  if (await room.count()) {
+    await expect(room).toHaveAttribute('data-phase', 'corridor', { timeout: 12_000 });
+    const thing = page.locator('[data-action="exam-corridor"]').first();
+    if (await thing.count()) {
+      await thing.click().catch(() => {});
+      await expect(page.locator('[data-vv-flash]')).not.toBeEmpty();
+      await expect(thing).toBeDisabled();
+    }
+  }
+
+  await expect(page.locator('[data-vv]')).toHaveCount(0, { timeout: 20_000 });
   const st = await page.evaluate(async () => {
     const { loadSave } = await import('/src/engine/save.js');
     const run = loadSave(localStorage)?.run;
@@ -979,6 +1031,28 @@ test('Room 214: the committee asks, and what you do with not knowing is the exam
   });
   expect(st.viva).toBeFalsy();
   expect(['pass', 'conditional', 'retake', 'fail']).toContain(st.prelim);
+});
+
+test('the plant is on the desk, not on a menu, and it is plastic', async ({ page }) => {
+  await seedPlay(page, "s.month = 26; s.player.hidden.stress = 72;");
+  const plant = page.locator('.desk-plant');
+  await expect(plant).toBeVisible();
+  // It is never labelled, never badged, and never mentioned by the interface.
+  await expect(plant).toHaveText('');
+  const before = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    return loadSave(localStorage)?.run?.player.hidden.stress;
+  });
+  await plant.click();
+  await expect(page.locator('.statusbar, .status')).toContainText(/water/i, { timeout: 4000 });
+  const after = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    const run = loadSave(localStorage)?.run;
+    return { stress: run?.player.hidden.stress, watered: run?.plant?.watered, found: run?.plant?.found };
+  });
+  expect(after.watered).toBe(1);
+  expect(after.found).toBe(true);
+  expect(after.stress).toBeLessThan(before);
 });
 
 test('04:12: the error is never the last line', async ({ page }) => {
@@ -1346,4 +1420,45 @@ test('the scene art carries the time, the season, and how you are', async ({ pag
   expect(shots.frayed.cls).toContain('m-frayed');
   // And the coffee you drank is on the desk.
   expect(Number(shots.coffee.cups)).toBeGreaterThan(0);
+});
+
+test('the whiteboard writes something other than what you drew, and rewards losing track of time', async ({ page }) => {
+  await seedPlay(page, `s.month = 14;`);
+  await page.locator('[data-action="open"][data-app="whiteboard"]').first().dblclick();
+  const surf = page.locator('[data-wb-surface]');
+  await expect(surf).toBeVisible();
+  await expect(page.locator('.wb-mark')).toHaveCount(0);
+
+  // Clicking puts an equation there, not your stroke.
+  const box = await surf.boundingBox();
+  await page.mouse.click(box.x + 80, box.y + 60);
+  await expect(page.locator('.wb-mark')).toHaveCount(1);
+  expect((await page.locator('.wb-mark').first().innerText()).length).toBeGreaterThan(1);
+
+  // Keep going and it fills; the marks are varied rather than the same one repeated.
+  for (let i = 0; i < 17; i++) {
+    await page.mouse.click(box.x + 40 + (i * 53) % (box.width - 90), box.y + 30 + (i * 71) % (box.height - 70));
+    await page.waitForTimeout(20);
+  }
+  const texts = await page.locator('.wb-mark').allInnerTexts();
+  expect(texts.length).toBe(18);
+  expect(new Set(texts).size).toBeGreaterThan(9);
+
+  // A burst of clicks inside the window is worth something, once a month.
+  const flowed = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    return loadSave(localStorage)?.run?.counts?.boardFlow || 0;
+  });
+  expect(flowed).toBeGreaterThan(0);
+
+  // And it erases.
+  await page.locator('[data-action="wb-erase"]').click();
+  await expect(page.locator('.wb-mark')).toHaveCount(0);
+
+  // The marks are session UI, not run state — a save must not carry a list of doodles.
+  const saved = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/engine/save.js');
+    return JSON.stringify(loadSave(localStorage)?.run || {});
+  });
+  expect(saved).not.toContain('LayerNorm');
 });

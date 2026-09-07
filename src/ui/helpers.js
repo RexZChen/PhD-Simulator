@@ -1,6 +1,31 @@
 import { icon } from './icons.js';
 import { t } from '../i18n/index.js';
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Speech is the message. Everything else is the camera.
+//
+// A great deal of prose in this game opens with a line somebody actually said or wrote and then
+// spends three sentences on what the room did about it. Flattened into one paragraph the two read
+// at the same volume, and the sentence that matters is the one you have to hunt for. So a leading
+// quoted line keeps the body voice, and the narration after it drops a size, goes italic and takes
+// brackets.
+//
+// Deliberately narrow: this only fires when the text *opens* on a quote. A quote in the middle of a
+// sentence — “They say ‘huh, weird’ and go back to their own screen” — is one voice, not two, and
+// bracketing half of it would break prose that is written to be read as prose.
+const OPENS_QUOTED = /^\s*[“"][^“”"]*[”"]/;
+const QUOTED_RUN = /^\s*(?:[“"][^“”"]*[”"]\s*)+/;
+export function voiced(value) {
+  const raw = String(value ?? '');
+  if (!OPENS_QUOTED.test(raw)) return esc(raw);
+  const said = raw.match(QUOTED_RUN)[0];
+  const rest = raw.slice(said.length);
+  const body = rest.trim();
+  const quoted = `<span class="said">${esc(said.trim())}</span>`;
+  if (!body) return quoted;
+  return `${quoted} <i class="narr">(${esc(body)})</i>`;
+}
+
 export const money = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
 export const signed = n => (n > 0 ? '+' : '') + Math.round(n);
 export const band = n => n >= 75 ? t('High') : n >= 45 ? t('Moderate') : t('Low');

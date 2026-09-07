@@ -1,4 +1,4 @@
-import { esc, btn, hotkey, effectPills, money } from './helpers.js';
+import { esc, btn, hotkey, effectPills, money, voiced } from './helpers.js';
 import { icon } from './icons.js';
 import { avatar } from './avatars.js';
 import { memeFor, memeCard } from '../data/memes.js';
@@ -9,6 +9,7 @@ import { prelimChance, proposalChance, defenseChance } from '../engine/game.js';
 import { pushbacks, lectureLines } from '../data/minigames.js';
 import { benchNote } from '../data/bench.js';
 import { vivaMoves, examiners } from '../data/viva.js';
+import { exams, talkMoves, examNote } from '../data/exams.js';
 import { clusterNote } from '../data/cluster.js';
 import { officeAction, patentShare, patentNote, patentMeetings, PATENT } from '../data/patent.js';
 import { summonsKinds, summonsMoves, summonsNote, SUMMONS } from '../data/summons.js';
@@ -73,7 +74,7 @@ export function sceneDialog(s) {
   const mode = s.advisorMode?.id;
   const timed = e.category === 'meeting' && (mode === 'pressed' || s.crunch || s.advisor.toxicity > 55 || s.relationship.conflict > 45);
   const seconds = s.crunch ? 11 : 15;
-  return `<div class="modal"><section class="dialog ${timed ? 'timed-scene' : ''}" role="dialog" aria-modal="true" aria-labelledby="scene-title"><div class="titlebar"><span class="tb-title">${icon(ic, 16)}<span>${title}</span></span><span class="tb-right">${esc(dateLabel(s.month))}${s.tempo === 'week' ? ` · ${t('week {n}', { n: Math.min(4, s.week + 1) })}` : ''}</span></div><div class="body">${strip(scene, s, e)}<h2 id="scene-title" style="margin:0 0 6px">${esc(fill(s, e.title))}</h2><div class="scene-text"><span class="speaker">${esc(speaker)}</span>${esc(eventText(s, e))}</div><div class="choices">${e.choices.map((c, i) => `<button class="btn choice" data-action="choice" data-id="${c.id}" data-hotkey="${i + 1}" ${(c.requiresCoursework && s.coursework < c.requiresCoursework) || (c.requiresMoney && s.player.stats.money < c.requiresMoney) ? 'disabled' : ''}><span>${hotkey(i + 1)}</span><span><b>${esc(fill(s, c.text))}</b><small>${effectPills(c.effects, c, 5)}<span class="muted">${esc(fill(s, c.hint))}${c.requiresCoursework ? ` · ${t('needs {n} coursework', { n: c.requiresCoursework })}` : ''}</span></small></span><span class="arrow">→</span></button>`).join('')}</div>${timed ? timedFooter(seconds) : ''}<div class="dialog-footer"><span>${timed ? t('They are waiting for an answer, visibly.') : e.category === 'meeting' ? t('A meeting. It will end with a list.') : t('Some consequences take time.')}</span><span>${e.choices.some(c => c.check) ? t('Some options roll against your skills or your advisor’s traits.') : ''}</span></div></div></section></div>`;
+  return `<div class="modal"><section class="dialog ${timed ? 'timed-scene' : ''}" role="dialog" aria-modal="true" aria-labelledby="scene-title"><div class="titlebar"><span class="tb-title">${icon(ic, 16)}<span>${title}</span></span><span class="tb-right">${esc(dateLabel(s.month))}${s.tempo === 'week' ? ` · ${t('week {n}', { n: Math.min(4, s.week + 1) })}` : ''}</span></div><div class="body">${strip(scene, s, e)}<h2 id="scene-title" style="margin:0 0 6px">${esc(fill(s, e.title))}</h2><div class="scene-text"><span class="speaker">${esc(speaker)}</span>${voiced(eventText(s, e))}</div><div class="choices">${e.choices.map((c, i) => `<button class="btn choice" data-action="choice" data-id="${c.id}" data-hotkey="${i + 1}" ${(c.requiresCoursework && s.coursework < c.requiresCoursework) || (c.requiresMoney && s.player.stats.money < c.requiresMoney) ? 'disabled' : ''}><span>${hotkey(i + 1)}</span><span><b>${esc(fill(s, c.text))}</b><small>${effectPills(c.effects, c, 5)}<span class="muted">${esc(fill(s, c.hint))}${c.requiresCoursework ? ` · ${t('needs {n} coursework', { n: c.requiresCoursework })}` : ''}</span></small></span><span class="arrow">→</span></button>`).join('')}</div>${timed ? timedFooter(seconds) : ''}<div class="dialog-footer"><span>${timed ? t('They are waiting for an answer, visibly.') : e.category === 'meeting' ? t('A meeting. It will end with a list.') : t('Some consequences take time.')}</span><span>${e.choices.some(c => c.check) ? t('Some options roll against your skills or your advisor’s traits.') : ''}</span></div></div></section></div>`;
 }
 
 // A meeting under a clock. The bar is honest: when it runs out, the moment closes.
@@ -175,24 +176,71 @@ export const prelimDialog = milestoneDialog;
 // painted by viva.js's own interval, so a re-render never restarts the exam.
 export function vivaDialog(s) {
   const kind = s.viva?.kind || 'prelim';
-  const title = { prelim: t('Preliminary examination — Room 214'), proposal: t('Thesis proposal — Room 214'), defense: t('Dissertation defense — Room 214') }[kind];
+  const ex = exams[kind] || exams.prelim;
+  const title = `${t(ex.label)} — ${t(ex.room)}`;
   const moves = Object.values(vivaMoves);
-  return `<div class="modal"><section class="dialog viva" role="dialog" aria-modal="true" aria-labelledby="vv-title"><div class="titlebar"><span class="tb-title">${icon('flag', 16)}<span>${esc(title)}</span></span></div><div class="body" data-vv>
+  const talk = Object.values(talkMoves);
+  // One dialog, four rooms. Which panel is showing is driven by data-phase, set by the runner, so
+  // the whole timetable stays inside one modal and one interval.
+  return `<div class="modal"><section class="dialog viva exam" role="dialog" aria-modal="true" aria-labelledby="vv-title"><div class="titlebar"><span class="tb-title">${icon('flag', 16)}<span>${esc(title)}</span></span><span class="tiny tb-right">${esc(t(ex.total))}</span></div><div class="body" data-vv data-phase="talk">
+    <div class="ex-timeline" data-vv-progress></div>
+    <div class="ex-segbar"><b class="tiny" data-vv-seg></b><span class="tiny muted" data-vv-segsub></span></div>
     <div class="vv-head">
       <div><h2 id="vv-title" data-vv-who></h2><p class="tiny muted" data-vv-note></p></div>
       <b class="tiny muted" data-vv-count></b>
     </div>
     <div class="vv-meters">
       <span class="tiny muted">${t('Composure')}</span><div class="vv-track"><i data-vv-composure class="vv-fill"></i></div>
-      <span class="tiny muted">${t('The room is waiting')}</span><div class="vv-track"><i data-vv-clock class="vv-fill"></i></div>
+      <span class="tiny muted" data-vv-clocklabel>${t('The clock')}</span><div class="vv-track"><i data-vv-clock class="vv-fill"></i></div>
     </div>
-    <p class="vv-q" data-vv-q></p>
+
+    <div class="ex-only ex-talk">
+      <div class="ex-slide w-core" data-vv-slidebox>
+        <b data-vv-slide-title></b>
+        <p class="tiny" data-vv-slide-line></p>
+      </div>
+      <p class="ex-interrupt hidden" data-vv-interrupt></p>
+      <div class="choices ex-moves">
+        ${talk.map((m, i) => `<button class="btn choice" data-action="exam-talk" data-id="${m.id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(m.label))}</b><small>${esc(t(m.hint))}</small></span><span class="arrow">→</span></button>`).join('')}
+        <button class="btn choice urgent hidden" data-action="exam-interrupt" data-hotkey="3"><span><kbd>3</kbd></span><span><b>${esc(t('Stop and answer it'))}</b><small>${esc(t('Costs you two minutes of the talk. Buys you the room.'))}</small></span><span class="arrow">→</span></button>
+      </div>
+    </div>
+
+    <div class="ex-only ex-qa">
+      <p class="vv-q" data-vv-q></p>
+      <div class="choices vv-moves">${moves.map((m, i) => `<button class="btn choice" data-action="viva-move" data-id="${m.id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(m.label))}</b><small>${esc(t(m.hint))}</small></span><span class="arrow">→</span></button>`).join('')}</div>
+      <p class="tiny muted" data-vv-tally></p>
+    </div>
+
+    <div class="ex-only ex-corridor">
+      <div class="ex-door"><i class="ex-door-panel"></i><i class="ex-chair"></i></div>
+      <div class="ex-things" data-vv-things></div>
+    </div>
+
+    <div class="ex-only ex-clear"><div class="ex-leaving">${Array.from({ length: 9 }, (_, i) => `<i class="ex-figure" style="--d:${i * .18}s"></i>`).join('')}</div></div>
+
     <p class="vv-flash hidden" data-vv-flash></p>
-    <div class="choices vv-moves">${moves.map((m, i) => `<button class="btn choice" data-action="viva-move" data-id="${m.id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(m.label))}</b><small>${esc(t(m.hint))}</small></span><span class="arrow">→</span></button>`).join('')}</div>
-    <p class="tiny muted" data-vv-tally></p>
-    <p class="tiny muted">${t('Your advisor is at the back of the room and may not speak. That is what they are here for.')}</p>
+    <p class="tiny muted">${esc(t(examNote))}</p>
   </div></section></div>`;
 }
+
+// The photograph. Four people who have done this forty times, and one who has not.
+export function photoDialog(s) {
+  const ph = s.photo;
+  if (!ph) return '';
+  return `<div class="modal"><section class="dialog photo" role="dialog" aria-modal="true" aria-labelledby="ph-title"><div class="titlebar"><span class="tb-title">${icon('flag', 16)}<span>${esc(t('Room 214, afterwards'))}</span></span></div><div class="body">
+    <h2 id="ph-title">${esc(t(ph.title))}</h2>
+    <div class="ph-frame">
+      <div class="ph-row">
+        ${Array.from({ length: 5 }, (_, i) => `<div class="ph-person${i === 2 ? ' you' : ''}"><i class="ph-head"></i><i class="ph-body"></i><i class="ph-smile${i === 2 ? ' real' : ''}"></i></div>`).join('')}
+      </div>
+      <i class="ph-flash"></i>
+    </div>
+    ${ph.lines.map(l => `<p class="ph-line">${voiced(t(l))}</p>`).join('')}
+    <div class="choices">${btn(t('Close'), 'photo-close', { cls: 'primary' })}</div>
+  </div></section></div>`;
+}
+
 
 // 04:12. A wall of output and a reservation that is running out. The log itself is painted by
 // cluster.js; this is the frame around it.

@@ -1,4 +1,4 @@
-import { esc, btn, tag } from '../helpers.js';
+import { esc, btn, tag, voiced } from '../helpers.js';
 import { icon } from '../icons.js';
 import { avatar } from '../avatars.js';
 import { repliesFor } from '../../data/replies.js';
@@ -69,7 +69,7 @@ export function mailApp(s, ui) {
       <h2>${esc(mailSubject(s, m))}</h2>
       <div class="read-meta">${avatar(m.sender, 34)}<div><b>${esc(mailSender(s, m))}</b><div class="muted small">${m.mine ? `${t('From')}: ${t('you')}` : `${t('To')}: ${t('you')}`}</div></div><span class="read-date muted small">${esc(entryDate(m))}</span></div>
     </div>
-    <div class="read-body">${esc(mailBody(s, m))}</div>
+    <div class="read-body">${voiced(mailBody(s, m))}</div>
     ${m.replied && set ? `<div class="note">${t('You answered this: “{label}”', { label: t((set.options.find(o => o.id === m.replied) || {}).label || '') })}</div>` : ''}
     ${composing ? composer(s, ui, m) : set && !m.replied ? `<div class="reply-prompt">${btn(`${icon('send', 14)} ${t('Reply')}`, 'mail-reply', { id: m.id, cls: 'primary', disabled: s.stage !== 'plan' })}<span class="muted small">${esc(t(set.hint))}</span></div>` : ''}
   ` : `<div class="mail-empty muted">${icon('mail', 40)}<p>${t('Select a message.')}</p></div>`;

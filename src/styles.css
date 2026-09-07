@@ -1267,3 +1267,130 @@ table.mini th { background: var(--face); }
 
 @media (prefers-reduced-motion: reduce) { .s-dust, .s-cups i, .s-monitor b { animation: none; } }
 .quiet .s-dust, .quiet .s-cups i, .quiet .s-monitor b { animation: none; }
+
+/* ── The whiteboard ─────────────────────────────────────────────────────────────────────────
+   A surface with no cost and no clock. You click; what you drew does not appear; something you
+   half-remember from a lecture appears instead. */
+.wb { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 6px; height: 100%; }
+.wb-bar { display: flex; align-items: center; gap: 10px; }
+.wb-bar b { font-size: 14px; }
+.wb-bar .tiny { margin-left: auto; }
+.wb-surface { position: relative; overflow: hidden; cursor: crosshair; min-height: 300px;
+  background: #f7f9fa; border: 8px solid #8a9199;
+  box-shadow: inset 0 0 0 2px #dfe4e7, 3px 3px 0 var(--shadow);
+  background-image: linear-gradient(#e9eef1 1px, transparent 1px), linear-gradient(90deg, #e9eef1 1px, transparent 1px);
+  background-size: 34px 34px; }
+.wb-surface::after { content: ""; position: absolute; right: 10px; bottom: 8px; width: 46px; height: 12px;
+  background: #3b4a55; border-radius: 2px; box-shadow: 0 0 0 2px #23303a inset; }
+.wb-surface.full { box-shadow: inset 0 0 0 2px #d9b24a, 3px 3px 0 var(--shadow); }
+.wb-mark { position: absolute; transform: translate(-50%, -50%) rotate(var(--r)); white-space: nowrap;
+  font-family: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive; font-weight: 600; pointer-events: none;
+  animation: wb-in .18s ease-out backwards; }
+.wb-mark.ink-blue { color: #24506e; } .wb-mark.ink-red { color: #a8322c; } .wb-mark.ink-green { color: #2c6b40; }
+@keyframes wb-in { from { opacity: 0; transform: translate(-50%, -50%) rotate(var(--r)) scale(.7); } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .wb-mark { animation: none; } }
+.quiet .wb-mark { animation: none; }
+
+/* ── Stuck ──────────────────────────────────────────────────────────────────────────────────
+   Six doors. Each closed one says why rather than going missing, and the one that suits this
+   kind of stuck is marked — because knowing which door to try is the thing being modelled. */
+.stuck-head { display: flex; flex-direction: column; gap: 1px; margin-bottom: 6px; }
+.stuck-head b { font-size: 13px; }
+.stuck-doors { display: grid; gap: 3px; }
+.stuck-door { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  text-align: left; padding: 4px 6px; border: 1px solid transparent; background: transparent; width: 100%; }
+.stuck-door:hover:not(:disabled) { background: #e9eef8; border-color: #b9c6e0; }
+.stuck-door:disabled { color: var(--disabled); cursor: default; }
+.stuck-door.fits:not(:disabled) { border-color: #b9d6c0; background: #f2f9f4; }
+.sd-who { display: grid; place-items: center; }
+.sd-who svg { border-radius: 2px; display: block; }
+.stuck-door:disabled .sd-who { opacity: .4; filter: grayscale(1); }
+.sd-l { display: grid; min-width: 0; }
+.sd-l b { font-size: 12.5px; }
+.sd-l small { font-size: 11px; color: var(--disabled); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-fit { color: #3f8f5a; font-size: 11px; }
+
+/* ── Room 214, the whole hour ────────────────────────────────────────────────────────────────
+   One dialog, four rooms. data-phase on the body decides which panel is up; everything else —
+   the timeline, the composure meter, the clock — is shared, because it is one afternoon. */
+.dialog.exam { max-width: 660px; }
+.ex-timeline { display: flex; gap: 3px; margin-bottom: 6px; }
+.ex-pip { display: block; height: 6px; background: var(--paper); border: 1px solid var(--shadow); }
+.ex-pip.done { background: #5f9a5f; }
+.ex-pip.now { background: var(--accent); animation: ex-pulse 1.6s ease-in-out infinite; }
+@keyframes ex-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+.ex-segbar { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--shadow); padding-bottom: 5px; margin-bottom: 6px; }
+.ex-segbar span { text-align: right; }
+.ex-only { display: none; }
+[data-vv][data-phase="talk"] .ex-talk,
+[data-vv][data-phase="qa"] .ex-qa,
+[data-vv][data-phase="corridor"] .ex-corridor,
+[data-vv][data-phase="clear"] .ex-clear,
+[data-vv][data-phase="intro"] .ex-clear { display: block; }
+
+/* The deck. Filler looks like filler, which is the joke and also the tell. */
+.ex-slide { border: 2px solid var(--shadow); background: #f4f4ec; color: #1c1c1c; padding: 10px 12px; min-height: 74px; box-shadow: 3px 3px 0 rgba(0,0,0,.25); }
+.ex-slide b { display: block; font-size: 14px; margin-bottom: 4px; }
+.ex-slide p { margin: 0; line-height: 1.45; }
+.ex-slide.w-core { border-left: 6px solid #4a7fa8; }
+.ex-slide.w-filler { border-left: 6px solid #b9b9a8; opacity: .82; }
+.ex-slide.w-trap { border-left: 6px solid #b45a5a; }
+.ex-interrupt { border-left: 3px solid #b45a5a; background: #f6e9e9; color: #5a1f1f; padding: 6px 10px; margin: 8px 0 0; font-size: 13px; animation: ex-cut .35s ease-out; }
+.ex-interrupt.hidden { display: none; }
+@keyframes ex-cut { from { transform: translateX(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
+.ex-moves .choice.urgent { border-color: #b45a5a; }
+.ex-moves .choice.hidden { display: none; }
+
+/* The corridor. A closed door and one chair, drawn rather than described. */
+.ex-door { position: relative; height: 96px; margin: 8px 0; background: linear-gradient(#e6e3d8, #d6d3c6); border: 1px solid var(--shadow); overflow: hidden; }
+.ex-door-panel { position: absolute; left: 50%; top: 8px; width: 74px; height: 88px; margin-left: -37px; background: #8b7355; border: 2px solid #6b573f; box-shadow: inset 0 0 0 6px #947c5c; }
+.ex-door-panel::after { content: ''; position: absolute; right: 8px; top: 44px; width: 7px; height: 7px; border-radius: 50%; background: #d9c48a; }
+.ex-chair { position: absolute; left: 14px; bottom: 6px; width: 26px; height: 30px; background: #7a7a6a; box-shadow: 0 -14px 0 -4px #7a7a6a, inset 0 0 0 1px rgba(0,0,0,.2); }
+.ex-things { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.ex-thing { font-size: 11.5px; }
+.ex-thing:disabled { opacity: .42; }
+
+/* The room emptying: nine people walking out, staggered, which takes as long as it takes. */
+.ex-leaving { display: flex; gap: 8px; height: 74px; align-items: flex-end; justify-content: center; overflow: hidden; }
+.ex-figure { display: block; width: 12px; height: 34px; background: var(--disabled); border-radius: 6px 6px 0 0; animation: ex-leave 2.6s ease-in forwards; animation-delay: var(--d); }
+.ex-figure::before { content: ''; display: block; width: 10px; height: 10px; margin: -12px auto 0; border-radius: 50%; background: var(--disabled); }
+@keyframes ex-leave { to { transform: translateX(190px); opacity: 0; } }
+
+/* The photograph. Four practised smiles and one that is not. */
+.dialog.photo { max-width: 520px; }
+.ph-frame { position: relative; background: #efeade; border: 10px solid #fff; box-shadow: 3px 3px 0 rgba(0,0,0,.3); padding: 10px 10px 12px; margin: 10px 0; overflow: hidden; }
+.ph-row { display: flex; justify-content: center; align-items: flex-end; gap: 10px; }
+.ph-person { position: relative; width: 42px; }
+.ph-head { display: block; width: 22px; height: 22px; margin: 0 auto; border-radius: 50%; background: #c8a887; border: 1px solid #a5846a; }
+.ph-body { display: block; width: 36px; height: 40px; margin: 2px auto 0; border-radius: 8px 8px 2px 2px; background: #4d5a6b; }
+.ph-person:nth-child(2) .ph-body { background: #6b5a4d; } .ph-person:nth-child(4) .ph-body { background: #55604d; } .ph-person:nth-child(5) .ph-body { background: #5f4d5a; }
+.ph-person.you .ph-body { background: var(--accent); }
+.ph-smile { position: absolute; left: 50%; top: 11px; width: 13px; height: 7px; margin-left: -6.5px; border-bottom: 2.5px solid #3d2a20; border-radius: 0 0 13px 13px; }
+.ph-smile.real { animation: ph-grin 2.4s ease-in-out infinite; }
+@keyframes ph-grin { 0%, 100% { height: 5px; } 50% { height: 8px; } }
+.ph-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; animation: ph-pop 2.8s ease-out .5s; }
+@keyframes ph-pop { 0% { opacity: 0; } 6% { opacity: .95; } 20% { opacity: 0; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ph-flash, .ph-smile.real, .ex-figure, .ex-pip.now { animation: none; } }
+
+/* The plant. Bottom-left of the desktop, behind everything, mentioned nowhere. */
+.desk-plant { position: relative; align-self: start; margin: 2px 0 0 10px; width: 46px; height: 54px; background: none; border: 0; padding: 0; cursor: pointer; opacity: .92; }
+.desk-plant:hover { opacity: 1; }
+.desk-plant:active .dp-leaf { transform: translateY(1px); }
+.dp-pot { position: absolute; left: 12px; bottom: 0; width: 22px; height: 18px; background: linear-gradient(#b4795a, #8f5c42); border: 1px solid #6f4632; clip-path: polygon(8% 0, 92% 0, 78% 100%, 22% 100%); }
+.dp-leaf { position: absolute; bottom: 15px; width: 9px; height: 26px; background: #4f8a5a; border: 1px solid #3a6a44; border-radius: 60% 60% 20% 20%; transform-origin: 50% 100%; }
+.dp-leaf.a { left: 22px; transform: rotate(-4deg); }
+.dp-leaf.b { left: 13px; height: 21px; transform: rotate(-30deg); }
+.dp-leaf.c { left: 30px; height: 19px; transform: rotate(28deg); }
+/* Once you know, it never moves again, because it never did. */
+.desk-plant.known .dp-leaf { animation: none; }
+.desk-plant:focus-visible { outline: 2px dotted var(--hi); outline-offset: 2px; }
+
+/* Narration is the camera; speech is the message. A line that opens on a quote keeps the body
+   voice, and what the room did about it drops back a size so the message is the thing you read. */
+.narr { font-size: .88em; font-style: italic; opacity: .78; }
+.said { font-style: normal; }
+.scene-text .said, .read-body .said { font-weight: 600; }
+.vv-flash .narr, .notes-box .narr { display: inline; }
+
+.ph-line { font-size: 12.5px; line-height: 1.5; margin: 6px 0; }
+.dialog .said { font-weight: 600; }

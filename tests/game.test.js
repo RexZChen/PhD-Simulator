@@ -1840,3 +1840,71 @@ test('a rich advisor can show a cage too, not only a poor one', async () => {
     || (e.conditions?.stage && !e.conditions.maxFunding));
   assert.ok(reachable.length > 0, `nothing in the catalogue can show a ${harshest.id} under pressure`);
 });
+
+test('every line the exam room, the corridor and the plant can print exists in Chinese', async () => {
+  // These live behind a real-time UI the audit harness cannot walk — it dispatches VIVA with a
+  // synthetic tally and never renders a slide, a corridor or a verdict. So the exam prose was
+  // reachable in play and invisible to the audit, which is exactly the shape of bug that let a
+  // year of gameplay strings sit untranslated behind a confident zero. Checked directly instead.
+  const { exams, decks, talkLines, badCop, corridor, verdicts, talkMoves, examNote } = await import('../src/data/exams.js');
+  const { plantLines, plantNote } = await import('../src/data/plant.js');
+  const { doors, OBSTACLES, stuckNote } = await import('../src/data/stuck.js');
+  const { zh } = await import('../src/i18n/zh/index.js');
+  const need = [];
+  for (const e of Object.values(exams)) { need.push(e.label, e.room, e.total, e.note); for (const g of e.segments) need.push(g.label, g.sub); }
+  for (const deck of Object.values(decks)) for (const sl of deck) need.push(sl.title, sl.line);
+  need.push(...Object.values(talkLines), badCop.intro, ...badCop.interrupts, badCop.handled, badCop.ignored, badCop.afterward);
+  need.push(corridor.intro, corridor.ready, ...corridor.things.flatMap(x => [x.label, x.line]));
+  need.push(...Object.values(verdicts.pass), ...verdicts.quickCongrats, verdicts.advisorLine, ...Object.values(verdicts.photo));
+  for (const m of Object.values(talkMoves)) need.push(m.label, m.hint);
+  need.push(examNote, plantNote, plantLines.discover, plantLines.noticed, plantLines.devoted, plantLines.dry, ...plantLines.after, ...plantLines.idle);
+  for (const d of Object.values(doors)) need.push(d.label, d.hint, ...d.good, ...d.bad);
+  for (const o of Object.values(OBSTACLES)) need.push(o.label, o.hint);
+  need.push(stuckNote);
+  const missing = [...new Set(need)].filter(x => x && !zh.ui[x]);
+  assert.deepEqual(missing, [], `${missing.length} string(s) would show in English mid-exam`);
+});
+
+test('the plant only does something when you are already having a bad time', async () => {
+  // A ritual is not a resource. If watering paid out on a good day it would become a strategy,
+  // and 288 waterings over six years would dwarf every real decision in the game.
+  const { waterPlant } = await import('../src/engine/plant.js');
+  const mk = stress => { const s = enterProgram(4); s.month = 20; s.week = 0; s.player.hidden.stress = stress; return s; };
+  const calm = mk(20), hope = calm.player.stats.hope, st = calm.player.hidden.stress;
+  waterPlant(calm);
+  assert.equal(calm.player.hidden.stress, st, 'no stress relief on a good day');
+  assert.equal(calm.player.stats.hope, hope, 'no hope on a good day');
+  const bad = mk(72);
+  waterPlant(bad);
+  assert.ok(bad.player.hidden.stress < 72, 'it helps when it is being used for what it is for');
+  // And it cannot be spammed inside a week.
+  const twice = mk(72);
+  waterPlant(twice);
+  const after = twice.player.hidden.stress;
+  waterPlant(twice);
+  assert.equal(twice.player.hidden.stress, after, 'the cooldown holds inside one week');
+  assert.equal(twice.plant.watered, 1, 'a blocked watering does not count');
+});
+
+test('each exam runs the hours it claims to, in the order it claims', async () => {
+  const { exams } = await import('../src/data/exams.js');
+  const shape = k => exams[k].segments.map(g => g.kind).join('>');
+  assert.equal(shape('prelim'), 'talk>qa>corridor');
+  assert.equal(shape('proposal'), 'talk>qa>corridor');
+  // A defense is public, then cleared, then closed — the clearing is the whole point of it.
+  assert.equal(shape('defense'), 'intro>talk>qa>clear>qa>corridor');
+  const mins = k => exams[k].segments.reduce((n, g) => n + g.minutes, 0);
+  assert.equal(mins('prelim'), 60);
+  assert.equal(mins('proposal'), 120);
+  assert.equal(mins('defense'), 150);
+  // The open questions are the kind ones and the closed ones are not.
+  const def = exams.defense.segments.filter(g => g.kind === 'qa');
+  assert.equal(def[0].tone, 'nice');
+  assert.equal(def[1].tone, 'harsh');
+  // Every deck has to be able to reward a talk: some slides must actually carry it.
+  const { decks } = await import('../src/data/exams.js');
+  for (const [k, deck] of Object.entries(decks)) {
+    assert.ok(deck.filter(s => s.w === 'core').length >= 4, `${k} deck has too few load-bearing slides`);
+    assert.ok(deck.some(s => s.w === 'filler'), `${k} deck has no filler, which is not what a deck is`);
+  }
+});

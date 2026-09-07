@@ -1,4 +1,4 @@
-import { esc, money, btn, bar, group, tag, note, signed, band, effectPills, gauge, gaugeRow, mood, faceFor, deltaBar } from '../helpers.js';
+import { esc, money, btn, bar, group, tag, note, signed, band, effectPills, gauge, gaugeRow, mood, faceFor, deltaBar, voiced } from '../helpers.js';
 import { icon } from '../icons.js';
 import { avatar } from '../avatars.js';
 import { dateLabel, monthOf, semester, holidays, seasonalFlavor, phdYear, isTeachingTerm } from '../../data/calendar.js';
@@ -7,7 +7,8 @@ import { mutators, topics } from '../../data/catalog.js';
 import { requestById } from '../../data/requests.js';
 import { asks } from '../../data/asks.js';
 import { activeProject, absWeek, lastName, firstName, editable, requestText, noticeText, say } from '../../engine/state.js';
-import { focusOptions, canStartMain, canStartSide, dayName, daysLeftInWeek } from '../../engine/game.js';
+import { focusOptions, canStartMain, canStartSide, dayName, daysLeftInWeek, doorOptions, obstacleOf } from '../../engine/game.js';
+import { stuckNote } from '../../data/stuck.js';
 import { milestoneOf, dayEligible, paceOptions, DAYS_PER_WEEK } from '../../engine/time.js';
 import { diamonds, diamondBar, diamondWord } from '../../engine/paper.js';
 import { caffeineState, healthBand } from '../../engine/life.js';
@@ -316,6 +317,28 @@ function paceControl(s) {
   </div>`;
 }
 
+
+// Being stuck, and who you ask. Six doors, each greyed with its own reason rather than missing,
+// and the one that suits this kind of stuck marked — because knowing which door is the skill.
+function stuckPanel(s) {
+  const ob = obstacleOf(s);
+  const opts = doorOptions(s);
+  const plan = s.stage === 'plan';
+  const who = { advisor: s.advisor?.id, labmate: (s.labmates || []).find(l => l.status === 'active')?.name, collab: (s.contacts || []).find(c => c.status === 'active')?.name };
+  return `<div class="stuck">
+    <div class="stuck-head"><b>${esc(t(ob.label))}</b><span class="tiny muted">${esc(t(ob.hint))}</span></div>
+    <div class="stuck-doors">${opts.map(o => {
+      const face = who[o.id] ? avatar(who[o.id], 26) : icon(o.icon, 20);
+      return `<button class="stuck-door ${o.fits ? 'fits' : ''}" data-action="stuck-ask" data-id="${o.id}" ${o.blocked || !plan ? 'disabled' : ''} title="${esc(o.blocked || t(o.hint))}">
+        <span class="sd-who">${face}</span>
+        <span class="sd-l"><b>${esc(t(o.label))}</b><small>${esc(o.blocked || t(o.hint))}</small></span>
+        ${o.fits && !o.blocked ? `<span class="sd-fit" title="${esc(t('Suited to this kind of stuck'))}">●</span>` : ''}
+      </button>`;
+    }).join('')}</div>
+    <p class="tiny muted">${esc(t(stuckNote))}</p>
+  </div>`;
+}
+
 export function planList(s) {
   const opts = focusOptions(s);
   return `<div class="radio-list plans">${opts.map(f => `<button class="option ${s.focus === f.id ? 'selected' : ''}" data-action="plan" data-id="${f.id}" ${f.disabled ? 'disabled' : ''} title="${esc(f.disabled || f.desc)}"><span class="radio"></span>${icon(f.icon, 22)}<span class="opt-name"><b>${esc(f.name)}</b><span class="muted">${esc(f.disabled || f.desc)}</span><span class="eff">${f.disabled ? '' : effectPills(f.effects, {}, 5)}</span></span></button>`).join('')}</div>`;
@@ -408,8 +431,9 @@ export function managerApp(s, ui) {
     <div>${tempo === 'day' ? group(t('Today'), dayStrip(s)) : ''}${group(tempo === 'day' ? t('Today goes to') : tempo === 'week' ? t('This week goes to') : t('Plan for the month'), planList(s))}</div>
     <div>${s.thesis && !s.thesis.deposited ? group(t('Almost'), revisionPanel(s)) : timelinePanel(s) ? group(t('The timeline'), timelinePanel(s)) : ''}${internPanel(s) ? group(t('Summer'), internPanel(s)) : ''}${lettersPanel(s) ? group(t('Letters'), lettersPanel(s)) : ''}${group(t('Agenda'), readinessWidget(s) + agenda(s))}${group(`${t('Advisor requests')} ${s.requests.some(r => r.status === 'open') ? tag(String(s.requests.filter(r => r.status === 'open').length), 'warn') : ''}`, requestList(s))}</div>
     <div>${group(t('Projects'), projectList(s) + `<div class="row" style="margin-top:6px">${btn(t('Start main project'), 'start-project', { cls: 'small', disabled: s.stage !== 'plan' || !canStartMain(s), title: canStartMain(s) ? t('A new main project') : t('The current main project is still alive') })}${btn(t('Start side project'), 'start-side', { cls: 'small', disabled: s.stage !== 'plan' || !canStartSide(s), title: t('Month 5+, main project past 40%, one at a time. −5 Energy.') })}${s.milestones?.proposal === 'pass' && !s.milestones.thesisStarted ? btn(t('Start the dissertation'), 'start-thesis', { cls: 'small accent', disabled: s.stage !== 'plan' || s.month < 54, title: t('From September of year five. Accepted papers become chapters.') }) : ''}${s.projects.some(x => x.kind === 'thesis' && x.status === 'Ready') && (s.milestones.defenseMonth === null || s.milestones.defenseMonth === undefined) ? btn(t('Schedule the defense'), 'schedule-defense', { cls: 'small accent', disabled: s.stage !== 'plan' }) : ''}${btn(t('Open Overgrief'), 'open', { app: 'browser', cls: 'small link' })}</div>`)}
+    ${group(t('Stuck?'), stuckPanel(s))}
     ${group(t('Advisor'), advisorCard(s) + `<div style="margin-top:8px">${quickAsks(s, 3)}</div>`)}
-    ${group(t('Field notes'), `<div class="notes-box">${esc(noticeText(s))}</div>`)}</div>
+    ${group(t('Field notes'), `<div class="notes-box">${voiced(noticeText(s))}</div>`)}</div>
   </div>`;
 }
 

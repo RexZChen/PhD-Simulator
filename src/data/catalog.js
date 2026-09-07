@@ -191,6 +191,16 @@ export const achievements = {
 
   thecalendarisnotyours: { name: 'The Calendar Is Not Yours', desc: 'Absorb six unscheduled meetings. An unscheduled ninety minutes costs the afternoon either side of it.' },
 
+  twentyminutes: { name: 'Twenty Minutes', desc: 'Lose yourself at the whiteboard three times. You are not aware of having decided anything and there is a line on the board that was not there before.' },
+
+  sixdoors: { name: 'Unstuck, Eight Times', desc: 'Get yourself out of it eight times. Nobody teaches which door to try; everybody has to work it out.' },
+  allsixdoors: { name: 'Every Door', desc: 'Try all six ways of being unstuck in one run, including the one nobody counts as work.' },
+  onechair: { name: 'The Corridor Has One Chair', desc: 'Wait out a committee’s deliberation without looking at your phone, the door, or slide 12. The longest you have been alone with yourself in about two years.' },
+  stoppedandanswered: { name: '“Go Back Two Slides”', desc: 'Stop your own talk to answer the one who has decided to be difficult. It costs two minutes and buys the room.' },
+  waterit: { name: 'Sam Waters It', desc: 'Water the plastic plant twelve times. Nobody mentions it, which is how you know it counts.' },
+  plasticdevotion: { name: 'It Will Still Be Here', desc: 'Water the plastic plant thirty times. It will outlast your candidacy, your advisor’s sabbatical and the building’s wifi.' },
+  undertime: { name: 'Two Minutes In Hand', desc: 'Finish a talk having covered everything that mattered, with time left. Nobody has ever done this and the chair looks briefly disoriented.' },
+
   // ── The patent ─────────────────────────────────────────────────────────────────────────────
   namedinventor: { name: 'Named Inventor', desc: 'Get an application filed. It appears on your Scholar profile about a year later, indexed next to your papers as though it were one.' },
   patentgranted: { name: 'Two Years, Four Months', desc: 'Argue a rejection down to a granted patent. There is a certificate. It is genuinely beautiful and it arrives in a cardboard tube.' },

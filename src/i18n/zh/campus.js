@@ -440,4 +440,18 @@ export const campusZh = {
   "A hard one.": "难熬的一个月。",
   "That was a bad month.": "这个月很糟。",
   "PENDING": "待处理",
+
+  // ── 白板 ────────────────────────────────────────────────────────────────
+  "Whiteboard": "白板",
+  "It costs nothing and it is not for anything": "它不花钱，也不为了什么",
+  "A whiteboard. It costs nothing and it is not for anything.": "一块白板。它不花钱，也不为了什么。",
+  "A whiteboard. Click it.": "一块白板。点它。",
+  "Erase": "擦掉",
+  "{n} of {max}": "{n} / {max}",
+  "You wipe it down. Somebody had written DO NOT ERASE in the corner in a different hand, three years ago, and you erase that too.": "你把它擦干净了。三年前有人用另一种笔迹在角落写过“请勿擦除”，你把那个也擦掉了。",
+  "Clean board. It stays clean for about forty minutes.": "干净的白板。它会保持干净大约四十分钟。",
+  "The eraser leaves a grey ghost of everything, which is the honest state of most research.": "板擦留下了一切的灰色残影——这是大多数研究的诚实状态。",
+  "Gone. You photograph it first, out of a habit you developed after the one time you did not.": "没了。你先拍了张照，这个习惯来自唯一一次你没拍照的那回。",
+  "The board is full. There is a convention that you write on the window next, and you have seen somebody do it.": "白板满了。按惯例接下来写在窗户上，而你见过有人这么干。",
+  "Twenty minutes go somewhere. You are not aware of having decided anything and there is a line on the board that was not there before, and it is right.": "二十分钟去了某个地方。你并不觉得自己做了任何决定，而白板上多了一行本来没有的字，并且它是对的。",
 };

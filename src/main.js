@@ -9,9 +9,10 @@ import { streamText, stopStream, finishStream, isStreaming, composedText } from 
 import { startTalk, pickWord, stopTalk, talkRunning, startQaTimer, stopQaTimer } from './ui/talkgame.js';
 import { startBench, strike, stopBench, benchRunning } from './ui/research.js';
 import { startLecture, toggleWork, stopLecture, lectureRunning } from './ui/lecture.js';
-import { startViva, vivaMove, stopViva, vivaRunning } from './ui/viva.js';
+import { startViva, vivaMove, stopViva, vivaRunning, examTalk, examInterrupt, examCorridor } from './ui/viva.js';
 import { startCluster, clusterPick, stopCluster, clusterRunning } from './ui/cluster.js';
 import { draftFor } from './ui/apps/mail.js';
+import { markBoard, eraseBoard, paintBoard, boardLines } from './ui/apps/whiteboard.js';
 import { chatDraft } from './ui/apps/chat.js';
 import { rebuttalDraft } from './ui/apps/browser.js';
 import { conditions as conditionDefs } from './data/life.js';
@@ -127,6 +128,7 @@ function render({ restoreTyping = false, preserveScroll = true } = {}) {
   syncLecture();
   syncViva();
   flashAwards();
+  paintBoard();
 }
 function persist() {
   if (!run) return;
@@ -244,7 +246,7 @@ root.addEventListener('click', event => {
   if (!target || target.disabled) return;
   const action = target.dataset.action, id = target.dataset.id;
   if (action !== 'start-menu') ui.startMenu = false;
-  if (!['choice', 'continue', 'dismiss-report', 'boot-skip'].includes(action)) play('click');
+  if (!['choice', 'continue', 'dismiss-report', 'boot-skip', 'wb-mark'].includes(action)) play('click');
   switch (action) {
     case 'boot-skip': ui.screen = 'home'; render(); return;
     case 'home': ui.screen = 'home'; ui.minimized = false; ui.confirm = null; ui.dialog = null; ui.wizardStep = 0; render({ preserveScroll: false }); return;
@@ -302,6 +304,18 @@ root.addEventListener('click', event => {
       return;
     }
     case 'cluster-line': clusterPick(Number(id)); play('click'); return;
+    case 'wb-mark': {
+      // The marks live in the app, not in the run — a save should not carry a list of doodles.
+      const host = event.target.closest('[data-wb-surface]');
+      if (!host) return;
+      const r = host.getBoundingClientRect();
+      const out = markBoard(((event.clientX - r.left) / r.width) * 100, ((event.clientY - r.top) / r.height) * 100);
+      if (out === 'flow' && run) { play('chime'); perform({ type: 'BOARD_FLOW' }); }
+      else if (out === 'full') play('click');
+      return;
+    }
+    case 'stuck-ask': perform({ type: 'STUCK_ASK', id }); return;
+    case 'wb-erase': { const line = eraseBoard(); if (line && run) perform({ type: 'BOARD_ERASE', line }); return; }
     case 'summons': perform({ type: 'SUMMONS', id }, { preserveScroll: false }); return;
     case 'patent-meet': perform({ type: 'PATENT_MEET', id }, { preserveScroll: false }); return;
     case 'patent-action': perform({ type: 'PATENT_ACTION', id }, { preserveScroll: false }); return;
@@ -312,6 +326,11 @@ root.addEventListener('click', event => {
     case 'net-letter': perform({ type: 'NET_LETTER', id }); return;
     case 'net-intro': perform({ type: 'NET_INTRO', id }); return;
     case 'viva-move': vivaMove(id); play('click'); return;
+    case 'exam-talk': examTalk(id); play('click'); return;
+    case 'exam-interrupt': examInterrupt(); play('click'); return;
+    case 'exam-corridor': examCorridor(id); play('click'); return;
+    case 'plant': perform({ type: 'PLANT' }); return;
+    case 'photo-close': { if (run) { run.photo = null; persist(); render({ preserveScroll: false }); } return; }
     case 'crisis': perform({ type: 'CRISIS', id }, { preserveScroll: false }); return;
     case 'life-tab': ui.lifeTab = id; render({ preserveScroll: false }); return;
     case 'trip-visa': perform({ type: 'TRIP_VISA', id }, { preserveScroll: false }); return;
