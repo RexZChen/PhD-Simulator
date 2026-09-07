@@ -10,6 +10,8 @@ import { eligible } from '../../engine/events.js';
 import { composedText, isStreaming } from '../compose.js';
 import { reactions as reactionSet } from '../../data/slack.js';
 import { replyOptionsFor, dmPeople, dmOptions } from '../../engine/slack.js';
+import { activeContacts, contactById, collabOptions, contactLabel } from '../../engine/network.js';
+import { contactKinds, metWhere, netNote } from '../../data/network.js';
 import { t } from '../../i18n/index.js';
 
 const MEET_RANK = { whenever: 0, monthly: 1, biweekly: 2, weekly: 3 };
@@ -135,6 +137,42 @@ function dmComposer(s, channel) {
   return `<div class="slack-composer"><div class="say-menu-body dm-openers">${opts.map(o => `<button class="say-item" data-action="dm-send" data-id="${esc(id)}" data-opener="${o.id}" ${o.done || s.stage !== 'plan' || s.player.stats.energy < o.energy ? 'disabled' : ''}><b>${esc(t(o.label))}</b><small>${esc(t(o.draft))}</small>${o.done ? `<em>${t('asked')}</em>` : `<em>−${o.energy} ${t('Energy')}</em>`}</button>`).join('')}</div></div>`;
 }
 
+
+// A person outside the lab. Not a message log — a card, because the relationship is the object and
+// the four things you can do with it are the whole system.
+function netPanel(s, id) {
+  const c = contactById(s, id);
+  if (!c) return `<div class="sl-empty muted">${t('No such person.')}</div>`;
+  const def = contactKinds[c.kind];
+  const plan = s.stage === 'plan';
+  const faded = c.status !== 'active';
+  const band = c.regard > 70 ? 'b-ok' : c.regard > 42 ? 'b-warn' : c.regard > 24 ? 'b-low' : 'b-spent';
+  const where = t(metWhere[c.where]?.label || 'at {venue}', { venue: c.venue || t('a conference') });
+  const task = c.task ? `<div class="net-task"><b>${t('You owe them')}</b><p>${esc(t(c.task.text))}</p>
+    <div class="row">${tag(t('due {n} month(s)', { n: Math.max(0, c.task.due - s.month) }), c.task.due - s.month <= 0 ? 'bad' : 'warn')}
+    ${btn(t('Do the work'), 'net-do', { id: c.id, cls: 'primary small', disabled: !plan })}</div></div>` : '';
+  const asks = c.task || faded ? '' : `<div class="row net-asks">${collabOptions(s, c.id).map(o =>
+    btn(t(o.label), 'net-collab', { id: `${c.id}|${o.id}`, cls: 'small', disabled: !plan || !!o.blocked, title: o.blocked || t('Their deadline, not yours.') })).join('')}</div>`;
+  return `<div class="net-panel">
+    <div class="net-head">${avatar(c.name, 56)}<div>
+      <h2>${esc(contactLabel(c))}</h2>
+      <p class="muted small">${esc(t(def.label))} · ${esc(c.org)} · ${t('met {where}', { where })}</p>
+      <p class="tiny muted">${esc(t(def.note))}</p>
+    </div></div>
+    <div class="net-meters">
+      <span class="tiny muted">${t('How you stand')}</span><div class="vv-track"><i class="vv-fill ${band}" style="width:${Math.round(c.regard)}%"></i></div>
+    </div>
+    ${faded ? `<p class="net-faded">${t('They have stopped replying. Nothing was said; the thread simply ended. It happens, and occasionally it un-happens.')}</p>` : `
+    <div class="row net-actions">
+      ${btn(t('Say something'), 'net-talk', { id: c.id, cls: 'primary small', disabled: !plan || c.lastTalk === s.month, title: c.lastTalk === s.month ? t('You spoke this month. Twice would be a lot.') : t('Cheap, and the whole thing runs on it.') })}
+      ${def.letters ? btn(t('Ask for a letter'), 'net-letter', { id: c.id, cls: 'small', disabled: !plan || !!c.letter, title: c.letter ? t('You have already asked them.') : t('Only worth it if they actually know your work.') }) : ''}
+      ${btn(t('Ask for an introduction'), 'net-intro', { id: c.id, cls: 'small', disabled: !plan, title: t('Spends their credit, not yours.') })}
+    </div>
+    ${asks}${task}
+    <p class="tiny muted">${t('{talks} conversation(s) · {done} collaboration(s) finished{missed}', { talks: c.talks, done: c.done, missed: c.missed ? t(' · {n} missed', { n: c.missed }) : '' })}${c.letter ? ` · ${t('letter: {v}', { v: t(c.letter) })}` : ''}</p>`}
+  </div>`;
+}
+
 export function chatApp(s, ui) {
   const channel = ui.chatChannel || 'advisor';
   const msgs = s.chatMessages.filter(m => m.channel === channel);
@@ -156,10 +194,15 @@ export function chatApp(s, ui) {
     ${railItem('advisor', t('Prof. {name}', { name: lastName(s.advisor.name) }), `<i class="dot ${presenceOf(s)}"></i>`)}
     ${dmPeople(s).map(p => railItem(p.channel, firstName(p.name), `<i class="dot ${p.role === 'phantom' ? 'off' : ''}"></i>`, `<span class="sl-role">${esc(t(p.role || 'peer'))}</span>`)).join('')}
     <div class="sl-people">${s.labmates.filter(l => !dmPeople(s).some(d => d.id === l.id)).map(l => `<div class="sl-person"><i class="dot ${l.role === 'phantom' ? 'off' : ''}"></i>${esc(firstName(l.name))}<span class="muted"> · ${esc(t(l.role))}</span></div>`).join('')}</div>
+    ${(s.contacts || []).length ? `<div class="sl-section">${t('Outside the lab')}</div>
+    ${(s.contacts || []).map(c => `<button class="sl-item net ${channel === `net:${c.id}` ? 'active' : ''} ${c.status !== 'active' ? 'faded' : ''}" data-action="chat-channel" data-id="net:${c.id}" title="${esc(t(contactKinds[c.kind].label))} · ${esc(c.org)}"><span class="sl-ic">${avatar(c.name, 18)}</span><span class="sl-label">${esc(contactLabel(c))}</span>${c.task ? `<b class="sl-badge owe" title="${esc(t('You owe them something'))}">!</b>` : ''}</button>`).join('')}` : ''}
   </div>`;
 
+  const netWho = channel.startsWith('net:') ? contactById(s, channel.slice(4)) : null;
   const dmWho = channel.startsWith('dm:') ? dmPeople(s).find(p => p.channel === channel) : null;
-  const head = dmWho
+  const head = netWho
+    ? `<div><b>${esc(contactLabel(netWho))}</b><span class="ch-topic">${esc(t(contactKinds[netWho.kind].label))} · ${esc(netWho.org)} · ${esc(t(netNote))}</span></div>`
+    : dmWho
     ? `<div><b>${esc(dmWho.name)}</b><span class="ch-topic">${esc(t(dmWho.role || 'peer'))} · ${t('a direct message, which nobody else sees')}</span></div>`
     : channel === 'advisor'
     ? `<div><b>${t('Prof. {name}', { name: s.advisor.name })}</b><span class="ch-topic">${esc(t(mode.presence))} · ${esc(t(mode.label))} · ${t('1:1s {cadence}', { cadence: t(s.cadence.oneOnOne) })}</span></div>`
@@ -188,8 +231,7 @@ export function chatApp(s, ui) {
   return `<div class="slack">${rail}
     <div class="slack-main">
       <div class="slack-head">${head}</div>
-      <div class="chat-log slack-log">${rows}</div>
-      ${composer(s, ui, channel)}
+      ${channel.startsWith('net:') ? netPanel(s, channel.slice(4)) : `<div class="chat-log slack-log">${rows}</div>${composer(s, ui, channel)}`}
     </div>
   </div>`;
 }

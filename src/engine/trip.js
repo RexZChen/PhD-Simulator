@@ -3,6 +3,7 @@ import { t } from '../i18n/index.js';
 import { cities, venueCities, flights, hotels, talkSlots, questioners, tripActivities, caughtScenes } from '../data/conference.js';
 import { venueById } from '../data/venues.js';
 import { dateLabel } from '../data/calendar.js';
+import { meetContact } from './network.js';
 import { random, roll, clamp, pick, shuffle } from './probability.js';
 import { effects, log, message, chat, award, activeProject, lastName, firstName, fill } from './state.js';
 import { charge } from './life.js';
@@ -371,6 +372,14 @@ export function endTrip(s) {
     effects(s, { hope: 8, academicCapital: 4 });
     message(s, t('A new collaborator'), t('Following up from {venue}', { venue: trip.venueName }), t('Hi — great talk. We have a dataset that would suit your method and no time to run it ourselves. Would you be interested in something joint? Low pressure, and I have told my student to be realistic about timelines, which he will ignore.'), 'dashboard', 'inbox', 'collabOffer');
     log(s, t('You come home with a collaboration offer from {who}. Your advisor will have opinions.', { who: collab }));
+  }
+  // What you actually bring home is people, not a number. One for a decent trip, two for a good
+  // one, three if you spent the whole week in the hallway rather than the sessions.
+  const met = conn >= 9 ? 3 : conn >= 5 ? 2 : conn >= 2 ? 1 : 0;
+  for (let i = 0; i < met; i++) {
+    const kind = pick(s, ['prof', 'postdoc', 'postdoc', 'researcher', 'student', 'student']);
+    const who = meetContact(s, { kind, where: i === 0 ? 'poster' : 'conference', venue: trip.venueName });
+    if (who) log(s, t('You come home knowing {name} ({org}), met {where}. They will answer an email for about four months unless you give them a reason not to.', { name: who.kind === 'prof' ? t('Prof. {n}', { n: lastName(who.name) }) : who.name, org: who.org, where: t(i === 0 ? 'at the poster next to yours' : 'at {venue}', { venue: trip.venueName }) }));
   }
   if (conn >= 3 && s.advisor.connections < 92) s.advisor.connections = clamp(s.advisor.connections + 1);
   const summary = t('Home from {city}. {conn} real conversations, {cites} people who said they would cite it, and a lanyard you will find in a coat pocket in March.', { city: t(city.name), conn, cites: trip.cites });

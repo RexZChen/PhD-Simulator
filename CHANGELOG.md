@@ -4,6 +4,36 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.5.0] — 2026-09-07
+
+The second organisation chart: the people you meet who are not in your lab.
+
+### Added
+- **Contacts are people now, not a number.** `connections` was an integer. A conference produces one
+  to three named people with a face, an institution and an opinion of you; a citation occasionally
+  arrives with the person attached, which is the valuable half. They live in LabChat under "Outside
+  the lab", each with their own card.
+- **Four things you can do with a person.** Say something (cheap, and the whole system runs on it).
+  Ask for a collaboration. Ask a professor for a letter — outside the lab is worth more than inside
+  it, and a lukewarm yes is the classic way to be hurt. Ask for an introduction, which spends *their*
+  credit rather than yours and therefore needs real standing.
+- **Collaborations are a real trade.** Three sizes, and the big one costs 26 energy, 22 progress and
+  8 draft *of your own project*. One open task at a time across everyone, because you cannot owe four
+  people a month each — so the question is always whose work you are doing instead of your own. Miss
+  the due month and their regard drops hard; deliver the huge one and there is a thing with both your
+  names on it. Measured over 120 runs, a player who takes on collaborations reaches ABD about five
+  times more often in forty seeds. That is the cost, and it is meant to be felt.
+- **They drift.** Regard decays without contact and below a floor they simply stop replying — no
+  falling-out, no explanation, an inbox that reordered itself. Talking holds a relationship steady
+  and cannot build one past about 73; only doing something for them gets you into the range where
+  they will agree to something big. People who faded occasionally come back.
+- 6 achievements, for 92. 93 strings of new prose in Simplified Chinese.
+
+### Fixed
+- Talking to a contact used to hand out academic capital and hope every month per person, which over
+  a six-year run with four contacts was an enormous free faucet. The value of knowing someone is what
+  it unlocks, not a drip for clicking on them.
+
 ## [1.4.0] — 2026-09-07
 
 Two minigames, and one of them replaces a dice roll on the three most consequential days of a PhD.

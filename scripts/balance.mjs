@@ -21,6 +21,8 @@ import { availableWriters, letterCount, packetStrength } from '../src/engine/let
 import { openPortals, listingsFor, funnel, heatBand } from '../src/engine/jobsearch.js';
 import { outputDrought, droughtBand } from '../src/engine/advisor.js';
 import { buildCV } from '../src/engine/epilogue.js';
+import { activeContacts } from '../src/engine/network.js';
+import { activeProject } from '../src/engine/state.js';
 
 const resolveAll = s => { let n = 0; while (s.event && n++ < 40) { const e = templateById[s.event]; const ok = e.choices.find(c => !c.ending && !c.minigame && !(c.requiresCoursework && s.coursework < c.requiresCoursework)) || e.choices[0]; s = dispatch(s, { type: 'CHOICE', id: ok.id }); if (s.stage === 'minigame') s = dispatch(s, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 }); } return s; };
 const act = (s, a) => resolveAll(dispatch(s, a));
@@ -69,6 +71,24 @@ async function run(seed, style) {
   while (['playing', 'epilogue'].includes(s.phase) && guard++ < 1400) {
     const before = s.stage + ':' + s.month + ':' + s.week + ':' + (s.dayIndex || 0);
     if (s.stage === 'plan') {
+      // The people outside the lab. Diligent keeps in touch and delivers; the grinder takes the
+      // work and never writes; lazy lets every one of them fade.
+      if (style !== 'lazy') {
+        const owing = activeContacts(s).find(c => c.task);
+        if (owing) { try { s = act(s, { type: 'DO_COLLAB', id: owing.id }); } catch { /* no energy */ } }
+        else {
+          // Diligent keeps in touch and takes on one collaboration at a time, and only when their
+          // own project is not the thing that is behind. That is the balance the system is about.
+          if (style === 'diligent') for (const c of activeContacts(s)) { if (s.stage !== 'plan') break; try { s = act(s, { type: 'NET_TALK', id: c.id }); } catch { /* spoke already */ } }
+          const mine = activeProject(s);
+          const room = s.player.stats.energy > 55 && (!mine || mine.progress > 45) && s.month - (s.lastCollab || -9) >= 6;
+          if (room) {
+            const best = activeContacts(s).sort((a, b) => b.regard - a.regard)[0];
+            const want = best && best.regard > 76 ? 'huge' : 'real';
+            if (best) { try { s = act(s, { type: 'NET_COLLAB', id: best.id, size: want }); s.lastCollab = s.month; } catch { /* not yet */ } }
+          }
+        }
+      }
       if (style === 'diligent') for (const r of s.requests.filter(r => r.status === 'open')) { try { s = act(s, { type: 'REQUEST_DO', id: r.id }); } catch {} }
       // Year four: have the conversation, push once, and take the sixth year rather than drift.
       if (canAskTimeline(s) && !s.milestones.graduated) {
@@ -189,7 +209,7 @@ async function run(seed, style) {
     thesisStatus: (s.projects.find(p => p.kind === 'thesis') || {}).status || 'none',
     thesisDraft: Math.round((s.projects.find(p => p.kind === 'thesis') || {}).draft || 0),
     defenseMonth: s.milestones.defenseMonth ?? null,
-  } : null, endMoney: Math.round(s.player.stats.money), endDebt: Math.round(s.debt || 0), intl: s.player.profile.international ? 1 : 0, ledger: s.ledger, tripCost: s.lastTrip ? 1 : 0, ending: s.ending?.id || `stuck:${s.stage}`, month: s.month, minHealth: Math.round(minHealth), maxDebt, clinics, trips, coffees, accepted: s.counts.accepted, cites: Object.values(s.citations || {}).reduce((a, b) => a + b, 0), warnings: s.warnings || 0, quit: Math.round(s.quitPressure || 0), standing: Math.round(s.standing ?? 60), conds: (s.conditions || []).length, crises: s.lastCrisisMonth !== undefined ? 1 : 0, interns: s.counts.internships || 0, drought: outputDrought(s), letters: letterCount(s), packet: Math.round(packetStrength(s).score), sent: funnel(s).sent, screens: funnel(s).screens, jobOffers: funnel(s).offers, silent: funnel(s).silent, found: s.jobs?.secret?.discovered ? 1 : 0, dark: packetStrength(s).darkHorse ? 1 : 0, internHow: (s.intern?.history || []).map(h => h.how).join('+') || 'none', internType: (s.intern?.history || []).map(h => h.typeId).join('+') || 'none', research: Math.round(s.player.skills.research) };
+  } : null, endMoney: Math.round(s.player.stats.money), endDebt: Math.round(s.debt || 0), intl: s.player.profile.international ? 1 : 0, ledger: s.ledger, tripCost: s.lastTrip ? 1 : 0, ending: s.ending?.id || `stuck:${s.stage}`, month: s.month, minHealth: Math.round(minHealth), maxDebt, clinics, trips, coffees, accepted: s.counts.accepted, cites: Object.values(s.citations || {}).reduce((a, b) => a + b, 0), warnings: s.warnings || 0, quit: Math.round(s.quitPressure || 0), standing: Math.round(s.standing ?? 60), conds: (s.conditions || []).length, crises: s.lastCrisisMonth !== undefined ? 1 : 0, interns: s.counts.internships || 0, drought: outputDrought(s), letters: letterCount(s), packet: Math.round(packetStrength(s).score), sent: funnel(s).sent, screens: funnel(s).screens, jobOffers: funnel(s).offers, silent: funnel(s).silent, found: s.jobs?.secret?.discovered ? 1 : 0, dark: packetStrength(s).darkHorse ? 1 : 0, internHow: (s.intern?.history || []).map(h => h.how).join('+') || 'none', internType: (s.intern?.history || []).map(h => h.typeId).join('+') || 'none', research: Math.round(s.player.skills.research), net: activeContacts(s).length, netDone: (s.contacts||[]).reduce((a,c)=>a+c.done,0), netFaded: (s.contacts||[]).filter(c=>c.status!=='active').length };
 }
 
 for (const style of ['diligent', 'lazy', 'grinder']) {
@@ -212,5 +232,5 @@ for (const style of ['diligent', 'lazy', 'grinder']) {
   const hows = {}; for (const r of rows) for (const h of (r.internHow || 'none').split('+')) hows[h] = (hows[h] || 0) + 1;
   const types = {}; for (const r of rows) for (const h of (r.internType || 'none').split('+')) types[h] = (types[h] || 0) + 1;
   console.log('  internships: ' + Object.entries(hows).map(([k, v]) => `${k}:${v}`).join('  ') + '  ||  ' + Object.entries(types).map(([k, v]) => `${k}:${v}`).join('  '));
-  console.log(`month ${avg('month')} | minHealth ${avg('minHealth')} | maxDebt ${avg('maxDebt')} | clinics ${avg('clinics')} | trips ${avg('trips')} | coffee ${avg('coffees')} | accepted ${avg('accepted')} | citations ${avg('cites')} | warnings ${avg('warnings')} | quitPressure ${avg('quit')} | standing ${avg('standing')} | conditions ${avg('conds')} | crises ${avg('crises')} | interns ${avg('interns')} | drought ${avg('drought')} | letters ${avg('letters')} | sent ${avg('sent')} | screens ${avg('screens')} | jobOffers ${avg('jobOffers')} | silent ${avg('silent')} | darkhorse ${avg('dark')} | research ${avg('research')} | endMoney ${avg('endMoney')} | endDebt ${avg('endDebt')}`);
+  console.log(`month ${avg('month')} | minHealth ${avg('minHealth')} | maxDebt ${avg('maxDebt')} | clinics ${avg('clinics')} | trips ${avg('trips')} | coffee ${avg('coffees')} | accepted ${avg('accepted')} | citations ${avg('cites')} | warnings ${avg('warnings')} | quitPressure ${avg('quit')} | standing ${avg('standing')} | conditions ${avg('conds')} | crises ${avg('crises')} | interns ${avg('interns')} | drought ${avg('drought')} | letters ${avg('letters')} | sent ${avg('sent')} | screens ${avg('screens')} | jobOffers ${avg('jobOffers')} | silent ${avg('silent')} | darkhorse ${avg('dark')} | research ${avg('research')} | endMoney ${avg('endMoney')} | endDebt ${avg('endDebt')} | contacts ${avg('net')} | collabs ${avg('netDone')} | faded ${avg('netFaded')}`);
 }

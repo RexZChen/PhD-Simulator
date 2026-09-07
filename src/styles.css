@@ -1081,3 +1081,17 @@ table.mini th { background: var(--face); }
 .cl-line.wrong { color: #7d848c; text-decoration: line-through; }
 .cl-line.right { background: #1f3a24; border-color: #5f9a5f; color: #d7f0d7; }
 .cl-line:disabled { cursor: default; }
+
+/* The people outside the lab. A card, not a message log — the relationship is the object. */
+.sl-item.net .sl-ic svg { border-radius: 2px; display: block; }
+.sl-item.net.faded { opacity: .45; }
+.sl-badge.owe { background: #b45a5a; }
+.net-panel { padding: 12px 14px; overflow: auto; }
+.net-head { display: flex; gap: 12px; align-items: flex-start; }
+.net-head h2 { margin: 0 0 2px; font-size: 16px; }
+.net-head p { margin: 1px 0; }
+.net-meters { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; margin: 10px 0; max-width: 420px; }
+.net-actions, .net-asks { flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.net-task { border: 1px solid var(--shadow); background: var(--paper); padding: 8px 10px; margin: 8px 0; max-width: 520px; }
+.net-task p { margin: 4px 0 8px; font-size: 13px; }
+.net-faded { border-left: 3px solid var(--disabled); padding: 6px 10px; margin: 10px 0; font-size: 13px; color: var(--disabled); max-width: 520px; }

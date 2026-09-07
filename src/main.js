@@ -274,6 +274,11 @@ root.addEventListener('click', event => {
       return;
     }
     case 'cluster-line': clusterPick(Number(id)); play('click'); return;
+    case 'net-talk': perform({ type: 'NET_TALK', id }); return;
+    case 'net-collab': { const [who, size] = String(id).split('|'); perform({ type: 'NET_COLLAB', id: who, size }); return; }
+    case 'net-do': perform({ type: 'DO_COLLAB', id }); return;
+    case 'net-letter': perform({ type: 'NET_LETTER', id }); return;
+    case 'net-intro': perform({ type: 'NET_INTRO', id }); return;
     case 'viva-move': vivaMove(id); play('click'); return;
     case 'crisis': perform({ type: 'CRISIS', id }, { preserveScroll: false }); return;
     case 'life-tab': ui.lifeTab = id; render({ preserveScroll: false }); return;

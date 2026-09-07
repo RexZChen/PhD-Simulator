@@ -1014,3 +1014,60 @@ test('04:12: the error is never the last line', async ({ page }) => {
   expect(st.done).toBe(true);
   expect(st.evidence).toBeGreaterThan(0);
 });
+
+test('the second org chart: people outside the lab, and the work they cost you', async ({ page }) => {
+  await seedPlay(page, `
+    s.month = 20; p.progress = 60; p.status = 'Drafting'; s.player.stats.energy = 95;
+    const net = st.__net;
+  `);
+  // Meet two people the way a conference would produce them.
+  await page.evaluate(async () => {
+    const { loadSave, saveRun } = await import('/src/engine/save.js');
+    const { meetContact } = await import('/src/engine/network.js');
+    const save = loadSave(localStorage);
+    const s = save.run;
+    meetContact(s, { kind: 'prof', where: 'poster', venue: 'NeurIPSy', regard: 60 });
+    meetContact(s, { kind: 'student', where: 'conference', regard: 40 });
+    saveRun(localStorage, s, save.meta);
+  });
+  await page.reload();
+  await page.locator('.boot').click();
+  await page.getByRole('button', { name: /Continue the saved run/ }).click();
+  await page.locator('[data-action="wiz-next"]').click();
+  await closeDialogs(page);
+  await resolveScenes(page);
+  await closeDialogs(page);
+
+  await page.locator('[data-action="open"][data-app="chat"]').first().dblclick();
+  const rail = page.locator('.sl-item.net');
+  await expect(rail).toHaveCount(2);
+  // They are shown with a face, which is what makes them people rather than a number.
+  await expect(rail.first().locator('svg.avatar')).toBeVisible();
+  await rail.first().click();
+  await expect(page.locator('.net-panel')).toBeVisible();
+
+  // A short conversation is cheap and moves how you stand.
+  const before = await page.evaluate(async () => (await import('/src/engine/save.js')).loadSave(localStorage).run.contacts[0].regard);
+  await page.locator('[data-action="net-talk"]').click();
+  const after = await page.evaluate(async () => (await import('/src/engine/save.js')).loadSave(localStorage).run.contacts[0].regard);
+  expect(after).toBeGreaterThan(before);
+  await expect(page.locator('[data-action="net-talk"]')).toBeDisabled();
+
+  // A collaboration is a real cost: it comes out of your own project.
+  await page.locator('[data-action="net-collab"]:not([disabled])').first().click();
+  await expect(page.locator('.net-task')).toBeVisible();
+  await expect(page.locator('.sl-badge.owe')).toBeVisible();
+  const mid = await page.evaluate(async () => {
+    const s = (await import('/src/engine/save.js')).loadSave(localStorage).run;
+    return { energy: s.player.stats.energy, progress: s.projects[0].progress };
+  });
+  await page.locator('[data-action="net-do"]').click();
+  const done = await page.evaluate(async () => {
+    const s = (await import('/src/engine/save.js')).loadSave(localStorage).run;
+    return { energy: s.player.stats.energy, progress: s.projects[0].progress, task: s.contacts[0].task, done: s.contacts[0].done };
+  });
+  expect(done.energy).toBeLessThan(mid.energy);
+  expect(done.progress).toBeLessThan(mid.progress);
+  expect(done.task).toBeFalsy();
+  expect(done.done).toBe(1);
+});

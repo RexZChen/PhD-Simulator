@@ -51,7 +51,7 @@ switched at any point mid-run, including for mail and chat you have already rece
 
 ```bash
 npm test          # 96 deterministic engine tests (node --test)
-npm run test:e2e  # 31 Playwright browser flows (uses installed Google Chrome)
+npm run test:e2e  # 32 Playwright browser flows (uses installed Google Chrome)
 npm run build     # production build
 npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
 npm run i18n      # plays real runs in Chinese and lists anything still in English
@@ -89,6 +89,14 @@ interest. Debt that compounds quietly and gets paid down when there is slack.
 **International students** carry it differently and the model says so: higher loneliness, visa fees,
 CPT paperwork, remittances home, employers that will not sponsor, national labs that are closed to
 them outright, and travel that needs a visa which usually comes through and sometimes does not.
+
+**The second organisation chart.** The people you meet who are not in your lab: the person from the
+poster next to yours, the postdoc who answered at midnight, the professor whose citation came with an
+introduction attached. They have names and faces and an opinion of you, and it decays if you never
+write — below a certain point they simply stop replying, with no falling-out and no explanation. You
+can talk to them, ask for a letter, ask for an introduction, or take on a collaboration. That last
+one costs energy and progress *on your own project*, one at a time, so the middle years turn into a
+question nobody warns you about: whose work are you doing instead of yours?
 
 **Room 214.** The prelim, the proposal and the defense are not a dice roll. Four examiners, six
 questions, eleven seconds each. You can answer, you can take it somewhere you can stand, or you can
@@ -161,7 +169,7 @@ days. And your advisor can leave before you do — tenure denied, emeritus, an o
 you have heard of, or an email that goes out at 7:40 in the morning — and you have to find somebody
 else, or race their clock, or inherit the lab.
 
-**Endings and achievements.** 23 endings and 86 achievements, in a register that refuses to call
+**Endings and achievements.** 23 endings and 92 achievements, in a register that refuses to call
 you a failure for any of them.
 
 ## How it is built

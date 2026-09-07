@@ -9,6 +9,7 @@ import { effects, log, message, sentMail, chat, finish, award, populateLab, acti
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
 import { createProject, createThesis, benchSession, clusterSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
+import { networkMonth, netTalk, netCollab, doCollab, askNetLetter, netIntro, meetContact } from './network.js';
 import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, expireRequests, doRequest, pushbackRequest, declineRequest, ask, updatePressure, advisorPing, shiftCadence, revealHint, reviewLatencyWeeks, advisorResponds, newAdvisor } from './advisor.js';
 import { monthlyChatter, monthlyMail, fieldNote } from './lab.js';
 import { monthlyLedger, monthlyLife, vitalsDrift, doLifeAction, visitClinic, payDebt, setBudget, coffee, skipMeal, charge, caffeineState, crisisDue, openCrisis, resolveCrisis, crisisMoveList } from './life.js';
@@ -149,7 +150,7 @@ function monthStart(s, first = false, intermediate = false) {
   if (s.burnoutMonths > 0) s.burnoutMonths--;
   if (s.flags.recovery) { s.burnoutMonths = Math.max(0, s.burnoutMonths - 1); s.flags.recovery = false; }
   updateAdvisorMode(s);
-  if (!first) { updatePressure(s); advisorPing(s); monthlyChatter(s); monthlyMail(s); monthlyLife(s); accrueCitations(s); updateStanding(s); updateQuitPressure(s); revisionMonth(s); timelineDrift(s); jobsMonth(s); }
+  if (!first) { updatePressure(s); advisorPing(s); monthlyChatter(s); monthlyMail(s); monthlyLife(s); accrueCitations(s); updateStanding(s); updateQuitPressure(s); revisionMonth(s); timelineDrift(s); jobsMonth(s); networkMonth(s); }
   // The body does not wait for a convenient month.
   // The window where "I am still not right" is a thing you can say closes; after that it is just
   // how you are now.
@@ -757,6 +758,11 @@ export function dispatch(state, action) {
     case 'TIMELINE_MOVE': playTimelineMove(s, a.id); break;
     case 'BENCH': benchSession(s, a.tally); break;
     case 'CLUSTER': clusterSession(s, a.result); break;
+    case 'NET_TALK': once(`net:${a.id}`); netTalk(s, a.id); break;
+    case 'NET_COLLAB': netCollab(s, a.id, a.size); break;
+    case 'DO_COLLAB': doCollab(s, a.id); break;
+    case 'NET_LETTER': askNetLetter(s, a.id); break;
+    case 'NET_INTRO': once(`intro:${a.id}`); netIntro(s, a.id); break;
     case 'REACT': react(s, a.id, a.reaction); break;
     case 'CHAT_REPLY': replyTo(s, a.id, a.kind, a.text || ''); break;
     case 'DM': sendDm(s, a.id, a.opener, a.text || ''); break;

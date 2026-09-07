@@ -1,5 +1,6 @@
 // Gaggle Scholar. A number that goes up, attached to a self-worth that does not.
 import { t } from '../i18n/index.js';
+import { meetContact } from './network.js';
 import { venueById } from '../data/venues.js';
 import { calendarOf } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
@@ -52,6 +53,16 @@ export function accrueCitations(s) {
       if (first) award(s, 'cited');
       s.citations[p.id] = (s.citations[p.id] || 0) + n;
       if (first || roll(s, .32)) citationMail(s, p, s.citations[p.id]);
+      // Occasionally the citation comes with a person attached, which is the actually valuable half.
+      if (roll(s, .14)) {
+        const who = meetContact(s, { kind: roll(s, .4) ? 'prof' : roll(s, .5) ? 'postdoc' : 'student', where: 'citation' });
+        if (who) {
+          message(s, who.kind === 'prof' ? t('Prof. {n}', { n: lastName(who.name) }) : who.name, t('We cited your paper'),
+            t('Hi — we have been building on your {title} in a project here at {org}, and I wanted to say so rather than just put it in the bibliography. If you are ever up for a call about where you are taking it next, I would be glad to.', { title: p.title, org: who.org }),
+            'dashboard', 'inbox', null);
+          log(s, t('Somebody who cited you introduced themselves. That happens perhaps four times in a degree and it is worth more than the citation.'));
+        }
+      }
     }
     else if (!(p.id in s.citations)) s.citations[p.id] = 0;
   }

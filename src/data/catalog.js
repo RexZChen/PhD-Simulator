@@ -173,6 +173,14 @@ export const achievements = {
   keptemeritus: { name: 'Advisor Of Record, Emeritus', desc: 'Keep a retiring advisor to the end by finding someone to sign the form.' },
   labinheritor: { name: 'Where Everything Is Kept', desc: 'Take on the lab\u2019s unfinished work. A form of power and a form of sentence.' },
 
+  // ── The second organisation chart ──────────────────────────────────────────────────────────
+  rolodex: { name: 'Five People Who Answer', desc: 'Know five people outside your lab at once. This is the part of a PhD that outlasts the PhD.' },
+  keptintouch: { name: 'Kept In Touch', desc: 'Have six real conversations with one contact. A relationship that is only ever used for asks is not one.' },
+  themonth: { name: 'The One That Ate A Month', desc: 'Deliver the huge collaboration on time. Their deadline, not yours, and now both names are on it.' },
+  thesecondchart: { name: 'The Second Org Chart', desc: 'Finish three collaborations. Nobody sees this chart and everybody has one.' },
+  introduced: { name: 'Cc\u2019d, Not Told To Reach Out', desc: 'Get a real introduction. That costs the introducer something, which is why it is worth something.' },
+  letoneGo: { name: 'They Stopped Replying', desc: 'Let a contact fade all the way out. No falling-out, no explanation, just an inbox that reordered itself.' },
+
   // ── Four in the morning, and Room 214 ──────────────────────────────────────────────────────
   fourinthemorning: { name: 'Four For Four', desc: 'Find the real line in all four logs before the reservation runs out. Nobody teaches this and everybody grades you on it.' },
   notthelastline: { name: 'Not The Last Line', desc: 'Debug a job without once clicking the error message. The error is never the last line.' },
