@@ -341,6 +341,8 @@ export function ask(s, id, composed = '') {
   const branch = success ? spec.success : (spec.failure || spec.success);
   effects(s, branch.effects || {});
   Object.assign(s.flags, branch.flags || {});
+  if (branch.award) award(s, branch.award);
+  if (Object.keys(s.askCooldowns).filter(k => !k.startsWith('soc:')).length >= 12) award(s, 'askedeverything');
   if (branch.leave) s.leaveWeeks += branch.leave;
   if (branch.cadence) shiftCadence(s, branch.cadence);
   if (branch.personality) s.player.personality[branch.personality]++;
@@ -366,6 +368,7 @@ export function newAdvisor(s) {
   s.requests = s.requests.filter(r => r.status !== 'open');
   s.cadence = { oneOnOne: ['weekly', 'biweekly', 'monthly', 'whenever'][3 - Math.min(3, Math.round(s.advisor.availability / 25))], group: 'weekly' };
   for (const p of s.projects) if (!p.collaborators.includes(s.advisor.name)) p.collaborators.push(s.advisor.name);
+  award(s, 'orphaned');
   log(s, t('{old} left. Prof. {name} is your advisor now. The relationship starts over, which is both the bad news and the good news.', { old: lastName(old), name: s.advisor.name }));
   chat(s, 'advisor', s.advisor.name, t('Hi — I know this is a transition. Let’s meet this week and figure out where things are. I have read one of your papers, which is one more than most people.'));
   return t('Your new advisor is Prof. {name}.', { name: s.advisor.name });

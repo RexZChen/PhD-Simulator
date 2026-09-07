@@ -26,6 +26,9 @@ const resolveAll = s => { let n = 0; while (s.event && n++ < 40) { const e = tem
 const act = (s, a) => resolveAll(dispatch(s, a));
 
 function advance(s) {
+  // A crisis interrupts the turn and must be answered. Diligent does what it is told; the
+  // grinder does the minimum; lazy ignores it and pays for that later.
+  if (s.stage === 'crisis') return dispatch(s, { type: 'CRISIS', id: s.__style === 'diligent' ? 'treat' : s.__style === 'grinder' ? 'minimum' : 'ignore' });
   if (s.stage === 'pushback') { const pb = pushbacks.find(x => x.id === s.pushback.id); return dispatch(s, { type: 'PUSHBACK', id: pb.options[0].id }); }
   if (s.stage === 'minigame') return dispatch(s, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 });
   if (s.stage === 'trip') {
@@ -54,6 +57,7 @@ async function run(seed, style) {
   if (!s.offers.length && s.applications.some(a => a.waitlisted)) s = act(s, { type: 'WAIT_APRIL' });
   if (!s.offers.length) return { ending: 'no_offer', month: 0 };
   s = act(s, { type: 'ENROLL', id: s.advisors.find(a => a.schoolId === s.offers[0]).id });
+  s.__style = style;
   let guard = 0, minHealth = 100, maxDebt = 0, clinics = 0, trips = 0, coffees = 0;
   while (['playing', 'epilogue'].includes(s.phase) && guard++ < 1400) {
     const before = s.stage + ':' + s.month + ':' + s.week + ':' + (s.dayIndex || 0);
@@ -178,7 +182,7 @@ async function run(seed, style) {
     thesisStatus: (s.projects.find(p => p.kind === 'thesis') || {}).status || 'none',
     thesisDraft: Math.round((s.projects.find(p => p.kind === 'thesis') || {}).draft || 0),
     defenseMonth: s.milestones.defenseMonth ?? null,
-  } : null, endMoney: Math.round(s.player.stats.money), endDebt: Math.round(s.debt || 0), intl: s.player.profile.international ? 1 : 0, ledger: s.ledger, tripCost: s.lastTrip ? 1 : 0, ending: s.ending?.id || `stuck:${s.stage}`, month: s.month, minHealth: Math.round(minHealth), maxDebt, clinics, trips, coffees, accepted: s.counts.accepted, cites: Object.values(s.citations || {}).reduce((a, b) => a + b, 0), warnings: s.warnings || 0, quit: Math.round(s.quitPressure || 0), standing: Math.round(s.standing ?? 60), conds: (s.conditions || []).length, interns: s.counts.internships || 0, drought: outputDrought(s), letters: letterCount(s), packet: Math.round(packetStrength(s).score), sent: funnel(s).sent, screens: funnel(s).screens, jobOffers: funnel(s).offers, silent: funnel(s).silent, found: s.jobs?.secret?.discovered ? 1 : 0, dark: packetStrength(s).darkHorse ? 1 : 0, internHow: (s.intern?.history || []).map(h => h.how).join('+') || 'none', internType: (s.intern?.history || []).map(h => h.typeId).join('+') || 'none', research: Math.round(s.player.skills.research) };
+  } : null, endMoney: Math.round(s.player.stats.money), endDebt: Math.round(s.debt || 0), intl: s.player.profile.international ? 1 : 0, ledger: s.ledger, tripCost: s.lastTrip ? 1 : 0, ending: s.ending?.id || `stuck:${s.stage}`, month: s.month, minHealth: Math.round(minHealth), maxDebt, clinics, trips, coffees, accepted: s.counts.accepted, cites: Object.values(s.citations || {}).reduce((a, b) => a + b, 0), warnings: s.warnings || 0, quit: Math.round(s.quitPressure || 0), standing: Math.round(s.standing ?? 60), conds: (s.conditions || []).length, crises: s.lastCrisisMonth !== undefined ? 1 : 0, interns: s.counts.internships || 0, drought: outputDrought(s), letters: letterCount(s), packet: Math.round(packetStrength(s).score), sent: funnel(s).sent, screens: funnel(s).screens, jobOffers: funnel(s).offers, silent: funnel(s).silent, found: s.jobs?.secret?.discovered ? 1 : 0, dark: packetStrength(s).darkHorse ? 1 : 0, internHow: (s.intern?.history || []).map(h => h.how).join('+') || 'none', internType: (s.intern?.history || []).map(h => h.typeId).join('+') || 'none', research: Math.round(s.player.skills.research) };
 }
 
 for (const style of ['diligent', 'lazy', 'grinder']) {
@@ -201,5 +205,5 @@ for (const style of ['diligent', 'lazy', 'grinder']) {
   const hows = {}; for (const r of rows) for (const h of (r.internHow || 'none').split('+')) hows[h] = (hows[h] || 0) + 1;
   const types = {}; for (const r of rows) for (const h of (r.internType || 'none').split('+')) types[h] = (types[h] || 0) + 1;
   console.log('  internships: ' + Object.entries(hows).map(([k, v]) => `${k}:${v}`).join('  ') + '  ||  ' + Object.entries(types).map(([k, v]) => `${k}:${v}`).join('  '));
-  console.log(`month ${avg('month')} | minHealth ${avg('minHealth')} | maxDebt ${avg('maxDebt')} | clinics ${avg('clinics')} | trips ${avg('trips')} | coffee ${avg('coffees')} | accepted ${avg('accepted')} | citations ${avg('cites')} | warnings ${avg('warnings')} | quitPressure ${avg('quit')} | standing ${avg('standing')} | conditions ${avg('conds')} | interns ${avg('interns')} | drought ${avg('drought')} | letters ${avg('letters')} | sent ${avg('sent')} | screens ${avg('screens')} | jobOffers ${avg('jobOffers')} | silent ${avg('silent')} | darkhorse ${avg('dark')} | research ${avg('research')} | endMoney ${avg('endMoney')} | endDebt ${avg('endDebt')}`);
+  console.log(`month ${avg('month')} | minHealth ${avg('minHealth')} | maxDebt ${avg('maxDebt')} | clinics ${avg('clinics')} | trips ${avg('trips')} | coffee ${avg('coffees')} | accepted ${avg('accepted')} | citations ${avg('cites')} | warnings ${avg('warnings')} | quitPressure ${avg('quit')} | standing ${avg('standing')} | conditions ${avg('conds')} | crises ${avg('crises')} | interns ${avg('interns')} | drought ${avg('drought')} | letters ${avg('letters')} | sent ${avg('sent')} | screens ${avg('screens')} | jobOffers ${avg('jobOffers')} | silent ${avg('silent')} | darkhorse ${avg('dark')} | research ${avg('research')} | endMoney ${avg('endMoney')} | endDebt ${avg('endDebt')}`);
 }

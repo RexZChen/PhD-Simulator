@@ -7,6 +7,7 @@ import { play, setSound } from './ui/sound.js';
 import { setAppLanguage } from './i18n/apply.js';
 import { streamText, stopStream, finishStream, isStreaming, composedText } from './ui/compose.js';
 import { startTalk, pickWord, stopTalk, talkRunning, startQaTimer, stopQaTimer } from './ui/talkgame.js';
+import { startBench, strike, stopBench, benchRunning } from './ui/research.js';
 import { startLecture, toggleWork, stopLecture, lectureRunning } from './ui/lecture.js';
 import { draftFor } from './ui/apps/mail.js';
 import { chatDraft } from './ui/apps/chat.js';
@@ -191,6 +192,7 @@ document.addEventListener('keydown', e => {
   if (/^[1-6]$/.test(e.key)) { const b = document.querySelector(`[data-hotkey="${e.key}"]:not(:disabled)`); if (b) { e.preventDefault(); b.click(); } return; }
   if (e.key === 'Enter') { const d = document.querySelector('.modal [data-default="1"]:not(:disabled)') || document.querySelector('.wizard-buttons [data-default="1"]:not(:disabled)') || (!document.querySelector('.modal') && document.querySelector('[data-action="continue"]:not(:disabled)')); if (d) { e.preventDefault(); d.click(); } return; }
   if (e.key === ' ' && lectureRunning()) { e.preventDefault(); toggleWork(); return; }
+  if (e.key === ' ' && benchRunning()) { e.preventDefault(); strike(); return; }
   if (e.key === 'Escape') { if (ui.startMenu || ui.dialog || ui.confirm || ui.thread) { ui.startMenu = false; ui.dialog = null; ui.confirm = null; ui.thread = null; render(); } }
 });
 
@@ -238,9 +240,19 @@ root.addEventListener('click', event => {
       meta.settings.textSize = Math.max(0, Math.min(TEXT_SIZES.length - 1, (meta.settings.textSize ?? 1) + dir));
       applyTextSize(); saveMeta(); render(); return;
     }
-    case 'open': if (!run || run.phase !== 'playing') return; closeCompose(); ui.screen = 'game'; ui.app = target.dataset.app; ui.minimized = false; if (ui.app === 'mail' && !ui.selectedMail) ui.selectedMail = run.inbox[0]?.id; if (ui.app === 'chat') perform({ type: 'READ_CHAT', channel: ui.chatChannel }, { preserveScroll: false }); else render({ preserveScroll: false }); return;
+    case 'open': if (!run || !['playing', 'ending'].includes(run.phase)) return; closeCompose(); ui.screen = 'game'; ui.app = target.dataset.app; ui.minimized = false; if (ui.app === 'mail' && !ui.selectedMail) ui.selectedMail = run.inbox[0]?.id; if (ui.app === 'chat') perform({ type: 'READ_CHAT', channel: ui.chatChannel }, { preserveScroll: false }); else render({ preserveScroll: false }); return;
     case 'browser-tab': closeCompose(); ui.browserTab = id; render({ preserveScroll: false }); return;
     case 'job-portal': ui.jobPortal = id; render({ preserveScroll: false }); return;
+    case 'bench-start': {
+      if (!run || run.stage !== 'plan') return;
+      run.stage = 'minigame'; run.minigame = 'bench'; persist(); render({ preserveScroll: false });
+      play('click');
+      startBench((run.seed + run.month * 13) >>> 0, run.player.skills.research, run.player.stats.energy,
+        tally => { run.stage = 'plan'; run.minigame = null; perform({ type: 'BENCH', tally }, { preserveScroll: false }); play('chime'); });
+      return;
+    }
+    case 'bench-strike': strike(); return;
+    case 'crisis': perform({ type: 'CRISIS', id }, { preserveScroll: false }); return;
     case 'life-tab': ui.lifeTab = id; render({ preserveScroll: false }); return;
     case 'trip-visa': perform({ type: 'TRIP_VISA', id }, { preserveScroll: false }); return;
     case 'talk-intro': ui.talkStage = 'intro'; render({ preserveScroll: false }); return;

@@ -10,9 +10,15 @@ export const disabled = c => c ? 'disabled' : '';
 export function btn(text, action, { id, app, cls = '', attrs = '', disabled: off = false, title = '', type = 'button' } = {}) {
   return `<button type="${type}" class="btn ${cls}" data-action="${action}"${id !== undefined ? ` data-id="${esc(id)}"` : ''}${app ? ` data-app="${app}"` : ''}${off ? ' disabled' : ''}${title ? ` title="${esc(title)}"` : ''} ${attrs}>${text}</button>`;
 }
-export function bar(label, value, { cls = '', max = 100, suffix = '', title = '' } = {}) {
+// `band: true` colours the fill by how much is left rather than by a fixed hue, so Energy and
+// Health read the same way here as the Energy meter does in the application phase: green when you
+// have room, red when you do not.
+export const fillBand = v => v > 60 ? 'b-ok' : v > 30 ? 'b-warn' : v > 12 ? 'b-low' : 'b-spent';
+export function bar(label, value, { cls = '', max = 100, suffix = '', title = '', band = false } = {}) {
   const v = Math.max(0, Math.min(max, value));
-  return `<div class="field-row"${title ? ` title="${esc(title)}"` : ''}><span class="lbl">${esc(label)}</span><div class="progress ${cls}" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${Math.round(v)}"><i style="width:${(v / max) * 100}%"></i></div><b class="val">${Math.round(value)}${suffix}</b></div>`;
+  const pct = (v / max) * 100;
+  const tone = band ? ` ${fillBand(pct)}` : '';
+  return `<div class="field-row"${title ? ` title="${esc(title)}"` : ''}><span class="lbl">${esc(label)}</span><div class="progress ${cls}${tone}" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${Math.round(v)}" aria-valuetext="${Math.round(v)} ${esc(label)}"><i style="width:${pct}%"></i></div><b class="val">${Math.round(value)}${suffix}</b></div>`;
 }
 export const group = (title, inner, cls = '') => `<fieldset class="group ${cls}"><legend>${title}</legend>${inner}</fieldset>`;
 export const titlebar = (title, ic, { controls = true, inactive = false, right = '' } = {}) => `<div class="titlebar ${inactive ? 'inactive' : ''}"><span class="tb-title">${ic ? icon(ic, 16) : ''}<span>${title}</span></span>${right ? `<span class="tb-right">${right}</span>` : ''}${controls ? `<span class="tb-controls">${btn('<i class="glyph">_</i>', 'minimize', { cls: 'tb-btn', title: t('Minimize') })}${btn('<i class="glyph">□</i>', 'maximize', { cls: 'tb-btn', title: t('Maximize') })}${btn('<i class="glyph">×</i>', 'close-window', { cls: 'tb-btn', title: t('Close') })}</span>` : ''}</div>`;
@@ -38,7 +44,10 @@ const order = Object.keys(pillMeta);
 export function effectPills(effects = {}, extra = {}, limit = 5) {
   const all = { ...effects };
   if (extra.bond) all.bond = extra.bond; if (extra.labBond) all.labBond = extra.labBond; if (extra.peerBond) all.peerBond = extra.peerBond;
-  const items = order.filter(k => all[k]).map(k => { const [label, sign] = pillMeta[k]; const v = all[k]; const good = sign === 0 ? null : (v > 0) === (sign > 0); const unit = v > 0 ? '+' : '−'; const mag = unit.repeat(Math.abs(v) >= 15 ? 3 : Math.abs(v) >= 6 ? 2 : 1); return `<span class="pill ${good === null ? 'neutral' : good ? 'up' : 'down'}">${v > 0 ? '▲' : '▼'} ${t(label)} ${mag}</span>`; });
+  // Most effects are points on a 0-100 stat; money is dollars. One threshold for both made $15 and
+  // $2,200 read identically, so the scale follows the unit.
+  const cash = { money: 1, rentDelta: 1 };
+  const items = order.filter(k => all[k]).map(k => { const [label, sign] = pillMeta[k]; const v = all[k]; const good = sign === 0 ? null : (v > 0) === (sign > 0); const unit = v > 0 ? '+' : '−'; const [big, mid] = cash[k] ? [900, 200] : [15, 6]; const mag = unit.repeat(Math.abs(v) >= big ? 3 : Math.abs(v) >= mid ? 2 : 1); return `<span class="pill ${good === null ? 'neutral' : good ? 'up' : 'down'}">${v > 0 ? '▲' : '▼'} ${t(label)} ${mag}</span>`; });
   const pills = items.slice(0, limit).join('');
   const check = extra.check ? `<span class="pill neutral" title="${esc(t('Rolls against this'))}">🎲 ${esc(t(extra.check.skill || extra.check.stat || extra.check.advisor || 'bond'))}</span>` : '';
   const more = extra.leave ? `<span class="pill up">▲ ${t('Leave')}</span>` : '';

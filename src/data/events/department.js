@@ -1,5 +1,22 @@
 const c = (id, text, hint, effects = {}, extra = {}) => ({ id, text, hint, effects, ...extra });
 export default [
+  // The lecture minigame had exactly one way in — one choice, in one event, capped at month 26 —
+  // so most players never saw it. These are the other rooms you sit in with a laptop open.
+  { id: 'lecture_ta', title: 'The section you are supposed to be running', category: 'department', scene: 'campus', probability: .55, cooldown: 5, conditions: { season: 'teaching', minMonth: 8 },
+    text: ['Nine students, a problem set they have not started, and forty minutes. Your rebuttal is due Thursday and the laptop is already open on the desk at the front.', 'They are working in pairs. You are supposed to be circulating. You are, technically, circulating.'],
+    choices: [c('dodge', 'Answer the rebuttal between questions', 'A real-time test of your nerve', {}, { minigame: 'lecture', personality: 'riskTaker' }),
+      c('teach', 'Actually teach the section', 'Teaching skill; the rebuttal waits', { teaching: 6, coursework: 3, energy: -6, labBond: 2 }, { skill: { teaching: 1 }, personality: 'peoplePleaser' }),
+      c('early', 'Let them go twenty minutes early', 'Time back; a student who needed the twenty minutes', { energy: 4, teaching: -3, stress: -2 })] },
+  { id: 'lecture_seminar', title: 'The Tuesday seminar, week nine', category: 'department', scene: 'campus', probability: .5, cooldown: 6, conditions: { minMonth: 6 },
+    text: ['Attendance is not compulsory and is noticed. The speaker is from another subfield and the third slide has already lost you.', 'The seminar is an hour. Your deadline is in nine days. Everyone in this room has a laptop open and nobody is taking notes.'],
+    choices: [c('dodge', 'Work through it with the laptop open', 'A real-time test of your nerve', {}, { minigame: 'lecture', personality: 'riskTaker' }),
+      c('listen', 'Put the laptop away and listen', 'One idea you would not have had', { evidence: 4, readiness: 3, energy: -4, academicCapital: 2 }, { personality: 'perfectionist' }),
+      c('skip', 'Do not go', 'Two hours; a small absence noticed', { energy: 5, academicCapital: -2, satisfaction: -2 }, { personality: 'boundarySetter' })] },
+  { id: 'lecture_ethics', title: 'Mandatory research ethics training', category: 'department', scene: 'campus', probability: .6, cooldown: 14, conditions: { minMonth: 3 },
+    text: ['Four hours, in a room with no windows, delivered by someone reading the slides aloud. There is a quiz at the end and the quiz is not hard.', 'The certificate expires every two years. The content has not changed since 2014 and neither has the actor in the video.'],
+    choices: [c('dodge', 'Draft the paper while the video plays', 'A real-time test of your nerve', {}, { minigame: 'lecture', personality: 'riskTaker' }),
+      c('attend', 'Sit through it properly', 'Four hours; one thing you did not know', { energy: -7, readiness: 3, evidence: 2 }),
+      c('sign', 'Sign the sheet and leave at the break', 'The certificate; not the training', { energy: 3, stress: 2 }, { personality: 'cynic' })] },
   { id: 'lecture_dodge', title: 'Two hours of a required course', category: 'department', scene: 'campus', probability: .7, cooldown: 4, conditions: { season: 'teaching', maxMonth: 26 },
     text: ['The course is required. Your deadline is not, technically, but the deadline is the one that will end you. The lecturer writes on the board with their back to the room.', 'Row six, aisle seat, laptop at an angle. You have done the geometry. Everyone in this room has done the geometry.'],
     choices: [c('dodge', 'Work on the paper under the desk', 'A real-time test of your nerve', {}, { minigame: 'lecture', personality: 'riskTaker' }),

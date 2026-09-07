@@ -50,10 +50,11 @@ the browser and can be muted from the system tray. English and 简体中文 are 
 switched at any point mid-run, including for mail and chat you have already received.
 
 ```bash
-npm test          # 87 deterministic engine tests (node --test)
-npm run test:e2e  # 19 Playwright browser flows (uses installed Google Chrome)
+npm test          # 96 deterministic engine tests (node --test)
+npm run test:e2e  # 28 Playwright browser flows (uses installed Google Chrome)
 npm run build     # production build
 npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
+npm run i18n      # plays real runs in Chinese and lists anything still in English
 ```
 
 ## What is in it
@@ -142,14 +143,21 @@ finished by someone newer and accepted, and you are invited to the venue at your
 updates; coffee when you are back on campus as alumni. That relationship is the long-run return on
 the whole thing.
 
-**Endings and achievements.** 12 endings and 52 achievements, in a register that refuses to call
+**When it is not your call.** Some runs end in a way you did not choose. A body you kept
+overdrawing takes the decision away from you; a mind nobody checked on gets a higher level of care;
+a firm at home needs a name on the door; a checkpoint on a road you take every day turns into thirty
+days. And your advisor can leave before you do — tenure denied, emeritus, an offer from a company
+you have heard of, or an email that goes out at 7:40 in the morning — and you have to find somebody
+else, or race their clock, or inherit the lab.
+
+**Endings and achievements.** 23 endings and 82 achievements, in a register that refuses to call
 you a failure for any of them.
 
 ## How it is built
 
 Vanilla ES modules and Vite. No framework. About 16k lines.
 
-- `src/data/` — content: schools, venues, calendar, 171 event templates, 21 meeting scenes, employers, tracks, cities, internships, names. Placeholders live here so they can be swapped without touching the engine.
+- `src/data/` — content: schools, venues, calendar, 298 event templates, 21 meeting scenes, employers, tracks, cities, internships, names. Placeholders live here so they can be swapped without touching the engine.
 - `src/engine/` — simulation: state, time, events, advisor, papers, life, scholar, trips, internships, letters, the job search, the graduation negotiation, thesis, market, epilogue, saves.
 - `src/ui/` — the desktop shell, its apps (PhD Manager, Mail, LabChat, Netscope, Portal, Calendar, Scholar, About Me, GradApply), scenes, real-time minigames, icons and synthesized sound.
 - `src/i18n/` — English source strings plus 3,739 Chinese entries, with provenance tracking so stored text re-translates on a language switch.

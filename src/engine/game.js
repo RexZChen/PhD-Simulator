@@ -11,7 +11,7 @@ import { lectureLines } from '../data/minigames.js';
 import { createProject, createThesis, benchSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
 import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, expireRequests, doRequest, pushbackRequest, declineRequest, ask, updatePressure, advisorPing, shiftCadence, revealHint, reviewLatencyWeeks, advisorResponds, newAdvisor } from './advisor.js';
 import { monthlyChatter, monthlyMail, fieldNote } from './lab.js';
-import { monthlyLedger, monthlyLife, vitalsDrift, doLifeAction, visitClinic, payDebt, setBudget, coffee, skipMeal, charge, caffeineState } from './life.js';
+import { monthlyLedger, monthlyLife, vitalsDrift, doLifeAction, visitClinic, payDebt, setBudget, coffee, skipMeal, charge, caffeineState, crisisDue, openCrisis, resolveCrisis, crisisMoveList } from './life.js';
 import { popIns, runIns, dayWeather } from '../data/day.js';
 import { accrueCitations } from './scholar.js';
 import { updateStanding, updateQuitPressure, fired, quit, quitBand } from './divergence.js';
@@ -150,6 +150,11 @@ function monthStart(s, first = false, intermediate = false) {
   if (s.flags.recovery) { s.burnoutMonths = Math.max(0, s.burnoutMonths - 1); s.flags.recovery = false; }
   updateAdvisorMode(s);
   if (!first) { updatePressure(s); advisorPing(s); monthlyChatter(s); monthlyMail(s); monthlyLife(s); accrueCitations(s); updateStanding(s); updateQuitPressure(s); revisionMonth(s); timelineDrift(s); jobsMonth(s); }
+  // The body does not wait for a convenient month.
+  // The window where "I am still not right" is a thing you can say closes; after that it is just
+  // how you are now.
+  if (s.flags.afterCrisis && s.month - (s.lastCrisisMonth ?? 0) > 4) s.flags.afterCrisis = false;
+  if (!first) { const c = crisisDue(s); if (c) openCrisis(s, c); }
   closeRebuttals(s);
   for (const p of s.projects) {
     if (p.targetVenueId && p.targetMonth === s.month - 1 && !['Submitted', 'Rebuttal', 'Accepted', 'Abandoned'].includes(p.status)) {
@@ -198,7 +203,9 @@ function beginTurn(s) {
   else if (!options.some(f => f.id === s.focus && !f.disabled)) s.focus = null;
   s.typed = 0; s.actions = {}; s.needsBegin = false;
   if (s.tempo === 'day') { s.dayActions = s.dayActions || {}; s.dayIndex = s.dayIndex || 0; } else { s.dayIndex = 0; s.dayActions = {}; }
-  s.stage = 'plan';
+  // An open crisis is a gate on the turn, not a screen you can be pushed off. The body is not
+  // optional and neither is this: you answer it before you plan anything else.
+  s.stage = s.crisis && !s.crisis.resolved ? 'crisis' : 'plan';
   s.notice = fieldNote(s);
   // A conference month takes over the whole window; open it once the turn is otherwise ready.
   if (s.pendingTrip) {
@@ -213,6 +220,7 @@ function applyTurn(s) {
   const f = focusById(s, s.focus);
   if (!f || f.disabled) throw new Error(s.tempo === 'week' ? t('Choose what this week goes to.') : t('Choose a plan for the month first.'));
   if (s.tempo === 'season' && !seasonEligible(s)) { s.tempo = 'month'; s.report.monthsCovered = 1; }
+  if (f.id === 'rest') { s.counts.rested = (s.counts.rested || 0) + 1; if (s.counts.rested >= 9) award(s, 'ninerest'); }
   const tempo = s.tempo, crunch = s.crunch;
   const isDay = tempo === 'day';
   const weeks = isDay ? 1 / DAYS_PER_WEEK : tempo === 'week' ? 1 : tempo === 'season' ? 12 : 4 - s.week;
@@ -382,6 +390,10 @@ function advanceMonths(s, n) {
     if (now - s.turnStartWork >= 8) s.lastOutputMonth = s.month;
   }
   const ledgers = [];
+  // The report's baseline has to be taken before the month-start pass, not inside it: monthStart
+  // applies the ledger, the missed-deadline penalty and the standing update *before* it snapshots,
+  // so every one of those landed in no report at all. At season pace it was three months of them.
+  const opening = snapshot(s);
   for (let i = 0; i < n; i++) {
     s.month++; s.week = 0;
     if (s.month >= TOTAL_MONTHS) {
@@ -397,6 +409,7 @@ function advanceMonths(s, n) {
     ledgers.push(s.ledger);
     if (last) break;
   }
+  if (s.report) s.report.before = opening;
   if (n > 1) s.report.ledgers = ledgers;
 }
 
@@ -583,6 +596,7 @@ export function dispatch(state, action) {
   }
   if (a.type === 'SELECT_PROJECT') { if (!s.projects.some(p => p.id === a.id)) throw new Error(t('No such project.')); s.activeProjectId = a.id; return s; }
   if (a.type === 'DISMISS_REPORT') { dismissReport(s); return s; }
+  if (a.type === 'CRISIS') { if (s.stage !== 'crisis') throw new Error(t('There is nothing to deal with.')); resolveCrisis(s, a.id); if (s.phase === 'playing' && s.stage === 'plan' && s.needsBegin) beginTurn(s); return s; }
   if (a.type === 'PRELIM' || a.type === 'MILESTONE') { if (s.stage !== 'milestone') throw new Error(t('The committee is not assembled yet.')); if (a.id === 'master' && s.coursework < 55) throw new Error(t('The MS exit requires 55 coursework progress.')); milestone(s, s.milestoneKind, a.id); if (s.phase === 'playing' && s.stage === 'plan' && s.needsBegin) beginTurn(s); return s; }
   if (s.stage !== 'plan') throw new Error(s.stage === 'report' ? t('Close the monthly report first.') : t('Finish what is on screen first.'));
   if (a.type === 'PLAN') { const f = focusById(s, a.id); if (!f) throw new Error(t('That is not an option right now.')); if (f.disabled) throw new Error(f.disabled); s.focus = a.id; return s; }

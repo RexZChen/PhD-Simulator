@@ -10,6 +10,7 @@ import { events, eventById } from '../src/data/events.js';
 import { meetings } from '../src/data/meetings.js';
 import { requests } from '../src/data/requests.js';
 import { asks } from '../src/data/asks.js';
+import { crisisMoveList } from '../src/engine/life.js';
 import { templateById, eligible, freshness } from '../src/engine/events.js';
 import { createProject, acceptanceChance, setTarget } from '../src/engine/paper.js';
 import { loadSave, saveRun, validRun, emptyMeta } from '../src/engine/save.js';
@@ -293,10 +294,36 @@ function advance(s) {
     if (s.trip.qa && !s.trip.qaDone) { const q = questioners.find(x => x.id === s.trip.qa[s.trip.qaIndex]); return dispatch(s, { type: 'TRIP_QA', id: q.best }); }
     return dispatch(s, { type: 'TRIP_DAY', id: 'sessions' });
   }
+  if (s.stage === 'crisis') return dispatch(s, { type: 'CRISIS', id: 'treat' });
   if (s.stage === 'commencement') return dispatch(s, { type: 'TAKE_OFFER', id: s.jobs.market[0].kind });
   if (s.stage === 'epilogue') { const b = currentBeat(s); return dispatch(s, { type: 'EPILOGUE', id: b ? b.choices[0].id : 'ok' }); }
   return s;
 }
+
+test('a health crisis stops the turn until it is answered', () => {
+  let s = enterProgram(4);
+  let guard = 0;
+  // Below CRISIS_HEALTH the crisis is not a dice roll, so this is the whole path: month start
+  // draws it, beginTurn must not overwrite it, and nothing else may run until it is answered.
+  while (s.phase === 'playing' && s.stage !== 'crisis' && guard++ < 40) {
+    if (s.stage === 'plan') {
+      s.player.stats.health = 12;
+      if (!s.focus) s = act(s, { type: 'PLAN', id: focusOptions(s).find(f => !f.disabled).id });
+      s = act(s, { type: 'CONTINUE' });
+    }
+    if (s.stage === 'report') s = act(s, { type: 'DISMISS_REPORT' });
+    if (s.stage === 'milestone') s = act(s, { type: 'MILESTONE', id: 'balanced' });
+    if (s.stage !== 'crisis') s = resolveAll(advance(s));
+  }
+  assert.equal(s.stage, 'crisis', 'the crisis survives the start of the turn');
+  assert.throws(() => dispatch(s, { type: 'CONTINUE' }), /screen|report/i, 'CONTINUE is refused');
+  assert.throws(() => dispatch(s, { type: 'PLAN', id: 'research' }), /screen|report/i, 'PLAN is refused');
+  assert.ok(crisisMoveList(s).length >= 3, 'and there are moves to choose from');
+  s = dispatch(s, { type: 'CRISIS', id: 'treat' });
+  assert.equal(s.stage, 'plan', 'answering it hands the turn back');
+  assert.ok(s.flags.afterCrisis, 'and the run remembers it happened');
+  assert.throws(() => dispatch(s, { type: 'CRISIS', id: 'treat' }), /nothing to deal with/i, 'it cannot be answered twice');
+});
 
 test('a full run reaches an ending without crashing', () => {
   let s = enterProgram(4);
@@ -814,8 +841,10 @@ test('an ambitious advisor with a strong student moves the goalposts, and the pl
 });
 
 test('persistence across terms is itself an argument, and the sixth year is never a dead end', () => {
-  let settled5 = 0, stuck = 0;
-  for (let seed = 40; seed < 90; seed++) {
+  // A hundred seeds, not fifty: the true rate is around 91%, and a fifty-seed window can come up
+  // all-settled often enough to fail a "<99%" assertion on nothing but luck.
+  let settled5 = 0, stuck = 0, runs = 0;
+  for (let seed = 40; seed < 140; seed++) {
     let s = atYearFour(seed, x => {
       x.counts.accepted = 2; x.readiness = 72;
       x.advisor.caring = 20; x.advisor.toxicity = 78; x.advisor.ambition = 92;
@@ -830,11 +859,12 @@ test('persistence across terms is itself an argument, and the sixth year is neve
       }
       if (!s.grad.settled) { s.month += 3; try { openTimeline(s); } catch { break; } }
     }
+    runs++;
     if (s.grad.settled && s.grad.targetYear === 5) settled5++;
     if (!s.grad.settled) { playTimelineMove(s, 'accept'); assert.equal(s.grad.targetYear, 6); stuck++; }
   }
-  assert.ok(settled5 / 50 > .6, `a strong communicator usually gets out on time (got ${settled5}/50)`);
-  assert.ok(settled5 / 50 < .99, 'but not always — willingness is real');
+  assert.ok(settled5 / runs > .6, `a strong communicator usually gets out on time (got ${settled5}/${runs})`);
+  assert.ok(settled5 / runs < .99, `but not always — willingness is real (got ${settled5}/${runs})`);
 });
 
 test('every advisor stance, condition and move has complete copy', () => {

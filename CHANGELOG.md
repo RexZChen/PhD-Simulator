@@ -4,6 +4,61 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.3.0] — 2026-09-07
+
+The run can now end in ways you did not choose, the body is no longer optional, and being here on
+paper is its own game running underneath the one about research.
+
+### Added
+- **Six endings nobody plans for.** Called home to run the family firm (if you arrived with money);
+  a medical withdrawal processed while you are still on the ward; a higher level of care, six weeks,
+  a window that opens four inches; the seventh-year form that nobody has ever been refused; removal
+  from the country with thirty days and nine used; and the one below the ambulance, for a player who
+  signed themselves out. Each is written in the same register as the rest: the system is the absurd
+  thing, the person never is.
+- **Sustained neglect is now modelled.** Not one bad month — the count of months below 32 health and
+  above 72 stress, which is what actually gets people. Measured across 120 runs the grinder reaches
+  those endings in about 17% of them and is still mostly fired; diligent never sees them.
+- **Being here on paper — 10 events for international players.** Two polite people in the corridor
+  and the phrase "national interests," where the wording you choose is the mechanic. A checkpoint on
+  a road you take every day. A status record terminated by reason code 05, "OTHER," at 4:52 p.m. on
+  a Friday. Secondary inspection with your laptop. 214(b), and your parents watching a defense that
+  will not be recorded. An export-control category with a nationality field. And sixty days that are
+  not sixty working days.
+- **Your advisor can leave before you do — 5 events.** Tenure denied, emeritus in the spring, a
+  company you have heard of, a better department in August, and an email that goes out at 7:40 a.m.
+  Each has a real move on the other side: follow them, race their clock, inherit the unfinished lab,
+  or start the relationship over with somebody new.
+- **23 achievements**, for 82 in all, and 11 more endings, for 23.
+- **Ten advisor questions that only exist because of your situation** — after a crisis, after a
+  rejection, when they have gone quiet, when the project is two papers pretending to be one, when
+  the paperwork needs a signature only they can give. The ask list was eleven items for six years;
+  across a run it now takes 152 distinct shapes and ranges from 11 to 20 entries.
+- `npm run i18n` — plays real runs with the language set and prints every string that fell through
+  to English. It is at zero.
+
+### Fixed
+- **Health crises never once reached a player.** `openCrisis` set the stage and `beginTurn` then
+  overwrote it with `plan`, and the CRISIS action sat below the "stage must be plan" guard, so the
+  whole subsystem — three crises, three moves, the advisor asking about the draft afterwards — was
+  unreachable in every run ever played. An open crisis is now a gate on the turn.
+- **Forced events were a hand-maintained list of three ids**, so every urgent event added since was
+  silently left out. Derived from the data now.
+- **The desktop got brighter as you got worse.** Stress and health both set `filter` on `.desktop`
+  at equal specificity; `filter` does not compose, so the later rule won outright and health's tint
+  is the milder one. Composed once, and the result is monotonic.
+- **The monthly report's baseline was taken after the month-start pass**, so the missed-deadline
+  penalty, the standing update and the entire stipend ledger appeared in no report at all — three
+  months of them at season pace.
+- **The plan list did not fit.** At 1440x900 the fieldset was 946px in a 775px scroller: four of
+  eight options visible, and Rest — the option the balance punishes you for never taking — 411px
+  below the fold. One row per option now, description kept for the one you are weighing: 48px a row,
+  all eight on screen with the Continue button.
+- **The vitals vanished below 1120px** with nothing in their place, so you chose a plan unable to
+  see what it would cost. A compact copy now lives in the status bar at those widths.
+- **Money pills saturated at $15**, so a $250 supplement and a $2,200 internship read identically.
+- 131 strings, 5 effect-pill labels, 23 events and 6 endings translated into Simplified Chinese.
+
 ## [1.2.0] — 2026-09-06
 
 Written against the author's stated design goals, which are now the acceptance criteria: a PhD is

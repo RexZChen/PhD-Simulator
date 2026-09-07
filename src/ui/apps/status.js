@@ -11,7 +11,7 @@ const bondWord = b => b >= 70 ? t('close') : b >= 50 ? t('friendly') : b >= 30 ?
 export function statsBars(s) {
   const st = s.player.stats;
   const hb = healthBand(st.health);
-  return `${bar(t('Hope'), st.hope, { cls: 'gold', title: t('Belief in the PhD. Low Hope slows everything and makes quitting likelier.') })}${bar(t('Energy'), st.energy, { cls: 'green', title: t('Short-term fuel. Below 25, productivity halves.') })}${bar(t('Health'), st.health, { cls: hb === 'unwell' ? 'red' : hb === 'rundown' ? 'gold' : 'green', title: t('Sleep, food, stress, and every appointment you have postponed.') })}${bar(t('Confidence'), st.confidence, { title: t('Willingness to push back, submit, and argue.') })}`;
+  return `${bar(t('Hope'), st.hope, { cls: 'gold', title: t('Belief in the PhD. Low Hope slows everything and makes quitting likelier.') })}${bar(t('Energy'), st.energy, { band: true, title: t('Short-term fuel. Below 25, productivity halves.') })}${bar(t('Health'), st.health, { band: true, title: t('Sleep, food, stress, and every appointment you have postponed.') })}${bar(t('Confidence'), st.confidence, { title: t('Willingness to push back, submit, and argue.') })}`;
 }
 export function sideStatus(s) {
   const st = s.player.stats;

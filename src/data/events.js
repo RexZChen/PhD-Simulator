@@ -16,7 +16,10 @@ import urgent from './events/urgent.js';
 import conference from './events/conference.js';
 import late from './events/late.js';
 import divergence from './events/divergence.js';
+import fate from './events/fate.js';
+import visa from './events/visa.js';
+import succession from './events/succession.js';
 
-export const events = [...application, ...holiday, ...life, ...research, ...advisor, ...review, ...department, ...career, ...lab, ...peer, ...crunch, ...urgent, ...conference, ...late, ...divergence, ...more, ...funding, ...cage]
+export const events = [...application, ...holiday, ...life, ...research, ...advisor, ...review, ...department, ...career, ...lab, ...peer, ...crunch, ...urgent, ...conference, ...late, ...divergence, ...more, ...funding, ...cage, ...fate, ...visa, ...succession]
   .map(e => ({ cooldown: 99, probability: .5, weight: 1, conditions: {}, ...e }));
 export const eventById = Object.fromEntries(events.map(e => [e.id, e]));

@@ -113,8 +113,8 @@ test('a saved run in play shows the manager, resolves a month, and reports', asy
   await resolveScenes(page);
   await expect(page.getByRole('heading', { name: /September 2028/ })).toBeVisible();
   await page.locator('[data-action="plan"][data-id="research"]').click();
-  await page.locator('[data-action="start-project"]').click();
-  await page.locator('[data-action="continue"]').click();
+  await page.locator('[data-action="start-project"]:not([data-guide])').click();
+  await page.locator('[data-action="continue"]:not([data-guide])').click();
   await resolveScenes(page);
   await expect(page.getByRole('heading', { name: /October 2028/ })).toBeVisible();
   await page.locator('.desk-icon[data-app="chat"]').click();
@@ -264,7 +264,7 @@ test('a deadline week runs day by day, with coffee, a skipped lunch, and a door 
   await expect(page.locator('.day-note')).not.toBeEmpty();
   await expect(page.locator('[data-action="pop-in"]')).toBeDisabled();
   await page.locator('.radio-list .option:not(:disabled)').first().click();
-  await page.locator('[data-action="continue"]').click();
+  await page.locator('[data-action="continue"]:not([data-guide])').click();
   await resolveScenes(page);
   const after = await page.evaluate(async () => { const { loadSave } = await import('/src/engine/save.js'); const r = loadSave(localStorage).run; return { dayIndex: r.dayIndex, cups: r.caffeine.day, tempo: r.tempo }; });
   expect(after.tempo).toBe('day');
@@ -359,7 +359,7 @@ test('defending is not finishing: revisions, format review, then commencement', 
 
   // You passed, and you are not done.
   await expect(page.locator('.revisions')).toBeVisible();
-  await expect(page.locator('[data-action="deposit"]')).toBeDisabled();
+  await expect(page.locator('[data-action="deposit"]:not([data-guide])')).toBeDisabled();
   const items = await page.locator('.rev-item').count();
   expect(items).toBeGreaterThanOrEqual(2);
   const state = await page.evaluate(async () => { const { loadSave } = await import('/src/engine/save.js'); const r = loadSave(localStorage).run; return { defense: r.milestones.defense, graduated: r.milestones.graduated, needed: r.thesis.needed }; });
@@ -374,12 +374,12 @@ test('defending is not finishing: revisions, format review, then commencement', 
     await next.click();
     await resolveScenes(page);
   }
-  await expect(page.locator('[data-action="deposit"]')).toBeEnabled();
+  await expect(page.locator('[data-action="deposit"]:not([data-guide])')).toBeEnabled();
 
   // Format review gets a couple of goes at you.
   for (let i = 0; i < 4; i++) {
     if (await page.locator('.commence').count()) break;
-    await page.locator('[data-action="deposit"]').click();
+    await page.locator('[data-action="deposit"]:not([data-guide])').click();
     await resolveScenes(page);
   }
   await expect(page.locator('.commence')).toBeVisible();
@@ -835,4 +835,57 @@ test('text size is adjustable from the tray and it sticks', async ({ page }) => 
   expect(await read()).toBe(smaller);
   // And the ends of the scale disable rather than doing nothing.
   await expect(page.locator('.tray-text [data-id="down"]')).toBeDisabled();
+});
+
+test('the whole turn fits on screen: every plan option and the button that spends it', async ({ page }) => {
+  await seedPlay(page, `s.month = 30;`);
+  // The plan is the only mandatory input in the game, and it is re-made every month. If the list
+  // does not fit, Rest is the option below the fold — and Rest is the one the balance punishes you
+  // for never taking.
+  const m = await page.evaluate(() => {
+    const sc = document.querySelector('.client');
+    const opts = [...document.querySelectorAll('.radio-list.plans .option')];
+    const cont = document.querySelector('[data-action="continue"]:not([data-guide])');
+    const sb = sc.getBoundingClientRect();
+    return {
+      options: opts.length,
+      visible: opts.filter(o => o.getBoundingClientRect().bottom <= sb.bottom).length,
+      rowH: Math.round(opts[0].getBoundingClientRect().height),
+      continueVisible: cont ? cont.getBoundingClientRect().bottom <= sb.bottom : false,
+      bodyScrollsX: document.body.scrollWidth > document.body.clientWidth,
+    };
+  });
+  expect(m.options).toBeGreaterThan(5);
+  expect(m.visible).toBe(m.options);
+  expect(m.rowH).toBeLessThan(70);
+  expect(m.continueVisible).toBe(true);
+  expect(m.bodyScrollsX).toBe(false);
+  // The description is still there for the option you are actually weighing.
+  await page.locator('[data-action="plan"][data-id="rest"]').click();
+  await expect(page.locator('.option.selected .muted')).toBeVisible();
+});
+
+test('the vitals follow you when the sidebar is too narrow to exist', async ({ page }) => {
+  await seedPlay(page, `s.month = 20; s.player.stats.energy = 8; s.player.stats.health = 45;`);
+  await expect(page.locator('.sidebar')).toBeVisible();
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await expect(page.locator('.sidebar')).toBeHidden();
+  // Hiding them without replacing them meant choosing a plan blind to what it costs.
+  const mini = page.locator('.vitals-mini');
+  await expect(mini).toBeVisible();
+  await expect(mini).toContainText('8');
+  await expect(mini).toContainText('45');
+});
+
+test('the desktop never gets brighter as you get worse', async ({ page }) => {
+  // Stress and health both tinted .desktop with `filter`, which does not compose: the later rule
+  // won, and health's tint is the milder one.
+  const read = async () => page.locator('.desktop').evaluate(el => getComputedStyle(el).filter);
+  const sat = f => Number((f.match(/saturate\(([\d.]+)\)/) || [])[1] ?? 1);
+  await seedPlay(page, `s.player.hidden.stress = 80; s.player.stats.health = 95;`);
+  const stressedOnly = sat(await read());
+  await seedPlay(page, `s.player.hidden.stress = 80; s.player.stats.health = 45;`);
+  const stressedAndRundown = sat(await read());
+  expect(stressedOnly).toBeLessThan(1);
+  expect(stressedAndRundown).toBeLessThanOrEqual(stressedOnly);
 });

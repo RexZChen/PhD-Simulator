@@ -4,13 +4,15 @@ import { avatar } from '../avatars.js';
 import { asks } from '../../data/asks.js';
 import { channelActions } from '../../data/social.js';
 import { requestById } from '../../data/requests.js';
-import { absWeek, lastName, firstName, fill, entryDate, chatBody, requestText } from '../../engine/state.js';
+import { absWeek, lastName, firstName, fill, entryDate, chatBody, requestText, activeProject } from '../../engine/state.js';
 import { MODES } from '../../engine/advisor.js';
+import { eligible } from '../../engine/events.js';
 import { composedText, isStreaming } from '../compose.js';
 import { reactions as reactionSet } from '../../data/slack.js';
 import { replyOptionsFor, dmPeople, dmOptions } from '../../engine/slack.js';
 import { t } from '../../i18n/index.js';
 
+const MEET_RANK = { whenever: 0, monthly: 1, biweekly: 2, weekly: 3 };
 const presenceOf = s => ['checkedOut', 'traveling'].includes(s.advisorMode?.id) ? 'off'
   : s.advisorMode?.id === 'grant' ? 'away' : s.advisorMode?.id === 'pressed' ? 'typing' : '';
 
@@ -26,10 +28,26 @@ export function chatOptions(s, channel) {
         { group: t('About their request'), id: `req:decline:${r.id}`, label: t('Decline'), sub: t('Costs goodwill. Buys the week back.'), disabled: false },
       ];
     });
-    const list = asks.map(a => {
-      const cd = (s.askCooldowns[a.id] || 0) - now;
-      const blocked = a.conditions?.maxEnergy !== undefined && s.player.stats.energy > a.conditions.maxEnergy;
-      return { group: t('Ask your advisor'), id: `ask:${a.id}`, label: t(a.name), sub: a.desc, disabled: cd > 0 || blocked, why: cd > 0 ? t('asked recently ({n} wk)', { n: cd }) : blocked ? t('only when Energy is low') : '' };
+    // Conditions split in two. The ones ask() throws on stay visible and greyed with a reason, so you
+    // can see what you would have to change. The rest decide whether the line exists at all — which is
+    // how the list stops being the same eleven items for six years.
+    const gate = { maxEnergy: 1, notFlag: 1, hasProject: 1, noCollaborator: 1, minCadence: 1, maxCadence: 1 };
+    const list = asks.filter(a => {
+      const c = a.conditions || {};
+      const presence = Object.fromEntries(Object.entries(c).filter(([k]) => !gate[k]));
+      return !Object.keys(presence).length || eligible(s, { id: '', conditions: presence });
+    }).map(a => {
+      const c = a.conditions || {}, cd = (s.askCooldowns[a.id] || 0) - now;
+      const p = activeProject(s);
+      const why = cd > 0 ? t('asked recently ({n} wk)', { n: cd })
+        : c.maxEnergy !== undefined && s.player.stats.energy > c.maxEnergy ? t('only when Energy is low')
+        : c.notFlag && s.flags[c.notFlag] ? t('you already have that')
+        : c.hasProject && !p ? t('needs a project')
+        : c.noCollaborator && p && p.collaborators.length > 1 ? t('already has a collaborator')
+        : c.minCadence && MEET_RANK[s.cadence.oneOnOne] < MEET_RANK[c.minCadence] ? t('meetings are already rare')
+        : c.maxCadence && MEET_RANK[s.cadence.oneOnOne] > MEET_RANK[c.maxCadence] ? t('meetings are already frequent')
+        : '';
+      return { group: t('Ask your advisor'), id: `ask:${a.id}`, label: t(a.name), sub: t(a.desc), disabled: !!why, why };
     });
     return [...open, ...list];
   }

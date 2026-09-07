@@ -1,10 +1,11 @@
 // Health, money, and the parts of a PhD that are not the PhD.
 // Everything here is deterministic given the seed; nothing here calls the UI.
 import { t } from '../i18n/index.js';
+import { crises, crisisMoves, afterCrisis, CRISIS_HEALTH, CRISIS_COOLDOWN } from '../data/crisis.js';
 import { conditions as conditionDefs, clinicById, clinics, budgets, lifeActionById, COFFEE } from '../data/life.js';
 import { monthOf } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, chat, award, absWeek, activeProject, lastName } from './state.js';
+import { effects, log, message, chat, award, absWeek, activeProject, lastName, fill, joined } from './state.js';
 
 export const PLAN_YEAR_MONTH = 9; // insurance resets in September, like everything else
 
@@ -156,6 +157,61 @@ export function setBudget(s, id) {
   s.budget = id;
   log(s, t('Living {mode} from now on. {blurb}', { mode: t(budgets[id].name).toLowerCase(), blurb: t(budgets[id].blurb) }));
 }
+
+
+// ── The crisis ────────────────────────────────────────────────────────────────
+// Everything else in this game is a trade you choose. This is a fortnight taken from you, and it
+// interrupts the turn rather than applying a drag you can absorb. The point is not the punishment;
+// it is that afterwards the calendar has not moved and nobody adjusts anything.
+export function crisisDue(s) {
+  if (s.phase !== 'playing' || s.crisis) return null;
+  if (s.month - (s.lastCrisisMonth ?? -99) < CRISIS_COOLDOWN) return null;
+  const st = s.player.stats, hid = s.player.hidden;
+  const worst = activeConditions(s).find(c => (c.severity || 1) >= 2);
+  if (st.health <= CRISIS_HEALTH) return worst?.def?.clinic === 'urgent' ? 'infection' : 'collapse';
+  if (hid.stress >= 88 && st.energy <= 18) return 'breakdown';
+  if (worst && st.health < 40 && roll(s, .35)) return 'infection';
+  return null;
+}
+
+export function openCrisis(s, id) {
+  const def = crises[id];
+  if (!def) return null;
+  s.crisis = { id, month: s.month, resolved: false };
+  s.lastCrisisMonth = s.month;
+  s.stage = 'crisis';
+  log(s, t(pick(s, def.text)));
+  return s.crisis;
+}
+
+export function resolveCrisis(s, moveId) {
+  const c = s.crisis;
+  if (!c) throw new Error(t('There is nothing to deal with.'));
+  const def = crises[c.id], move = crisisMoves[moveId];
+  if (!move) throw new Error(t('That is not one of the options.'));
+  const weeks = moveId === 'treat' ? def.weeks : moveId === 'minimum' ? Math.max(1, def.weeks - 1) : 0;
+  const bill = moveId === 'ignore' ? 0 : outOfPocket(s, def.cost);
+  if (bill) charge(s, bill, 'care');
+  effects(s, { ...move.effects, energy: (move.effects.energy || 0) - weeks * 3 });
+  if (weeks) s.leaveWeeks = (s.leaveWeeks || 0) + weeks;
+  // Doing the minimum, or nothing, buys the same crisis back at a worse price.
+  if (moveId === 'ignore') s.counts.crisisIgnored = (s.counts.crisisIgnored || 0) + 1;
+  if (moveId === 'treat') s.counts.crisisTreated = (s.counts.crisisTreated || 0) + 1;
+  if (move.recurs) s.lastCrisisMonth = s.month - Math.floor(CRISIS_COOLDOWN * (move.worse ? .3 : .55));
+  if (move.worse) { const w = activeConditions(s)[0]; if (w?.def?.worsens) addCondition(s, w.def.worsens); }
+  s.crisis = { ...c, resolved: true, move: moveId, weeks, bill };
+  s.stage = 'plan';
+  s.flags.afterCrisis = true;
+  log(s, joined(t(move.line), bill ? ' ' : '', bill ? t('The visit cost you ${n} after insurance.', { n: bill }) : ''));
+  // What comes next is the point: the deadline did not move.
+  chat(s, 'advisor', s.advisor.name, t(pick(s, afterCrisis.advisor)));
+  if (s.labmates?.length) chat(s, 'general', pick(s, s.labmates).name, fill(s, t(pick(s, afterCrisis.lab))));
+  log(s, t(pick(s, afterCrisis.self)));
+  award(s, 'thebody');
+  if ((s.counts.crisisTreated || 0) >= 2) award(s, 'twocrisestreated');
+  return s.crisis;
+}
+export const crisisMoveList = s => s.crisis && !s.crisis.resolved ? Object.values(crisisMoves) : [];
 
 // The month's money, itemised. Called once per month from game.js.
 export function monthlyLedger(s) {
@@ -345,4 +401,8 @@ export function monthlyLife(s) {
   ageConditions(s);
   maybeCondition(s);
   dueBills(s);
+  // How long you have been running on empty, which is the thing that actually gets people —
+  // not one bad month but thirty of them with nobody counting.
+  if (s.player.stats.health < 32) s.counts.lowHealthMonths = (s.counts.lowHealthMonths || 0) + 1;
+  if (s.player.hidden.stress > 72) s.counts.highStressMonths = (s.counts.highStressMonths || 0) + 1;
 }

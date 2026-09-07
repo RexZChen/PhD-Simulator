@@ -1,39 +1,45 @@
-// The bench: five moments in a working session where timing is the whole skill. Each round is a
-// needle crossing a band. Hitting the middle is the moment you actually caught the thing.
+// The reading session. You are working through the literature looking for the gap, and the gap is
+// a real thing that either exists or does not. Timing is the skill: catching the moment a paper
+// tells you something, before you have read four more and lost the thread.
+//
+// Critical — the aha: the gap is real and nobody has closed it.
+// Hit     — a paper worth having read, which is most of them.
+// Miss    — the 2008 paper that already did it, found at 1 a.m.
+
 export const benchRounds = [
-  { id: 'converge', label: 'The run is converging',
-    hint: 'Kill it at the right epoch. Too early and you learn nothing; too late and you have overfit to the validation set you promised not to look at.',
-    crit: 'You stop it exactly where the curve flattens. The number is real and you can defend it.',
-    hit: 'You stop it a bit late. Fine. Slightly worse, entirely usable.',
-    miss: 'It runs four hours past the point of usefulness and the checkpoint you wanted is gone.' },
-  { id: 'bug', label: 'The bug is in one of these three places',
-    hint: 'You have a guess. Commit to it while you still remember why.',
-    crit: 'First guess. It was the index. It is always the index, and knowing that is the job.',
-    hit: 'Second guess, twenty minutes. You found it and you wrote down why.',
-    miss: 'Ninety minutes later it turns out to have been a stale cache, and you have changed six things you now have to change back.' },
-  { id: 'read', label: 'The related-work paper you were dreading',
-    hint: 'Find the one paragraph that says whether they already did your idea.',
-    crit: 'Page four, second column. They did something adjacent and left your exact question open. This is the best news of the month.',
-    hit: 'You find it eventually. They are close but not on it. You can work with close.',
-    miss: 'You read the whole thing twice and still cannot tell. You will have to email someone.' },
-  { id: 'figure', label: 'The figure that has to carry the claim',
-    hint: 'One axis, one comparison, no cleverness.',
-    crit: 'It is legible at a glance and it is honest at a glance, which is rarer. Your advisor will not change a thing.',
-    hit: 'It works. Somebody will ask you to add error bars, and they will be right.',
-    miss: 'Three panels, two colour scales, and a caption doing the work the figure refused to.' },
-  { id: 'ablate', label: 'The ablation you have been avoiding',
-    hint: 'Turn the component off and find out whether the paper survives it.',
-    crit: 'The component matters, and now you can prove it in one line. The paper just got harder to reject.',
-    hit: 'It matters, mostly. There is one setting where it does not and you will mention it in a footnote.',
-    miss: 'It does not matter at all. You now know something true that you did not want to know, at eleven at night.' },
+  { id: 'survey', label: 'The survey everyone cites',
+    hint: 'Forty pages, and one paragraph in section 6 is about you. Find it before your attention goes.',
+    crit: 'Section 6.3, third paragraph: “remains an open problem in the general case.” They wrote it in 2019 and nobody has closed it. The gap is real and it has a citation.',
+    hit: 'You find the relevant subsection eventually. It positions your problem without solving it, which is what you needed.',
+    miss: 'You read the whole survey and retain the abstract. Somewhere in there was the paragraph you were looking for.' },
+  { id: 'baseline', label: 'The paper you are competing with',
+    hint: 'Their numbers are better than yours. Work out whether that is the method or the setup.',
+    crit: 'Appendix C: they tune on the test split. Not maliciously — the paper is from before anyone minded. Your numbers are the honest ones and you can say so.',
+    hit: 'Their setup is different in a way you can name. It does not invalidate them and it does explain the gap.',
+    miss: 'Their method is simply better. You read it three times hoping otherwise and it stays better.' },
+  { id: 'citation', label: 'The reference that keeps appearing',
+    hint: 'Four papers cite it for four different claims. Read the original and find out which one it actually supports.',
+    crit: 'It supports none of them. The original makes a much narrower claim and the field has been citing it sideways for a decade. This is a paragraph in your related work and possibly a paper.',
+    hit: 'It supports two of the four. You cite it correctly, which puts you ahead of two of the four.',
+    miss: 'It supports all of them and is better written than yours. You add it to the pile.' },
+  { id: 'preprint', label: 'Something posted this week',
+    hint: 'Six days old, adjacent, and possibly the same idea. Read the method section first.',
+    crit: 'Adjacent, not the same. They assume something you do not, and the thing you do not assume is the whole contribution. You send it to your advisor with one sentence.',
+    hit: 'Overlapping but different enough. Concurrent work, cited, and slightly annoying.',
+    miss: 'It is your idea, executed further, by four people with more compute. The date on it is Tuesday.' },
+  { id: 'archive', label: 'A 2008 paper nobody cites',
+    hint: 'It came up in a footnote. It should not be relevant. Check anyway.',
+    crit: 'It is relevant and it is wrong — a subtle error in the proof of Lemma 2 that everyone has inherited. Finding this is worth more than the last three weeks.',
+    hit: 'Adjacent, pre-deep-learning, and worth a sentence. You would not have found it by searching.',
+    miss: 'It does exactly what you thought was yours. It is seventeen years old, it has eleven citations, and it is completely correct.' },
 ];
 
-// A working session is not free and not always worth it.
+// A session at the bench is not free and not always worth it.
 export const BENCH_ENERGY = 7;
-export const benchNote = 'Five moments where the timing is the skill. The band is wider if you are good at this and narrower when you are exhausted.';
+export const benchNote = 'Five moments where the timing is the skill. The band is wider if you are good at this, and narrower when you are exhausted.';
 export const benchGrades = {
-  great: 'A session that went the way sessions are supposed to go and almost never do.',
-  good: 'A real afternoon of work. Two things moved, one thing broke and got fixed.',
+  great: 'A session that went the way reading is supposed to go and almost never does. You know where the gap is now.',
+  good: 'A real afternoon in the literature. Two things landed, one of them changes the framing.',
   ok: 'Some progress, some circling. That is most days and it does add up.',
-  rough: 'You lost the thread early and spent the rest of it trying to find where. Nothing is broken. Nothing moved either.',
+  rough: 'You read for four hours and cannot say what you learned. The tabs are still open.',
 };

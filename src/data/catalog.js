@@ -88,6 +88,7 @@ export const rebuttals = [
 ];
 
 export const achievements = {
+  thebody: { name: 'The Body Sends A Letter', desc: 'Have a health crisis and deal with it. The deadline did not move; that is the part nobody warns you about.' },
   fundedyourself: { name: 'Your Own Money', desc: 'Win a fellowship. It is yours, it moves with you, and it changes how every room reads you.' },
   namedonit: { name: 'Named Personnel', desc: 'Be named on an awarded grant. One line, and search committees read it first.' },
   thefundedone: { name: 'Brings Money In', desc: 'Put three pieces of funding on the CV. This is the thing that makes a file competitive.' },
@@ -147,6 +148,36 @@ export const achievements = {
   cycle: { name: 'The Cycle Continues', desc: 'Accept a faculty offer and begin recruiting students.' },
   express: { name: 'Express Lane', desc: 'Defend before the end of year five.' },
   sixYears: { name: 'The Full Six', desc: 'Defend in the last possible month.' },
+  // ── The ones you get for surviving the parts nobody warns you about ────────────────────────
+  signedout: { name: 'Against Medical Advice', desc: 'Sign yourself out of the hospital. There is a form for that too, and it is one page.' },
+  tookthebed: { name: 'Eleven Days', desc: 'Let them keep you. The paragraph was still there afterwards; so were you.' },
+  fourinches: { name: 'Four Inches', desc: 'Accept a higher level of care. Nobody in four years had asked those questions in that order.' },
+  furniture: { name: 'Longer Than The Carpet', desc: 'Still be in the building after the sixth year, and be asked whether you are staff.' },
+  heirapparent: { name: 'Name On The Door', desc: 'Be called home to run the family firm. The training transferred; just not the topic.' },
+  saidnotomoney: { name: 'Declined The Inheritance', desc: 'Turn down a business that was doing well. That conversation does not actually end.' },
+  ninerest: { name: 'Nine Rested Months', desc: 'Choose Rest nine times in one run. The option everyone can see and nobody picks.' },
+  twocrisestreated: { name: 'Went Both Times', desc: 'Have two health crises and go to the clinic for both. This is harder than it sounds.' },
+
+  // ── Being here on paper ────────────────────────────────────────────────────────────────────
+  askedforthelawyer: { name: 'I Would Like Someone Present', desc: 'Ask for the international office before answering a single question. The correct answer, and the hardest one to say.' },
+  reinstated: { name: 'Reason Code 05', desc: 'Have your status terminated by a clerical error and get it back. Nobody apologises; nobody is in a position to.' },
+  stillhere: { name: 'Free To Go', desc: 'Walk away from a checkpoint with your documents and your name back.' },
+  removed: { name: 'Thirty Days', desc: 'Be removed from the country, and keep the work, because none of it was ever subject to the order.' },
+  ownhardware: { name: 'Runs Anywhere Now', desc: 'Be locked out of the cluster and rebuild the pipeline so it does not need one.' },
+  hoodedathome: { name: 'A Hotel Function Room', desc: 'Get hooded by an uncle with a phone camera, six weeks late, because the consulate said 214(b).' },
+
+  // ── When the person one lap ahead falls off ────────────────────────────────────────────────
+  orphaned: { name: 'Advisor Of Record: Pending', desc: 'Lose your advisor mid-degree and find another one. The relationship starts over, which is both halves of the news.' },
+  wentwiththem: { name: 'Packed The Lab', desc: 'Follow your advisor to another institution. New city, same whiteboard.' },
+  finishedforthem: { name: 'The Acknowledgement First', desc: 'Finish the paper after your advisor died. You wrote that section before the abstract.' },
+  keptemeritus: { name: 'Advisor Of Record, Emeritus', desc: 'Keep a retiring advisor to the end by finding someone to sign the form.' },
+  labinheritor: { name: 'Where Everything Is Kept', desc: 'Take on the lab\u2019s unfinished work. A form of power and a form of sentence.' },
+
+  // ── The long game ──────────────────────────────────────────────────────────────────────────
+  askedeverything: { name: 'Asked The Hard One', desc: 'Ask your advisor twelve different questions across one run. Most people ask three.' },
+  saidstillrecovering: { name: 'Said It Out Loud', desc: 'Tell your advisor you are not back at a hundred per cent. Then watch what they do with it.' },
+  scopecut: { name: 'Two Papers Pretending', desc: 'Propose cutting the scope and be told yes. Eleven weeks of anxiety, two syllables.' },
+  authorshipfirst: { name: 'Written Down Somewhere', desc: 'Settle author order before the deadline week rather than during it.' },
 };
 
 // Run conditions: one or two are drawn per run. They make the same advisor feel different.

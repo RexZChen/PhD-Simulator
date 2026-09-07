@@ -104,6 +104,13 @@ table.grid td.num, table.grid th.num { text-align: right; }
 .option b { display: block; }
 .option .muted { display: block; font-size: 13px; }
 .option .eff { display: flex; flex-wrap: wrap; gap: 3px; font-size: 12px; margin-top: 3px; }
+/* The plan list, compressed to one row per option so all of it and the Continue button are on
+   screen at once. The description is still there for the option you have actually selected —
+   and always for a disabled one, where the reason is the point — and in the title for the rest. */
+.radio-list.plans .option { align-items: center; padding: 3px 6px; }
+.radio-list.plans .option .opt-name { min-width: 0; }
+.radio-list.plans .option .eff { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; margin-top: 1px; }
+.radio-list.plans .option:not(.selected):not(:disabled) .muted { display: none; }
 .option.selected .eff { color: #cfe8cf; }
 
 /* Desktop */
@@ -112,8 +119,6 @@ table.grid td.num, table.grid th.num { text-align: right; }
 .desktop.season-12, .desktop.season-1, .desktop.season-2 { background-color: #2b5d78; }
 .desktop.season-3, .desktop.season-4, .desktop.season-5 { background-color: #2c6e5b; }
 .desktop.season-6, .desktop.season-7, .desktop.season-8 { background-color: #3a7a63; }
-.desktop.stressed:not(.quiet) { filter: saturate(.6) contrast(.98); }
-.desktop.frayed:not(.quiet) { filter: saturate(.35) brightness(.94); }
 .desktop::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 70% 30%, rgba(255,255,255,.07), transparent 40%); pointer-events: none; }
 .desktop-icons { position: absolute; top: 8px; left: 8px; width: 84px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
 .desk-icon { position: relative; width: 84px; padding: 5px 2px 4px; border: 1px solid transparent; background: transparent; color: #fff; text-shadow: 1px 1px #000; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 13px; line-height: 1.15; }
@@ -379,10 +384,17 @@ table.grid td.num, table.grid th.num { text-align: right; }
 .offer-card blockquote { margin: 6px 0; border-left: 3px solid var(--accent); padding: 2px 8px; font-style: italic; }
 .hint-list li { margin: 2px 0; font-size: 12px; }
 
+/* The vitals live in the sidebar at desktop width; the status-bar copy only exists for the widths
+   where that sidebar is hidden, so it costs nothing on a big screen. */
+.vitals-mini { display: none; }
+.vitals-mini .vit { font-weight: 700; padding: 0 4px; margin-right: 2px; border-radius: 2px; }
+.vitals-mini .b-ok { color: #2f6b3f; } .vitals-mini .b-warn { color: #8a6a1f; }
+.vitals-mini .b-low { color: #a05a20; } .vitals-mini .b-spent { color: #8a2f2f; }
 @media (max-width: 1120px) {
   .workspace { grid-template-columns: minmax(0, 1fr); }
   .sidebar { display: none; }
   .grid-3 { grid-template-columns: 1fr 1fr; }
+  .vitals-mini { display: inline; white-space: nowrap; }
 }
 @media (max-width: 760px) {
   body { overflow: auto; }
@@ -557,7 +569,10 @@ body.lang-zh .editor-source pre, body.lang-zh .typing-zone { font-family: "Menlo
 .slack-head { padding: 8px 14px; border-bottom: 1px solid #ddd; }
 .slack-head b { font-size: 15px; }
 .ch-topic { display: block; font-size: 12px; color: var(--muted); }
-.slack-log { padding: 6px 0 10px; background: #fff; border: 0; box-shadow: none; overflow: auto; }
+.slack-log { padding: 6px 0 10px; background: #fff; border: 0; box-shadow: none; overflow: auto;
+  display: flex; flex-direction: column; justify-content: flex-end; }
+/* justify-content:flex-end can clip overflow at the top, so let the first child push instead. */
+.slack-log > :first-child { margin-top: auto; }
 .day-divider { position: relative; text-align: center; margin: 12px 0 8px; }
 .day-divider::before { content: ""; position: absolute; left: 14px; right: 14px; top: 50%; border-top: 1px solid #e2e2e2; }
 .day-divider span { position: relative; background: #fff; border: 1px solid #e2e2e2; border-radius: 12px; padding: 1px 12px; font-size: 12px; color: var(--muted); }
@@ -700,8 +715,7 @@ body.lang-zh .editor-source pre, body.lang-zh .typing-zone { font-family: "Menlo
 .sch-list .num { text-align: right; }
 
 /* The body, on the desktop */
-.desktop.rundown:not(.quiet) { filter: saturate(.75) brightness(.99); }
-.desktop.unwell:not(.quiet) { filter: saturate(.45) brightness(.93) blur(.15px); }
+.desktop.unwell:not(.quiet) { filter: blur(.15px); }
 .desktop.unwell:not(.quiet) .window { box-shadow: 0 0 0 1px #8a3a3a55, var(--shadow) 2px 2px 0 0; }
 
 @media (max-width: 900px) {
@@ -988,8 +1002,10 @@ table.mini th { background: var(--face); }
 .rx:hover:not(:disabled) { border-color: var(--sel); background: #eef4ff; }
 .rx:disabled { opacity: .5; cursor: default; }
 .rx.mine { background: #dce8fb; border-color: var(--sel); font-weight: 700; }
-.rx.add { opacity: .35; padding: 2px 6px; }
-.rx-row:hover .rx.add { opacity: 1; }
+.rx.add { opacity: 0; padding: 2px 6px; border-color: transparent; background: transparent; transition: opacity .12s; }
+.sl-msg:hover .rx.add, .rx.add:focus-visible { opacity: .55; border-color: var(--shadow); background: var(--face); }
+.sl-msg:hover .rx.add:hover { opacity: 1; }
+
 .rx-add { position: relative; display: inline-block; }
 .rx-menu { display: none; position: absolute; bottom: 100%; left: 0; z-index: 5; gap: 2px; padding: 3px; background: var(--face); border: 1px solid var(--dark); box-shadow: 2px 2px 0 rgba(0,0,0,.3); white-space: nowrap; }
 .rx-add:hover .rx-menu, .rx-add:focus-within .rx-menu { display: flex; }
@@ -1008,3 +1024,34 @@ table.mini th { background: var(--face); }
 .menu-stepper { display: flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 13px; }
 .menu-stepper b { margin-left: auto; font-size: 12px; }
 .menu-stepper button { font: 700 11px/1 inherit; padding: 3px 6px; border: 1px solid var(--shadow); background: var(--face); }
+
+/* A hover-only affordance is an invisible affordance on a touch screen. */
+@media (hover: none), (pointer: coarse) {
+  .rx.add { opacity: .55; border-color: var(--shadow); background: var(--face); }
+  .rx-menu { display: flex; position: static; border: 0; box-shadow: none; padding: 0; background: transparent; }
+  .rx-add:hover .rx-menu, .rx-add:focus-within .rx-menu { display: flex; }
+}
+
+/* The reading session: a needle crossing a band, and the band is wider if you are good at this. */
+.bench { display: grid; gap: 8px; margin-top: 8px; }
+.bq-label { font-size: 13px; }
+.bq-stage { min-height: 46px; margin: 0; font-size: 13px; line-height: 1.4; padding: 6px 8px; background: var(--paper); border: 1px solid var(--shadow); }
+.bq-stage.crit { background: #eef7ee; border-color: #6fae6f; font-weight: 700; }
+.bq-stage.hit { background: #f6f9ff; border-color: #7d9dd0; }
+.bq-stage.miss { background: #fdf3f3; border-color: #c96f6f; }
+.bq-track { position: relative; height: 26px; border: 1px solid var(--dark); background: var(--hi); box-shadow: inset 1px 1px rgba(0,0,0,.22); overflow: hidden; }
+.bq-band { position: absolute; top: 0; bottom: 0; background: rgba(63,143,63,.18); border-left: 1px solid rgba(63,143,63,.5); border-right: 1px solid rgba(63,143,63,.5); }
+.bq-core { position: absolute; top: 0; bottom: 0; background: rgba(63,143,63,.42); }
+.bq-needle { position: absolute; top: -2px; bottom: -2px; width: 3px; margin-left: -1px; background: #10305a; box-shadow: 0 0 0 1px rgba(255,255,255,.6); }
+.bq-strike { padding: 7px 12px; font-weight: 700; display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+.bq-strike small { font-weight: 400; font-size: 11px; color: var(--muted); }
+
+/* One visual language for "how much is left": the sidebar bars now band the way the
+   application phase's Energy meter does, so green-to-red means the same thing everywhere. */
+.progress.b-ok i { background: linear-gradient(180deg, #7ec97e, #3f8f3f); }
+.progress.b-warn i { background: linear-gradient(180deg, #e8c766, #b98b1e); }
+.progress.b-low i { background: linear-gradient(180deg, #e09a5a, #b55f18); }
+.progress.b-spent i { background: linear-gradient(180deg, #d97070, #9c2020); }
+.energy-meter .em-track i { background: linear-gradient(180deg, #7ec97e, #3f8f3f); }
+.dialog.crisis .titlebar { background: linear-gradient(90deg, #8a2020, #c05050); }
+.dialog.crisis { border-color: var(--face-light) #6a1818 #6a1818 var(--face-light); }

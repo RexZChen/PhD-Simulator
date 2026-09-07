@@ -190,6 +190,7 @@ export function preprint(s) {
 
 function reject(s, p, reason) {
   p.status = 'Rejected'; p.timeline = null; p.reviewDueWeek = null;
+  s.flags.recentReject = true;
   p.submissionHistory.at(-1).outcome = reason;
   s.counts.rejected++;
   effects(s, { hope: -8 - (s.player.stats.hope < 30 ? 4 : 0), confidence: -6, stress: 9, satisfaction: -3 });
@@ -256,6 +257,7 @@ export function rebut(s, id) {
 export function recycle(s, id) {
   const p = activeProject(s);
   if (p?.status !== 'Rejected' || !['revise', 'reframe', 'expand', 'abandon'].includes(id)) throw new Error(t('Choose a revision strategy for a rejected project.'));
+  s.flags.recentReject = false; // the question has been answered; the ask goes away with it
   if (id === 'abandon') { p.status = 'Abandoned'; clearTarget(s, p); effects(s, { hope: -3, stress: -12 }); log(s, t('Abandoned the project. The lessons remain, unlike the code.')); return; }
   p.status = 'Drafting'; p.draft = id === 'expand' ? 40 : 55; p.reviewCycle = 0; p.reviewers = []; p.approvedWithout = false;
   effects(s, id === 'revise' ? { evidence: 10, reproducibility: 8, energy: -6 } : id === 'reframe' ? { hype: 8, writingQuality: 6, energy: -4 } : { novelty: 12, scope: 12, evidence: 10, energy: -10 });

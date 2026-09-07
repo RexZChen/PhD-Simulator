@@ -30,7 +30,16 @@ export function entryDate(e) {
 }
 export const yearOf = s => phdYear(s.month);
 
+// Unique on the FIRST name, not just the full name: the lab list, the DM rail and most dialogue
+// use first names only, so two people called Tobiah is two people you cannot tell apart.
 function personName(s, used) {
+  const takenFirst = new Set([...used].map(n => n.split(' ')[0]));
+  for (let i = 0; i < 30; i++) {
+    const first = pick(s, firstNames);
+    if (takenFirst.has(first)) continue;
+    const name = `${first} ${pick(s, surnames)}`;
+    if (!used.has(name)) { used.add(name); return name; }
+  }
   for (let i = 0; i < 20; i++) {
     const name = `${pick(s, firstNames)} ${pick(s, surnames)}`;
     if (!used.has(name)) { used.add(name); return name; }
@@ -295,6 +304,8 @@ export function finish(s, id, title, text) {
   if (id.startsWith('phd_')) award(s, 'doctor');
   if (['phd_tenure_track', 'phd_teaching_faculty', 'phd_abroad'].includes(id)) award(s, 'cycle');
   if (id === 'master' && s.career >= 50) award(s, 'escape');
+  const forEnding = { hospital: 'tookthebed', institution: 'fourinches', perpetual: 'furniture', inherit: 'heirapparent', deported: 'removed' };
+  if (forEnding[id]) award(s, forEnding[id]);
 }
 
 export function personality(s) {

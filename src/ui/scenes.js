@@ -7,6 +7,8 @@ import { templateById, eventText } from '../engine/events.js';
 import { fill, lastName, labmateById } from '../engine/state.js';
 import { prelimChance, proposalChance, defenseChance } from '../engine/game.js';
 import { pushbacks, lectureLines } from '../data/minigames.js';
+import { benchNote } from '../data/bench.js';
+import { crises, crisisMoves, CRISIS_NOTE } from '../data/crisis.js';
 import { t } from '../i18n/index.js';
 
 function strip(scene, s, e) {
@@ -76,6 +78,37 @@ export function lectureDialog(s) {
     </div>
   </div></section></div>`;
 }
+
+// The reading session. Same shape as the lecture: a dialog whose innards are painted by its own
+// interval, so a re-render never restarts it.
+export function benchDialog(s) {
+  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="bq-title"><div class="titlebar"><span class="tb-title">${icon('book', 16)}<span>${t('Reading session')}</span></span></div><div class="body">
+    <h2 id="bq-title">${t('An afternoon in the literature')}</h2>
+    <p class="small muted">${esc(t(benchNote))}</p>
+    <div class="bench">
+      <b class="bq-label" data-bq-label></b>
+      <p class="bq-stage" data-bq-stage></p>
+      <div class="bq-track" data-bq-bar></div>
+      <button class="bq-strike" data-action="bench-strike">${t('That is the one')}<small>${t('SPACE')}</small></button>
+      <p class="tiny muted" data-bq-tally></p>
+    </div>
+  </div></section></div>`;
+}
+
+// The one scene you cannot dismiss. Every other dialog in this game has a way past it; this one
+// has three ways through, and all of them cost something.
+export function crisisDialog(s) {
+  const c = s.crisis; if (!c || c.resolved) return '';
+  const def = crises[c.id];
+  return `<div class="modal"><section class="dialog crisis" role="dialog" aria-modal="true" aria-labelledby="cr-title"><div class="titlebar"><span class="tb-title">${icon('heart', 16)}<span>${t('Life.exe')}</span></span></div><div class="body">
+    <h2 id="cr-title">${esc(t(def.title))}</h2>
+    <p class="scene-text">${esc(t(pick2(s, def.text)))}</p>
+    <p class="tiny muted">${t(CRISIS_NOTE)}</p>
+    <div class="choices">${Object.values(crisisMoves).map((m, i) => `<button class="btn choice" data-action="crisis" data-id="${m.id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(m.label))}</b><small>${esc(t(m.hint))}</small></span><span class="arrow">→</span></button>`).join('')}</div>
+  </div></section></div>`;
+}
+// Deterministic pick that does not consume the run's RNG — this renders on every frame.
+const pick2 = (s, arr) => arr[(s.seed + s.month) % arr.length];
 
 export function milestoneDialog(s) {
   const kind = s.milestoneKind || 'prelim';

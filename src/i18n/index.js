@@ -72,7 +72,10 @@ export function rememberSource(result, meta) {
 
 export function t(text, vars) {
   const d = dicts[current];
-  let out = (d && d.ui && Object.prototype.hasOwnProperty.call(d.ui, text)) ? d.ui[text] : text;
+  const hit = d && d.ui && Object.prototype.hasOwnProperty.call(d.ui, text);
+  // scripts/i18n-audit.mjs sets this to collect every string that fell through to English.
+  if (!hit && globalThis.__I18N_MISS && typeof text === 'string') globalThis.__I18N_MISS.add(text);
+  let out = hit ? d.ui[text] : text;
   if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));
   if (recording && typeof text === 'string') {
     let v;

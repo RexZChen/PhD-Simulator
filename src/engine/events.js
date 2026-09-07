@@ -1,4 +1,5 @@
 import { events, eventById } from '../data/events.js';
+import { exitEndings } from '../data/endings.js';
 import { pushbacks, hesitationLines } from '../data/minigames.js';
 import { t, provenanceOf } from '../i18n/index.js';
 import { meetings, meetingById } from '../data/meetings.js';
@@ -8,7 +9,9 @@ import { effects, log, award, finish, activeProject, absWeek, labmateById, fill,
 
 export const templateById = { ...eventById, ...meetingById };
 setTemplateLookup(id => templateById[id]);
-const URGENT = ['burnout', 'conflict', 'industry'];
+// Events that do not wait for a probability roll: when their conditions are met the turn stops.
+// Derived from the data rather than listed here, so a new one cannot be silently left out.
+const URGENT = events.filter(e => e.urgent).map(e => e.id);
 const cadenceRank = { whenever: 0, monthly: 1, biweekly: 2, weekly: 3 };
 
 // ctx: { tempo, crunch (null|{type}), cancelled, actor }
@@ -37,6 +40,16 @@ export function eligible(s, e, ctx = {}) {
   if (c.hasProject && !p) return false;
   if (c.minProgress !== undefined && !(p && p.progress >= c.minProgress && !['Submitted', 'Rebuttal', 'Accepted', 'Abandoned'].includes(p.status))) return false;
   if (c.maxProgress !== undefined && !(p && p.progress <= c.maxProgress)) return false;
+  if (c.maxHealth !== undefined && s.player.stats.health > c.maxHealth) return false;
+  if (c.minHealth !== undefined && s.player.stats.health < c.minHealth) return false;
+  if (c.background && !c.background.includes(s.player.profile.background)) return false;
+  if (c.travelled !== undefined && !!s.lastTrip !== c.travelled) return false;
+  if (c.minIgnored !== undefined && (s.counts.crisisIgnored || 0) < c.minIgnored) return false;
+  if (c.minLowHealth !== undefined && (s.counts.lowHealthMonths || 0) < c.minLowHealth) return false;
+  if (c.minHighStress !== undefined && (s.counts.highStressMonths || 0) < c.minHighStress) return false;
+  if (c.minConditions !== undefined && (s.conditions || []).length < c.minConditions) return false;
+  if (c.minScope !== undefined && !(p && p.scope >= c.minScope)) return false;
+  if (c.mode && !c.mode.includes(s.advisorMode?.id)) return false;
   if (c.maxDraft !== undefined && !(p && p.draft <= c.maxDraft)) return false;
   if (c.minDraft !== undefined && !(p && p.draft >= c.minDraft)) return false;
   if (c.projectStatus && p?.status !== c.projectStatus) return false;
@@ -221,7 +234,7 @@ export function openNext(s) {
     if (s.actorFor) delete s.actorFor[s.event];
     s.eventVariant = Array.isArray(e.text) ? Math.floor(random(s) * e.text.length) : 0;
     s.stage = 'event';
-  } else s.stage = s.eventReturn || 'plan';
+  } else s.stage = s.crisis && !s.crisis.resolved ? 'crisis' : (s.eventReturn || 'plan');
 }
 export const eventText = (s, e) => fill(s, Array.isArray(e.text) ? e.text[s.eventVariant % e.text.length] : e.text).replace('{draft}', String(Math.round(activeProject(s)?.draft || 0))).replace('{monthsIn}', String(s.month + 1));
 
@@ -229,6 +242,7 @@ function checkValue(s, check) {
   if (check.skill) return s.player.skills[check.skill];
   if (check.stat === 'career') return s.career;
   if (check.stat) return s.player.stats[check.stat];
+  if (check.rel) return s.relationship[check.rel];
   if (check.advisor) return s.advisor[check.advisor];
   if (check.bond) { const who = s.eventActor && labmateById(s, s.eventActor.id); return who ? who.bond : 30; }
   return 50;
@@ -247,6 +261,7 @@ export function resolveChoice(s, id) {
   effects(s, c.effects);
   let result = '';
   let success = null;
+  if (!c.check && (c.result || c.successText)) result = c.result || c.successText;
   if (c.check) {
     const val = checkValue(s, c.check);
     success = roll(s, clamp(.5 + (val - c.check.difficulty) / 110, .1, .9));
@@ -267,6 +282,7 @@ export function resolveChoice(s, id) {
   if (c.standing) s.standing = clamp((s.standing || 60) + c.standing);
   if (c.personality) s.player.personality[c.personality]++;
   if (c.achievement) award(s, c.achievement);
+  if (c.successAchievement && success === true) award(s, c.successAchievement);
   if (c.skill) effects(s, { skill: c.skill });
   if (c.bond) effects(s, { bond: c.bond });
   if (c.labBond) effects(s, { labBond: c.labBond });
@@ -307,11 +323,13 @@ export function resolveChoice(s, id) {
     if (success) { s.probation = { since: s.month, until: s.month + 4, acceptedAt: s.counts.accepted, terms: s.probation?.terms || [] }; s.warnings = 2; log(s, t('One more term. The document goes back in the folder, face-down.')); }
     else if (hooks.fired) { hooks.fired(s); return; }
   }
+  // A check that can lose the run outright — the removal hearing, and nothing else so far.
+  if (c.endingOnFail && success === false) { const en = exitEndings()[c.endingOnFail]; if (en) { finish(s, c.endingOnFail, en[0], en[1]); return; } }
   if (c.ending && c.ending.startsWith('quit_') && hooks.quit) { hooks.quit(s, c.ending.slice(5)); return; }
   if (c.ending === 'fired' && hooks.fired) { hooks.fired(s); return; }
   if (c.ending) {
-    const endings = { burnout: [t('Burnout Exit'), t('You leave to recover. A life does not need a dissertation to be complete.')], startup: [t('Startup Escape'), t('You leave to build the thing. The pitch deck has your figure on slide 3, uncredited.')], advisor: [t('Advisor Breakdown'), t('The arrangement ended. Your ability did not.')], industry: [t('Industry Escape'), t('Your new employer calls a deadline a deadline. Refreshing.')], master: [t('Mastered Out'), t('You leave with an MS and a different plan. This can be a good ending.')] };
-    finish(s, c.ending, ...endings[c.ending]);
+    const en = exitEndings()[c.ending];
+    if (en) { finish(s, c.ending, ...en); return; }
     return;
   }
   // The advisor does not always accept the first answer.
