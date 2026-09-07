@@ -329,6 +329,8 @@ export function fill(s, text) {
     advisor: s.advisor ? t('Prof. {name}', { name: lastName(s.advisor.name) }) : t('your advisor'),
     advisorFirst: s.advisor ? firstName(s.advisor.name) : t('your advisor'),
     labmate: actor?.name || s.labmates[0]?.name || t('a labmate'),
+    fired: s.fired?.name || actor?.name || t('the one who left'),
+    firedFirst: firstName(s.fired?.name || actor?.name || t('the one who left')),
     labmateFirst: firstName(actor?.name || s.labmates[0]?.name || t('a labmate')),
     peer: actor?.name || s.peers[0]?.name || t('a friend from the cohort'),
     peerLab: actor?.labOf ? t('Prof. {name}', { name: lastName(actor.labOf) }) : t('another lab'),

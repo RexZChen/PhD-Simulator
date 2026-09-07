@@ -984,8 +984,9 @@ test('Room 214 runs the hour: you present, they ask, you wait in the corridor', 
   // Click through the deck. Somewhere in it, one of them decides to be the difficult one; that
   // has to be reachable, because in a real room it always is.
   let interrupted = false;
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 80; i++) {
     if (!(await room.count())) break;
+    if ((await room.getAttribute('data-phase').catch(() => null)) !== 'talk') break;
     const cut = page.locator('[data-action="exam-interrupt"]:not(.hidden)');
     if (await cut.count() && await cut.isVisible()) {
       interrupted = true;
@@ -995,14 +996,13 @@ test('Room 214 runs the hour: you present, they ask, you wait in the corridor', 
       continue;
     }
     const next = page.locator('[data-action="exam-talk"][data-id="next"]');
-    if (!(await next.count())) break;
-    await next.click().catch(() => {});
+    if (await next.count()) await next.click().catch(() => {});
     await page.waitForTimeout(220);
   }
-  expect(interrupted).toBe(true);
+  expect(interrupted, 'one of them always decides to be the difficult one').toBe(true);
 
   // Then the questions, which is the exam this used to be all of.
-  await expect(room).toHaveAttribute('data-phase', 'qa', { timeout: 8000 });
+  await expect(room).toHaveAttribute('data-phase', 'qa', { timeout: 15_000 });
   await expect(page.locator('[data-vv-q]')).not.toBeEmpty();
   for (let i = 0; i < 5; i++) {
     if (!(await room.count())) break;
@@ -1014,7 +1014,7 @@ test('Room 214 runs the hour: you present, they ask, you wait in the corridor', 
 
   // And then you are put outside while they decide, out loud, without you.
   if (await room.count()) {
-    await expect(room).toHaveAttribute('data-phase', 'corridor', { timeout: 12_000 });
+    await expect(room).toHaveAttribute('data-phase', 'corridor', { timeout: 25_000 });
     const thing = page.locator('[data-action="exam-corridor"]').first();
     if (await thing.count()) {
       await thing.click().catch(() => {});

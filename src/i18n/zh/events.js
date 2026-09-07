@@ -6,4 +6,5 @@ import { eventsE } from './events-e.js';
 import { eventsF } from './events-f.js';
 import { eventsG } from './events-g.js';
 import { eventsH } from './events-h.js';
-export const events = { ...eventsA, ...eventsB, ...eventsC, ...eventsD, ...eventsE, ...eventsF, ...eventsG, ...eventsH };
+import { eventsI } from './events-i.js';
+export const events = { ...eventsA, ...eventsB, ...eventsC, ...eventsD, ...eventsE, ...eventsF, ...eventsG, ...eventsH, ...eventsI };

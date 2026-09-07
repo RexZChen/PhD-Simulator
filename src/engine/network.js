@@ -40,7 +40,7 @@ function orgFor(s, kind) {
 }
 
 // Someone new. Returns the contact, or null if you already know as many people as you can hold.
-export function meetContact(s, { kind, where = 'conference', venue = '', regard = null } = {}) {
+export function meetContact(s, { kind, where = 'conference', venue = '', regard = null, name = null } = {}) {
   ensureNetwork(s);
   if (activeContacts(s).length >= NETWORK_MAX) return null;
   const k = contactKinds[kind] ? kind : pick(s, ['prof', 'postdoc', 'researcher', 'student']);
@@ -49,7 +49,7 @@ export function meetContact(s, { kind, where = 'conference', venue = '', regard 
   const [lo, hi] = w.regard;
   const c = {
     id: `net-${s.contacts.length}-${s.month}`,
-    name: freshName(s), kind: k, org: orgFor(s, k),
+    name: name || freshName(s), kind: k, org: orgFor(s, k),
     where, venue, met: s.month, lastContact: s.month,
     regard: regard ?? clamp(lo + random(s) * (hi - lo)),
     clout: clamp(def.clout[0] + random(s) * (def.clout[1] - def.clout[0])),

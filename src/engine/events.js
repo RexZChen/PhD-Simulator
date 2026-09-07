@@ -5,6 +5,7 @@ import { t, provenanceOf } from '../i18n/index.js';
 import { meetings, meetingById } from '../data/meetings.js';
 import { monthOf, isTeachingTerm, isSummer } from '../data/calendar.js';
 import { random, roll, clamp, pickWeighted, pick } from './probability.js';
+import { meetContact } from './network.js';
 import { effects, log, award, finish, activeProject, absWeek, labmateById, fill, chat, lastName, setTemplateLookup, joined } from './state.js';
 
 export const templateById = { ...eventById, ...meetingById };
@@ -296,6 +297,24 @@ export function resolveChoice(s, id) {
     const supported = hooks.advisorResponds ? hooks.advisorResponds(s) : roll(s, (s.advisor.caring + s.relationship.trust) / 200);
     effects(s, supported ? { stress: -8, hope: 5, trust: 4 } : { stress: 7, satisfaction: -5 });
     result = supported ? t('Your advisor makes room for you to be human.') : (s.advisorMode?.id === 'checkedOut' || s.advisorMode?.id === 'traveling' ? t('Your advisor does not reply for nine days. Then: “Sounds good.”') : t('Your advisor asks how this affects the deadline.'));
+  }
+  // The one who does not finish. Pinned by name on the run rather than left to the actor picker,
+  // because the arc runs across years and it has to still be the same person in the last beat.
+  if (c.firesLabmate) {
+    const who = s.eventActor && labmateById(s, s.eventActor.id);
+    const target = who || (s.labmates || []).filter(l => l.status === 'active').sort((x, y) => y.bond - x.bond)[0];
+    if (target) {
+      s.fired = { id: target.id, name: target.name, month: s.month, kept: false };
+      target.status = 'left';
+      s.flags.labmateFired = true;
+    }
+  }
+  // Four words, fourteen months late. They become a real contact with a real trajectory, and
+  // the network they are now in is better than the one that let them go.
+  if (c.keepsFired && s.fired) {
+    s.fired.kept = true;
+    const made = meetContact(s, { kind: 'researcher', where: 'lab', regard: 78, name: s.fired.name });
+    if (made) { made.warmth = clamp(made.warmth + 25); made.met = s.fired.month; }
   }
   const conditional = v => v === 'onSuccess' ? success === true : v === 'onFail' ? success === false : !!v;
   for (const [flag, value] of Object.entries(c.flags || {})) {

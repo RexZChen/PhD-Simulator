@@ -3,6 +3,7 @@
 // 英文原文的分寸是「把事情说准，不解释它为什么好笑」。中译沿用：不加语气词，不用感叹号，
 // 让读者自己认出这是自己经历过的那一小时。
 export const examZh = {
+  "the one who left": "那个走掉的人",
   "You are introduced": "介绍你",
   "Your advisor introduces you. It takes eleven minutes and four of them are about their own trajectory. You stand at the side holding a clicker.": "你导师介绍你。这花了十一分钟，其中四分钟是关于他自己的学术轨迹的。你站在旁边，手里拿着翻页笔。",
   "Room 214": "214 室",

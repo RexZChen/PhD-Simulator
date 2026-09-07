@@ -43,6 +43,7 @@ export const metWhere = {
   citation: { id: 'citation', label: 'because they cited you', regard: [46, 68] },
   intern: { id: 'intern', label: 'over a summer', regard: [52, 74] },
   intro: { id: 'intro', label: 'through an introduction', regard: [38, 58] },
+  lab: { id: 'lab', label: 'from your lab, before they left', regard: [62, 84] },
 };
 
 // A short discussion. Cheap, and the whole system runs on it, because a relationship that is only

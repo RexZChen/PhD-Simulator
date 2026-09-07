@@ -1908,3 +1908,45 @@ test('each exam runs the hours it claims to, in the order it claims', async () =
     assert.ok(deck.some(s => s.w === 'filler'), `${k} deck has no filler, which is not what a deck is`);
   }
 });
+
+test('the labmate who is pushed out stays the same person, and can become a contact', async () => {
+  // The arc spans years and the last beat fires with no eventActor at all, so the person has to be
+  // pinned on the run rather than re-picked. Getting this wrong is silent: the final scene would
+  // simply name somebody else, which is worse than a crash because it still reads as prose.
+  const { activeContacts } = await import('../src/engine/network.js');
+  const { eventText, templateById } = await import('../src/engine/events.js');
+  const s = enterProgram(11);
+  s.month = 24;
+  const best = s.labmates.filter(l => l.status === 'active').sort((a, b) => b.bond - a.bond)[0];
+  let run = { ...s, eventActor: { type: 'labmate', id: best.id }, event: 'fired_told' };
+  run = dispatch(run, { type: 'CHOICE', id: 'stairwell' });
+  assert.equal(run.fired?.name, best.name, 'the run remembers who it was');
+  assert.equal(run.labmates.find(l => l.id === best.id).status, 'left');
+  assert.equal(run.flags.labmateFired, true);
+
+  // Years later, with the actor long gone, the later beats still name them.
+  run.month = 40; run.eventActor = null;
+  for (const id of ['fired_room', 'fired_after']) {
+    const body = eventText(run, templateById[id]);
+    assert.equal((body.match(/\{[a-zA-Z]+\}/g) || []).length, 0, `${id} left a token unresolved`);
+  }
+  assert.ok(eventText(run, templateById.fired_room).includes(best.name.split(' ')[0]),
+    'the group meeting names the person who actually left');
+
+  // Sending the message turns them into a real contact under their own name.
+  run.event = 'fired_after';
+  run = dispatch(run, { type: 'CHOICE', id: 'message' });
+  const contact = activeContacts(run).find(c => c.name === best.name);
+  assert.ok(contact, 'keeping in touch puts them in the network');
+  assert.equal(contact.where, 'lab');
+  assert.ok(contact.regard > 60, 'they are not bitter');
+  assert.equal(run.fired.kept, true);
+
+  // Letting it go does not.
+  let other = { ...enterProgram(11), month: 24 };
+  const who = other.labmates.filter(l => l.status === 'active').sort((a, b) => b.bond - a.bond)[0];
+  other = dispatch({ ...other, eventActor: { type: 'labmate', id: who.id }, event: 'fired_told' }, { type: 'CHOICE', id: 'desk' });
+  other = dispatch({ ...other, month: 40, event: 'fired_after' }, { type: 'CHOICE', id: 'let' });
+  assert.equal(activeContacts(other).some(c => c.name === who.name), false);
+  assert.equal(other.fired.kept, false);
+});
