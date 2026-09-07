@@ -106,7 +106,7 @@ function translateChoiceList(list, dict) {
     e.title = tr.title ?? base.title;
     e.text = tr.text ?? base.text;
     if (tr.speakerLabel) e.speakerLabel = tr.speakerLabel;
-    e.choices = base.choices.map(c => { const tc = tr.choices?.[c.id]; return tc ? { ...copy(c), text: tc.text ?? c.text, hint: tc.hint ?? c.hint, successText: tc.successText ?? c.successText, failureText: tc.failureText ?? c.failureText } : copy(c); });
+    e.choices = base.choices.map(c => { const tc = tr.choices?.[c.id]; return tc ? { ...copy(c), text: tc.text ?? c.text, hint: tc.hint ?? c.hint, result: tc.result ?? c.result, successText: tc.successText ?? c.successText, failureText: tc.failureText ?? c.failureText } : copy(c); });
   }
 }
 function translateSimple(list, dict, fields) {

@@ -38,6 +38,8 @@ function usePlant(s, st) {
   if (stress > 55) effects(s, { stress: -3, hope: 2 });
   else if (stress > 40) effects(s, { stress: -1 });
   log(s, line);
+  // Below the line it pays nothing, and says so. This is the whole rule the fixtures share.
+  if (stress <= 40 && st.found && st.watered > 1) log(s, t(plantLines.dry), true);
   if (st.watered === PLANT.ritual) { log(s, t(plantLines.noticed)); award(s, 'waterit'); }
   if (st.watered === PLANT.devoted) { log(s, t(plantLines.devoted)); award(s, 'plasticdevotion'); }
   return line;
@@ -88,7 +90,13 @@ export function useFixture(s, id) {
   // looking at a fridge is not an event — displayed whatever was logged last. If you had erased
   // the whiteboard at any point, every object on the desk said the eraser line forever.
   const said = line => { s.deskSaid = line; return line; };
-  if (!canUse(s, id)) return { line: said(t(pick(s, IDLE[id]))), again: false };
+  if (!canUse(s, id)) {
+    // Deliberately NOT pick(): this branch changes nothing mechanically, and drawing from the run
+    // stream here meant that clicking a decorative object reseeded every later roll of the run.
+    // Same seed, same decisions, different outcome. Derived from state instead.
+    const pool = IDLE[id];
+    return { line: said(t(pool[Math.abs(weekStamp(s) + (st.used || 0) + (st.watered || 0)) % pool.length])), again: false };
+  }
   st.lastWeek = weekStamp(s);
   return { line: said(HANDLER[id](s, st)), again: true };
 }

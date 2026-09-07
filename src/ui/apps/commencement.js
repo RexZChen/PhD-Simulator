@@ -4,7 +4,7 @@ import { avatar } from '../avatars.js';
 import { cvSections } from '../../data/epilogue.js';
 import { trackById } from '../../data/tracks.js';
 import { currentBeat, beatText } from '../../engine/epilogue.js';
-import { lastName } from '../../engine/state.js';
+import { lastName, activeLabmates } from '../../engine/state.js';
 import { t } from '../../i18n/index.js';
 
 const usd = n => n ? `$${n.toLocaleString('en-US')}` : t('no salary, yet');
@@ -69,7 +69,7 @@ function offersBlock(s) {
 export function epilogueScreen(s, ui) {
   const ep = s.epilogue;
   const beat = currentBeat(s);
-  const froms = { advisor: () => t('Prof. {name}', { name: s.advisor.name }), labmate: () => s.labmates[0]?.name || t('a labmate'), venue: () => t('Programme Committee'), system: () => t('Gaggle Scholar'), stranger: () => t('someone you have never met'), self: () => t('Your office, {school}', { school: s.jobs.taken?.name || s.program.name }) };
+  const froms = { advisor: () => t('Prof. {name}', { name: s.advisor.name }), labmate: () => activeLabmates(s)[0]?.name || t('a labmate'), venue: () => t('Programme Committee'), system: () => t('Gaggle Scholar'), stranger: () => t('someone you have never met'), self: () => t('Your office, {school}', { school: s.jobs.taken?.name || s.program.name }) };
   const job = s.jobs.taken;
   return `<div class="epilogue">
     <div class="epi-head">

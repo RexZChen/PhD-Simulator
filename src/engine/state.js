@@ -169,6 +169,13 @@ export const meetingsPerMonth = cadence => ({ weekly: 4, biweekly: 2, monthly: 1
 
 export const activeProject = s => s.projects.find(p => p.id === s.activeProjectId) || null;
 export const editable = p => p && !['Submitted', 'Rebuttal', 'Accepted', 'Abandoned', 'Advisor Review'].includes(p.status);
+// Who is actually still in the lab.
+//
+// `status` was only ever 'active' until somebody could be pushed out, so about half the read paths
+// never filtered on it — and the result was that the person who had just been made to leave was the
+// only name in the #general sidebar, with a live green dot next to it. Everything that means "the
+// people in this lab, now" goes through here.
+export const activeLabmates = s => (s.labmates || []).filter(l => l.status === 'active');
 export const labmateById = (s, id) => s.labmates.find(l => l.id === id) || s.peers.find(p => p.id === id) || null;
 
 // `routine` marks per-turn bookkeeping lines so the ending transcript can drop them
@@ -221,7 +228,12 @@ export function say(s, text, meta) {
     const e = templateLookup(meta.ev);
     const c = e && e.choices.find(x => x.id === meta.ch);
     if (e && c) {
-      const tail = meta.r === 'success' ? c.successText : meta.r === 'failure' ? c.failureText : say(s, '', meta.rt) || '';
+      // A plain `result` has no provenance of its own — it never passes through t() — so it is
+      // marked at write time and read off the (translated) choice here. Without this branch the
+      // outcome sentence of every non-check choice was dropped from the report, the timeline and
+      // the field notes, in English as well as Chinese.
+      const tail = meta.r === 'success' ? c.successText : meta.r === 'failure' ? c.failureText
+        : meta.r === 'result' ? c.result : say(s, '', meta.rt) || '';
       return t('{title} — {choice}. {result}', { title: fill(s, e.title), choice: fill(s, c.text), result: fill(s, tail || '') }).trim();
     }
   }
@@ -261,6 +273,19 @@ export function sentMail(s, to, subject, body) {
   s.inbox.unshift({ id: `sent-${s.inbox.length}-${absWeek(s)}`, month: s.month, phase: s.phase, sender: to, subject, body, action: null, read: true, folder: 'sent', kind: null, replied: null, mine: true,
     ...(i18nSender ? { i18nSender } : {}), ...(i18nSubject ? { i18nSubject } : {}), ...(i18nBody ? { i18nBody } : {}) });
 }
+// A mail the player wrote and did not send.
+//
+// Everybody has this folder. The messages in it are the ones that mattered most and cost the most
+// to write, and they are all one keystroke from having been sent, and none of them was. It is
+// never unread, because you have read it many times.
+export function draftMail(s, to, subject, body) {
+  const i18nSender = src(to), i18nSubject = src(subject), i18nBody = src(body);
+  s.inbox.unshift({ id: `draft-${s.inbox.length}-${absWeek(s)}`, month: s.month, phase: s.phase, sender: to, subject, body, action: null, read: true, folder: 'drafts', kind: null, replied: null, mine: true, draft: true,
+    ...(i18nSender ? { i18nSender } : {}), ...(i18nSubject ? { i18nSubject } : {}), ...(i18nBody ? { i18nBody } : {}) });
+  s.counts.drafts = (s.counts.drafts || 0) + 1;
+  if ((s.counts.drafts || 0) >= 4) award(s, 'draftsfolder');
+}
+
 export function chat(s, channel, sender, body, extra = {}) {
   const hour = 8 + Math.floor(random(s) * 12), minute = Math.floor(random(s) * 60);
   const i18n = src(body);
@@ -297,7 +322,7 @@ export function effects(s, delta = {}, actor = null) {
     else if (['coursework', 'readiness', 'career', 'pressure', 'standing', 'quitPressure'].includes(key)) s[key] = clamp((s[key] || 0) + value);
     else if (key === 'rentDelta' || key === 'commute') s.housing[key] += value;
     else if (key === 'bond') { const who = actor || s.eventActor; const target = who && labmateById(s, who.id); if (target) target.bond = clamp(target.bond + value); }
-    else if (key === 'labBond') for (const l of s.labmates) l.bond = clamp(l.bond + value);
+    else if (key === 'labBond') for (const l of activeLabmates(s)) l.bond = clamp(l.bond + value);
     else if (key === 'leaveWeeks') s.leaveWeeks = Math.max(0, s.leaveWeeks + value);
     else if (key === 'skill') for (const [skill, amount] of Object.entries(value)) s.player.skills[skill] = clamp(s.player.skills[skill] + amount);
     else if (p && key in p && typeof p[key] === 'number' && editable(p)) p[key] = clamp(p[key] + value);
@@ -328,10 +353,10 @@ export function fill(s, text) {
   const map = {
     advisor: s.advisor ? t('Prof. {name}', { name: lastName(s.advisor.name) }) : t('your advisor'),
     advisorFirst: s.advisor ? firstName(s.advisor.name) : t('your advisor'),
-    labmate: actor?.name || s.labmates[0]?.name || t('a labmate'),
+    labmate: actor?.name || activeLabmates(s)[0]?.name || t('a labmate'),
     fired: s.fired?.name || actor?.name || t('the one who left'),
     firedFirst: firstName(s.fired?.name || actor?.name || t('the one who left')),
-    labmateFirst: firstName(actor?.name || s.labmates[0]?.name || t('a labmate')),
+    labmateFirst: firstName(actor?.name || activeLabmates(s)[0]?.name || t('a labmate')),
     peer: actor?.name || s.peers[0]?.name || t('a friend from the cohort'),
     peerLab: actor?.labOf ? t('Prof. {name}', { name: lastName(actor.labOf) }) : t('another lab'),
     school: s.program?.name || t('the department'),

@@ -13,17 +13,51 @@ export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':
 // Deliberately narrow: this only fires when the text *opens* on a quote. A quote in the middle of a
 // sentence — “They say ‘huh, weird’ and go back to their own screen” — is one voice, not two, and
 // bracketing half of it would break prose that is written to be read as prose.
+//
+// And narrower still in Chinese, where the same shape means something else. A leading 「…」/“…” is as
+// often a quoted *term* as an utterance — “饭局俱乐部”，既不是俱乐部 is one sentence about a name, and
+// cutting after the closing quote leaves a fragment that opens on a comma. Chinese punctuation
+// says which one it is: an utterance carries its own stop *inside* the quote and the sentence
+// restarts after it, while a term leaves the sentence's punctuation outside. So for CJK text the
+// quote must close on a stop (or hand over to a dash) and what follows must not continue the
+// clause. Latin text keeps the original, looser rule untouched.
 const OPENS_QUOTED = /^\s*[“"][^“”"]*[”"]/;
 const QUOTED_RUN = /^\s*(?:[“"][^“”"]*[”"]\s*)+/;
+const CJK = /[\u3400-\u4dbf\u4e00-\u9fff]/;
+const SPOKEN_END = /[。！？…—，、；：.!?]$/;
+const CONTINUES = /^[，、；：。！？…”）】》,;:.!?]/;
+function speaks(said, rest) {
+  const inner = said.trim().replace(/^[“"]/, '').replace(/[”"]$/, '');
+  return !CONTINUES.test(rest) && (SPOKEN_END.test(inner) || /^[—–]/.test(rest));
+}
 export function voiced(value) {
   const raw = String(value ?? '');
   if (!OPENS_QUOTED.test(raw)) return esc(raw);
   const said = raw.match(QUOTED_RUN)[0];
   const rest = raw.slice(said.length);
   const body = rest.trim();
+  if (body && CJK.test(raw) && !speaks(said, body)) return esc(raw);
   const quoted = `<span class="said">${esc(said.trim())}</span>`;
   if (!body) return quoted;
   return `${quoted} <i class="narr">(${esc(body)})</i>`;
+}
+
+// The dice, shown.
+//
+// Every check in this game was a hidden coin flip: you picked an option, something happened, and
+// the number that decided it was gone before you could look at it. That makes a system that IS
+// legible feel arbitrary. This is the whole roll on one line — what it read, what it needed, the
+// chance that produced, and where the draw actually landed — with the threshold marked on a bar so
+// a near miss looks like a near miss.
+export function rollReadout(r) {
+  if (!r) return '';
+  const mark = Math.max(0, Math.min(100, r.odds));
+  const at = Math.max(0, Math.min(100, r.draw));
+  return `<div class="roll ${r.success ? 'won' : 'lost'}" title="${esc(t('{label} {value} against {difficulty}', r))}">
+    <span class="roll-eq">${esc(t('{label} {value}', r))} <i>vs</i> ${r.difficulty} <i>&rarr;</i> <b>${r.odds}%</b></span>
+    <span class="roll-bar"><i class="roll-fill" style="width:${mark}%"></i><i class="roll-pin" style="left:${at}%"></i></span>
+    <span class="roll-out">${esc(t('rolled {draw}', { draw: r.draw }))} · <b>${r.success ? t('passed') : t('failed')}</b></span>
+  </div>`;
 }
 
 export const money = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
@@ -47,7 +81,14 @@ export function bar(label, value, { cls = '', max = 100, suffix = '', title = ''
 }
 export const group = (title, inner, cls = '') => `<fieldset class="group ${cls}"><legend>${title}</legend>${inner}</fieldset>`;
 export const titlebar = (title, ic, { controls = true, inactive = false, right = '' } = {}) => `<div class="titlebar ${inactive ? 'inactive' : ''}"><span class="tb-title">${ic ? icon(ic, 16) : ''}<span>${title}</span></span>${right ? `<span class="tb-right">${right}</span>` : ''}${controls ? `<span class="tb-controls">${btn('<i class="glyph">_</i>', 'minimize', { cls: 'tb-btn', title: t('Minimize') })}${btn('<i class="glyph">□</i>', 'maximize', { cls: 'tb-btn', title: t('Maximize') })}${btn('<i class="glyph">×</i>', 'close-window', { cls: 'tb-btn', title: t('Close') })}</span>` : ''}</div>`;
-export const menubar = (items, right = '') => `<div class="menubar">${items.map(i => `<span>${i}</span>`).join('')}${right ? `<span class="mb-right">${right}</span>` : ''}</div>`;
+// The window menus. They looked like menus and did nothing, which in an interface that is
+// pretending to be an operating system reads as a broken operating system. Each one now opens and
+// every item under it does the thing it says.
+export const menubar = (menus, right = '', open = null) => `<div class="menubar">${menus.map(m => typeof m === 'string'
+  ? `<span>${m}</span>`
+  : `<span class="mb-menu${open === m.id ? ' open' : ''}"><button data-action="menu" data-id="${m.id}">${esc(m.label)}</button>${open === m.id ? `<div class="mb-drop">${m.items.map(it => it.sep
+      ? '<hr>'
+      : `<button class="mb-item${it.checked ? ' checked' : ''}" data-action="${it.action}"${it.id ? ` data-id="${it.id}"` : ''}${it.app ? ` data-app="${it.app}"` : ''}${it.disabled ? ' disabled' : ''}>${esc(it.label)}${it.hint ? `<small>${esc(it.hint)}</small>` : ''}</button>`).join('')}</div>` : ''}</span>`).join('')}${right ? `<span class="mb-right">${right}</span>` : ''}</div>`;
 export const statusbar = panes => `<div class="statusbar">${panes.map(p => `<span class="pane">${p}</span>`).join('')}</div>`;
 export const tag = (text, tone = '') => `<span class="tag ${tone}">${esc(text)}</span>`;
 export const hotkey = n => `<kbd>${n}</kbd>`;

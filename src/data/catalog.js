@@ -197,6 +197,7 @@ export const achievements = {
   allsixdoors: { name: 'Every Door', desc: 'Try all six ways of being unstuck in one run, including the one nobody counts as work.' },
   onechair: { name: 'The Corridor Has One Chair', desc: 'Wait out a committee’s deliberation without looking at your phone, the door, or slide 12. The longest you have been alone with yourself in about two years.' },
   stoppedandanswered: { name: '“Go Back Two Slides”', desc: 'Stop your own talk to answer the one who has decided to be difficult. It costs two minutes and buys the room.' },
+  draftsfolder: { name: 'Drafts (4)', desc: 'Accumulate four messages you wrote and did not send. They are the ones that mattered most and cost the most to write, and every one of them was one keystroke away.' },
   thechair: { name: 'Raised It Again', desc: 'Raise the chair fifteen times. Somebody in this building has lowered it fifteen times. The two of you have had an entire relationship and neither knows the other exists.' },
   theyogurt: { name: 'It Had My Name On It', desc: 'Throw out the yogurt. Nobody thanks you, one person is quietly furious forever, and neither of you will ever raise it.' },
   thestairwell: { name: 'The Half-Landing', desc: 'Go and find them in the stairwell. Nothing you say will help. They will remember it for ten years and you will not remember what you said, because there was nothing to say.' },

@@ -5,7 +5,7 @@ import { chatphdLines, chatphdReplies, advisorPings, logLines } from '../data/ch
 import { repliesFor } from '../data/replies.js';
 import { channelActionById } from '../data/social.js';
 import { clamp, random, roll, pick, pickFresh } from './probability.js';
-import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS, vars } from './state.js';
+import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS, vars, activeLabmates } from './state.js';
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
 import { createProject, createThesis, benchSession, clusterSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
@@ -85,7 +85,7 @@ hooks.jobOffers = s => {
   log(s, t('Offers: {list}.', { list: real.map(o => t(o.name)).join(', ') }));
   return t('You have {list}. You read the emails standing up.', { list: real.map(o => t(o.name)).join(t(' and ')) });
 };
-hooks.addCollaborator = s => { const p = activeProject(s); const mate = s.labmates.find(l => !p?.collaborators.includes(l.name)); if (p && mate) { p.collaborators.push(mate.name); mate.bond = clamp(mate.bond + 8); } };
+hooks.addCollaborator = s => { const p = activeProject(s); const mate = activeLabmates(s).find(l => !p?.collaborators.includes(l.name)); if (p && mate) { p.collaborators.push(mate.name); mate.bond = clamp(mate.bond + 8); } };
 // The recruiter path: an unsolicited offer, taken inside an event rather than negotiated.
 // Award events record real money against the CV. Kind and source come from the event.
 hooks.funding = (s, spec) => {
@@ -238,8 +238,10 @@ function applyTurn(s) {
   const work = weeks - leave;
   const st = s.player.stats;
   const productivity = clamp((.55 + s.player.skills.research / 150) * (st.energy < 25 ? .55 : 1) * (st.hope < 25 ? .7 : 1) * (s.burnoutMonths > 0 ? .65 : 1) * (s.mutators.includes('drought') && ['ml', 'nlp', 'robotics'].includes(s.player.profile.topic) ? .9 : 1), .2, 1.3);
-  // An unscheduled meeting does not cost you its own length; it costs the turn around it.
-  const kept = summonsKeep(s);
+  // An unscheduled meeting does not cost you its own length; it costs the turn around it. The
+  // same is true of going home: you cannot stop for the evening AND deliver the whole month, and
+  // pretending otherwise made the sixth door strictly better than the other five.
+  const kept = summonsKeep(s) * (1 - clamp(s.turnBite || 0, 0, .3));
   const scale = (isDay ? work : tempo === 'week' ? work : tempo === 'season' ? work / 4 * .9 : work / 4) * kept;
   const delta = {};
   for (const [k, v] of Object.entries(f.effects)) delta[k] = v * scale;
@@ -254,6 +256,7 @@ function applyTurn(s) {
   if (f.id === 'teach' && !s.ta) delta.money = (delta.money || 0) * .5;
   effects(s, delta);
   clearSummons(s);
+  s.turnBite = 0;
   if (leave) { effects(s, { energy: 12 * leave, stress: -10 * leave, hope: 4 * leave }); log(s, leave === weeks ? t('On leave. The laptop stayed closed for a whole week, which counts as a miracle.') : t('A week of leave, then back to it.')); }
   const commute = s.housing.commute * .5, taDrag = s.ta ? .8 : 0, stressDrag = s.player.hidden.stress > 65 ? 1.5 : 0, health = s.flags.resolutionHealth ? .5 : 0, cat = s.flags.cat ? .3 : 0;
   const openRequests = s.requests.filter(r => r.status === 'open').length;
@@ -355,7 +358,7 @@ function popIn(s) {
 // The corridor, the kettle, the 1 a.m. elevator.
 function runInto(s) {
   const pool = s.labmates.filter(l => l.status === 'active' && l.role !== 'phantom');
-  const who = pick(s, pool.length ? pool : s.labmates);
+  const who = pick(s, pool.length ? pool : activeLabmates(s));
   if (!who) throw new Error(t('There is nobody in the building. There is only you and the hum.'));
   const beat = pick(s, runIns);
   s.eventActor = { type: 'labmate', id: who.id };
@@ -525,7 +528,7 @@ function milestone(s, kind, strategy) {
       log(s, t(verdicts.pass.defense));
       // Nobody leaves this one early. Everybody stands for the photograph, in an order they know,
       // and four of the five faces in it have done this about forty times.
-      s.photo = { title: t('Somebody produces a phone'), lines: [verdicts.photo.line, verdicts.photo.faces, verdicts.advisorLine, verdicts.photo.after, verdicts.photo.unfinished] };
+      s.photo = { title: 'Somebody produces a phone', lines: [verdicts.photo.line, verdicts.photo.faces, verdicts.advisorLine, verdicts.photo.after, verdicts.photo.unfinished] };
       log(s, t(verdicts.photo.line));
       log(s, t(verdicts.advisorLine));
       log(s, t(verdicts.photo.unfinished));

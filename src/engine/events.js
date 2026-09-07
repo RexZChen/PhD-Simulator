@@ -6,7 +6,7 @@ import { meetings, meetingById } from '../data/meetings.js';
 import { monthOf, isTeachingTerm, isSummer } from '../data/calendar.js';
 import { random, roll, clamp, pickWeighted, pick } from './probability.js';
 import { meetContact } from './network.js';
-import { effects, log, award, finish, activeProject, absWeek, labmateById, fill, chat, lastName, setTemplateLookup, joined } from './state.js';
+import { effects, log, award, finish, activeProject, absWeek, labmateById, fill, chat, lastName, setTemplateLookup, joined, firstName, draftMail, activeLabmates } from './state.js';
 
 export const templateById = { ...eventById, ...meetingById };
 setTemplateLookup(id => templateById[id]);
@@ -112,7 +112,7 @@ export function eligible(s, e, ctx = {}) {
 const qualityOf = p => p.novelty * .18 + p.technicalDepth * .15 + p.evidence * .29 + p.writingQuality * .23 + p.reproducibility * .15;
 
 function actorPool(s, e) {
-  const list = e.actor.type === 'peer' ? s.peers : s.labmates;
+  const list = e.actor.type === 'peer' ? s.peers : activeLabmates(s);
   return list.filter(x => x.status === 'active' && (!e.actor.role || x.role === e.actor.role) && (!e.actor.trait || x.trait === e.actor.trait) && (!e.actor.fate || x.fate === e.actor.fate));
 }
 export function chooseActor(s, e) {
@@ -153,7 +153,7 @@ export function scheduleTurnEvents(s, ctx) {
   // a few weeks before giving up, so an arc survives an inconvenient calendar.
   for (const x of due) {
     if (!templateById[x.id]) continue;
-    if (eligible(s, templateById[x.id], ctx) && !queue.includes(x.id)) { queue.push(x.id); continue; }
+    if (eligible(s, templateById[x.id], ctx) && !queue.includes(x.id)) { queue.push(x.id); if (x.actor) s.actorFor = { ...(s.actorFor || {}), [x.id]: x.actor }; continue; }
     const tries = (x.tries || 0) + 1;
     if (tries <= 8) s.scheduled.push({ ...x, week: now + 1, tries });
   }
@@ -263,6 +263,17 @@ export function openNext(s) {
 }
 export const eventText = (s, e) => fill(s, Array.isArray(e.text) ? e.text[s.eventVariant % e.text.length] : e.text).replace('{draft}', String(Math.round(activeProject(s)?.draft || 0))).replace('{monthsIn}', String(s.month + 1));
 
+// What the check was reading, in words, so the readout can say it.
+function checkLabel(s, check) {
+  if (check.skill) return t(check.skill);
+  if (check.stat === 'career') return t('career');
+  if (check.stat) return t(check.stat);
+  if (check.rel) return t(check.rel);
+  if (check.advisor) return t('their {trait}', { trait: t(check.advisor) });
+  if (check.bond) { const who = s.eventActor && labmateById(s, s.eventActor.id); return who ? t('your bond with {name}', { name: firstName(who.name) }) : t('a bond'); }
+  return t('the odds');
+}
+
 function checkValue(s, check) {
   if (check.skill) return s.player.skills[check.skill];
   if (check.stat === 'career') return s.career;
@@ -286,10 +297,18 @@ export function resolveChoice(s, id) {
   effects(s, c.effects);
   let result = '';
   let success = null;
+  let rolled = null;
   if (!c.check && (c.result || c.successText)) result = c.result || c.successText;
   if (c.check) {
+    // Rolled inline rather than through roll(), so the draw itself can be shown. Same single
+    // random(s) draw and the same clamp, so the stream and the odds are byte-identical to before:
+    // a dice game that hides the dice is just a game that sometimes says no.
     const val = checkValue(s, c.check);
-    success = roll(s, clamp(.5 + (val - c.check.difficulty) / 110, .1, .9));
+    const odds = clamp(clamp(.5 + (val - c.check.difficulty) / 110, .1, .9), .03, .97);
+    const draw = random(s);
+    success = draw < odds;
+    rolled = { label: checkLabel(s, c.check), value: Math.round(val), difficulty: c.check.difficulty,
+      odds: Math.round(odds * 100), draw: Math.round(draw * 100), success };
     effects(s, success ? c.successEffects : c.failureEffects);
     result = success ? (c.successText || t('The conversation goes better than you feared.')) : (c.failureText || t('The system has other plans.'));
   }
@@ -300,8 +319,13 @@ export function resolveChoice(s, id) {
   }
   // The one who does not finish. Pinned by name on the run rather than left to the actor picker,
   // because the arc runs across years and it has to still be the same person in the last beat.
+  if (c.watchFired && s.eventActor) {
+    const who = labmateById(s, s.eventActor.id);
+    if (who) s.fired = { id: who.id, name: who.name, month: s.month, kept: false, pending: true };
+  }
   if (c.firesLabmate) {
-    const who = s.eventActor && labmateById(s, s.eventActor.id);
+    const watched = s.fired?.id ? labmateById(s, s.fired.id) : null;
+    const who = watched || (s.eventActor && labmateById(s, s.eventActor.id));
     const target = who || (s.labmates || []).filter(l => l.status === 'active').sort((x, y) => y.bond - x.bond)[0];
     if (target) {
       s.fired = { id: target.id, name: target.name, month: s.month, kept: false };
@@ -312,16 +336,20 @@ export function resolveChoice(s, id) {
   // Four words, fourteen months late. They become a real contact with a real trajectory, and
   // the network they are now in is better than the one that let them go.
   if (c.keepsFired && s.fired) {
-    s.fired.kept = true;
+    // meetContact returns null at NETWORK_MAX. Marking the payoff done anyway promised a contact
+    // that is not there — the achievement fired and the person never appeared in the network.
     const made = meetContact(s, { kind: 'researcher', where: 'lab', regard: 78, name: s.fired.name });
-    if (made) { made.warmth = clamp(made.warmth + 25); made.met = s.fired.month; }
+    if (made) { made.warmth = clamp(made.warmth + 25); made.met = s.fired.month; s.fired.kept = true; }
+    else result = t('You send it, and they reply, and you have nobody left in the week to reply back to. The thread sits there, warm and unanswered, which is its own kind of answer.');
   }
+  // The one you typed and did not send. It goes to Drafts, where it stays.
+  if (c.draft) draftMail(s, fill(s, t(c.draft.to)), fill(s, t(c.draft.subject)), fill(s, t(c.draft.body)));
   const conditional = v => v === 'onSuccess' ? success === true : v === 'onFail' ? success === false : !!v;
   for (const [flag, value] of Object.entries(c.flags || {})) {
     if (value === 'onSuccess' || value === 'onFail') { if (conditional(value)) s.flags[flag] = true; }
     else s.flags[flag] = value;
   }
-  for (const f of c.followUps || []) if (!s.scheduled.some(x => x.id === f.id)) s.scheduled.push({ id: f.id, week: absWeek(s) + f.delay * 4 });
+  for (const f of c.followUps || []) if (!s.scheduled.some(x => x.id === f.id)) s.scheduled.push({ id: f.id, week: absWeek(s) + f.delay * 4, ...(s.eventActor ? { actor: s.eventActor } : {}) });
   if (c.standing) s.standing = clamp((s.standing || 60) + c.standing);
   if (c.personality) s.player.personality[c.personality]++;
   if (c.achievement) award(s, c.achievement);
@@ -359,10 +387,11 @@ export function resolveChoice(s, id) {
   const line = t('{title} — {choice}. {result}', { title: fill(s, e.title), choice: fill(s, c.text), result: fill(s, result) }).trim();
   // Store the ids rather than the prose: the scene catalogs are translated by id, so the
   // line can be rebuilt in whatever language is current when it is read back.
-  const ref = { ev: e.id, ch: c.id, r: result && result === c.successText ? 'success' : result && result === c.failureText ? 'failure' : null };
+  const ref = { ev: e.id, ch: c.id, r: result && result === c.successText ? 'success' : result && result === c.failureText ? 'failure' : result && result === c.result ? 'result' : null };
   if (!ref.r && result) ref.rt = provenanceOf(result) || undefined;
   log(s, line, false, ref);
-  if (s.report) s.report.events.push({ title: fill(s, e.title), choice: fill(s, c.text), result: fill(s, result), category: e.category, i18n: ref });
+  if (s.report) s.report.events.push({ title: fill(s, e.title), choice: fill(s, c.text), result: fill(s, result), category: e.category, i18n: ref, ...(rolled ? { rolled } : {}) });
+  s.lastRoll = rolled;
   if (c.appeal) {
     if (success) { s.probation = { since: s.month, until: s.month + 4, acceptedAt: s.counts.accepted, terms: s.probation?.terms || [] }; s.warnings = 2; log(s, t('One more term. The document goes back in the folder, face-down.')); }
     else if (hooks.fired) { hooks.fired(s); return; }

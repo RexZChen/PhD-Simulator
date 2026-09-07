@@ -1,5 +1,5 @@
 import './styles.css';
-import { createRun, chatBody, mailSubject, mailSender, requestText, noticeText } from './engine/state.js';
+import { createRun, chatBody, mailSubject, mailSender, requestText, noticeText, entryText } from './engine/state.js';
 import { dispatch, prepareRun } from './engine/game.js';
 import { loadSave, saveRun, resetSave, emptyMeta } from './engine/save.js';
 import { shell } from './ui/shell.js';
@@ -12,13 +12,14 @@ import { startLecture, toggleWork, stopLecture, lectureRunning } from './ui/lect
 import { startViva, vivaMove, stopViva, vivaRunning, examTalk, examInterrupt, examCorridor } from './ui/viva.js';
 import { startCluster, clusterPick, stopCluster, clusterRunning } from './ui/cluster.js';
 import { draftFor } from './ui/apps/mail.js';
-import { markBoard, eraseBoard, paintBoard, boardLines } from './ui/apps/whiteboard.js';
+import { markBoard, eraseBoard, paintBoard } from './ui/apps/whiteboard.js';
 import { fixtures } from './data/desk.js';
+import { exams, badCop } from './data/exams.js';
 import { chatDraft } from './ui/apps/chat.js';
 import { rebuttalDraft } from './ui/apps/browser.js';
 import { conditions as conditionDefs } from './data/life.js';
 import { achievements } from './data/catalog.js';
-import { esc, voiced } from './ui/helpers.js';
+import { esc, voiced, rollReadout } from './ui/helpers.js';
 import { t, pauseProvenance, resumeProvenance } from './i18n/index.js';
 const conditionNames = Object.fromEntries(Object.entries(conditionDefs).map(([k, v]) => [k, v.name]));
 
@@ -81,8 +82,18 @@ function syncLecture() {
 function syncViva() {
   const on = run?.stage === 'minigame' && run?.minigame === 'viva';
   if (on && !vivaRunning()) {
+    // The establishing shot: who is in the room, what is booked, and whose third one of the week
+    // this is. It is the first thing the day tells you and it belongs before anybody speaks.
+    const exam = exams[run.viva.kind] || exams.prelim;
+    if (exam.note) sceneNote(t(exam.note));
     startViva((run.seed + run.month * 31 + (run.milestones?.prelimAttempts || 0) * 7) >>> 0, run.viva.kind, run.player.skills,
-      tally => { play('chime'); perform({ type: 'VIVA', tally }, { preserveScroll: false }); });
+      tally => {
+        play('chime');
+        perform({ type: 'VIVA', tally }, { preserveScroll: false });
+        // And afterwards, the one who was assigned the difficult role is warm to you and asks about
+        // your funding. Which lands only once the verdict is already in, so it goes after dispatch.
+        if (tally.badCop) sceneNote(t(badCop.afterward));
+      });
   }
   if (!on && vivaRunning()) stopViva();
   if (run?.stage !== 'minigame' || run?.minigame !== 'cluster') { if (clusterRunning()) stopCluster(); }
@@ -116,8 +127,36 @@ function flashAwards() {
 // Touching something on the desk says something back, and what it says is two or three sentences
 // long. The status bar truncates at about seventy characters, which cut every one of them in half.
 // So it lands on screen instead, in the same place achievements do, and wraps.
-function deskNote(text) {
+// The dice, at the moment they land. It also lives in the monthly report, but by then the scene
+// that produced it is four screens away.
+function showRoll(r) {
   const host = document.querySelector('[data-desk-host]');
+  if (!host || !r) return;
+  for (const old of host.querySelectorAll('.roll-toast')) old.remove();
+  const el = document.createElement('div');
+  el.className = `roll-toast ${r.success ? 'won' : 'lost'}`;
+  el.innerHTML = rollReadout(r);
+  host.appendChild(el);
+  setTimeout(() => el.remove(), 6500);
+}
+
+// Copy, from a menu that says Copy. Falls back silently rather than throwing in a sandbox.
+function copyText(text) {
+  if (!text) return;
+  try { navigator.clipboard?.writeText(text); } catch { /* no clipboard here */ }
+}
+
+function deskNote(text) {
+  note('[data-desk-host]', text);
+}
+// The same note, on the one layer that is above a dialog. Every scene in this game is a `.modal` at
+// z-index 20 and the desk host sits at 6, so a line raised from inside Room 214 through deskNote is
+// read — if at all — through a black overlay. The award host is the only host above the modals.
+function sceneNote(text) {
+  note('[data-award-host]', text);
+}
+function note(hostSel, text) {
+  const host = document.querySelector(hostSel);
   if (!host || !text) return;
   for (const old of host.querySelectorAll('.desk-note')) old.remove();
   const el = document.createElement('div');
@@ -269,6 +308,7 @@ root.addEventListener('click', event => {
   if (!target || target.disabled) return;
   const action = target.dataset.action, id = target.dataset.id;
   if (action !== 'start-menu') ui.startMenu = false;
+  if (action !== 'menu' && !String(action).startsWith('text-size') && action !== 'sound' && action !== 'quiet') ui.menu = null;
   if (!['choice', 'continue', 'dismiss-report', 'boot-skip', 'wb-mark'].includes(action)) play('click');
   switch (action) {
     case 'boot-skip': ui.screen = 'home'; render(); return;
@@ -294,7 +334,19 @@ root.addEventListener('click', event => {
     case 'shutdown': ui.dialog = 'shutdown'; render(); return;
     case 'close-dialog': ui.dialog = null; render(); return;
     case 'dismiss-balloon': ui.balloons = ui.balloons.filter(b => String(b.id) !== id); render(); return;
-    case 'start-menu': ui.startMenu = !ui.startMenu; render(); return;
+    case 'start-menu': ui.startMenu = !ui.startMenu; ui.menu = null; render(); return;
+    case 'menu': ui.menu = ui.menu === id ? null : id; ui.startMenu = false; render(); return;
+    case 'new-run': ui.menu = null; if (run && run.phase !== 'ending') { ui.confirm = 'new'; render(); } else { ui.screen = 'home'; ui.wizardStep = 0; ui.wizardChoice = 'new'; render({ preserveScroll: false }); } return;
+    case 'save-now': ui.menu = null; persist(); ui.saveNote = t('Saved.'); render(); return;
+    case 'to-wizard': ui.menu = null; ui.screen = 'home'; ui.minimized = false; ui.wizardStep = 0; render({ preserveScroll: false }); return;
+    case 'lang-toggle': ui.menu = null; setLanguage(meta.settings.lang === 'zh' ? 'en' : 'zh'); return;
+    case 'copy-seed': ui.menu = null; copyText(run ? String(run.seed) : ''); return;
+    case 'copy-notes': {
+      ui.menu = null;
+      const lines = (run?.history || []).filter(h => h.month === run.month).map(h => entryText(run, h));
+      copyText(lines.join('\n'));
+      return;
+    }
     case 'minimize': ui.minimized = true; render(); return;
     case 'restore': ui.minimized = false; render(); return;
     case 'maximize': document.querySelector('.workspace')?.classList.toggle('no-side'); return;
@@ -307,7 +359,11 @@ root.addEventListener('click', event => {
       applyTextSize(); saveMeta(); render(); return;
     }
     case 'open': {
-      if (!run || !['playing', 'ending'].includes(run.phase)) return;
+      // Mail, Netscope, Life.exe and Scholar are yours before anybody admits you — see the note on
+      // PRE_ENROL in shell.js. The others need a department and are disabled with a reason.
+      const PRE_ENROL = ['mail', 'browser', 'life', 'scholar'];
+      const early = run && ['prep', 'application', 'interviews', 'admissions'].includes(run.phase);
+      if (!run || !(['playing', 'ending'].includes(run.phase) || (early && PRE_ENROL.includes(target.dataset.app)))) return;
       closeCompose();
       ui.screen = 'game'; ui.app = target.dataset.app; ui.minimized = false;
       // A jump that names a destination lands on it. "Open OpenRegret" used to open Netscope on
@@ -505,7 +561,7 @@ root.addEventListener('click', event => {
     case 'wizard': { const p = run.projects.find(x => x.id === run.activeProjectId); perform({ type: 'WIZARD', venueId: p?.wizardStep === 0 ? id : undefined }); return; }
     case 'continue': play('click'); perform({ type: 'CONTINUE' }); return;
     case 'dismiss-report': play('chime'); perform({ type: 'DISMISS_REPORT' }); return;
-    case 'choice': stopSceneTimer(); play('click'); perform({ type: 'CHOICE', id }); return;
+    case 'choice': stopSceneTimer(); play('click'); perform({ type: 'CHOICE', id }); if (run?.lastRoll) showRoll(run.lastRoll); return;
     case 'pushback': stopSceneTimer(); play('click'); perform({ type: 'PUSHBACK', id }); return;
     case 'lecture-toggle': toggleWork(); return;
     default: break;

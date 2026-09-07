@@ -1131,6 +1131,7 @@ table.mini th { background: var(--face); }
 @keyframes award-in { from { opacity: 0; transform: translateX(20px) rotate(3deg) scale(.9); } to { opacity: 1; transform: none; } }
 @keyframes award-out { to { opacity: 0; transform: translateX(14px); } }
 @media (prefers-reduced-motion: reduce) { .award-toast { animation: none; } }
+.quiet .award-toast { animation: none; }
 
 /* One pace control, in one place. Four speeds; a closed one says why rather than vanishing. */
 .pace { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
@@ -1162,6 +1163,7 @@ table.mini th { background: var(--face); }
 .sm-legend .sw.eaten { background: #d79a9a; border-color: #a11d1d; }
 @keyframes sm-drop { from { opacity: 0; transform: translateY(-7px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .sm-hour i { animation: none; } }
+.quiet .sm-hour i { animation: none; }
 
 /* The month, before the tables. A face, four bars that move, and what happened as icons. */
 .glance { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center;
@@ -1336,7 +1338,17 @@ table.mini th { background: var(--face); }
 [data-vv][data-phase="qa"] .ex-qa,
 [data-vv][data-phase="corridor"] .ex-corridor,
 [data-vv][data-phase="clear"] .ex-clear,
-[data-vv][data-phase="intro"] .ex-clear { display: block; }
+[data-vv][data-phase="intro"] .ex-intro { display: block; }
+
+/* Being introduced: somebody at a lectern talking about themselves, and you at the side holding a
+   clicker. Not nine people walking out — that is the clearing, and it is a different fifteen minutes. */
+.ex-podium { position: relative; height: 74px; display: flex; align-items: flex-end; justify-content: center; gap: 26px; }
+.ex-lectern { display: block; width: 26px; height: 30px; background: #8b7355; border: 1px solid #6b573f; border-radius: 2px 2px 0 0; }
+.ex-speaker { position: absolute; left: 50%; bottom: 26px; margin-left: -30px; width: 14px; height: 30px; background: #5d6b7d; border-radius: 7px 7px 0 0; }
+.ex-speaker::before { content: ''; display: block; width: 11px; height: 11px; margin: -13px auto 0; border-radius: 50%; background: #c8a887; }
+.ex-you { display: block; width: 12px; height: 26px; background: var(--accent); border-radius: 6px 6px 0 0; animation: ex-wait 3.4s ease-in-out infinite; }
+.ex-you::before { content: ''; display: block; width: 10px; height: 10px; margin: -12px auto 0; border-radius: 50%; background: #c8a887; }
+@keyframes ex-wait { 0%, 100% { transform: none; } 50% { transform: translateX(2px); } }
 
 /* The deck. Filler looks like filler, which is the joke and also the tell. */
 .ex-slide { border: 2px solid var(--shadow); background: #f4f4ec; color: #1c1c1c; padding: 10px 12px; min-height: 74px; box-shadow: 3px 3px 0 rgba(0,0,0,.25); }
@@ -1380,7 +1392,12 @@ table.mini th { background: var(--face); }
 @keyframes ph-grin { 0%, 100% { height: 5px; } 50% { height: 8px; } }
 .ph-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; animation: ph-pop 2.8s ease-out .5s; }
 @keyframes ph-pop { 0% { opacity: 0; } 6% { opacity: .95; } 20% { opacity: 0; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .ph-flash, .ph-smile.real, .ex-figure, .ex-pip.now { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ph-flash, .ph-smile.real, .ex-figure, .ex-pip.now, .ex-you { animation: none; } }
+/* The OS setting and the game's own "Visual effects: reduced" have to mean the same thing: a
+   player who turns motion off in the Start menu is asking for the flash and the pulse to stop
+   whether or not their operating system was ever told. Every reduced-motion query below and
+   above is paired with the `.quiet` rule that says the same. */
+.quiet .ph-flash, .quiet .ph-smile.real, .quiet .ex-figure, .quiet .ex-pip.now, .quiet .ex-you { animation: none; }
 
 /* The things on the desk. A row at the foot of the sidebar, under the sticky note that has been
    saying "Water the plant. Water yourself." since long before there was a plant. No labels. */
@@ -1412,6 +1429,7 @@ table.mini th { background: var(--face); }
 .dk-fridge.cleared .df-body { background: linear-gradient(#e6e6de, #d0d0c8); }
 .dk-fridge:active .df-body { filter: brightness(1.06); }
 @media (prefers-reduced-motion: reduce) { .dc-back, .dc-seat, .dc-post { transition: none; } }
+.quiet .dc-back, .quiet .dc-seat, .quiet .dc-post { transition: none; }
 
 /* Narration is the camera; speech is the message. A line that opens on a quote keeps the body
    voice, and what the room did about it drops back a size so the message is the thing you read. */
@@ -1444,3 +1462,41 @@ table.mini th { background: var(--face); }
 .desk-note .narr { display: inline; }
 @keyframes dn-in { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .desk-note { animation: none; } }
+.quiet .desk-note { animation: none; }
+
+/* The dice, shown. What it read, what it needed, the chance that produced, and where the draw
+   landed — with the threshold marked, so a near miss looks like a near miss. */
+.roll { display: grid; gap: 3px; margin: 5px 0 2px; font-size: 11.5px; color: var(--disabled); }
+.roll-eq i { font-style: normal; opacity: .6; padding: 0 2px; }
+.roll-eq b { color: var(--ink); }
+.roll-bar { position: relative; height: 8px; background: var(--paper); border: 1px solid; border-color: var(--shadow) var(--hi) var(--hi) var(--shadow); box-shadow: inset 1px 1px var(--dark); }
+.roll-fill { position: absolute; inset: 0 auto 0 0; background: #7f9c7f; opacity: .55; }
+.roll.lost .roll-fill { background: #9c8a7f; }
+.roll-pin { position: absolute; top: -2px; width: 2px; height: 12px; margin-left: -1px; background: var(--ink); box-shadow: 0 0 0 1px var(--face); }
+.roll.won .roll-pin { background: #2f7a3f; }
+.roll.lost .roll-pin { background: #a33; }
+.roll-out b { color: var(--ink); }
+.roll.won .roll-out b { color: #2f7a3f; }
+.roll.lost .roll-out b { color: #a33; }
+.roll-toast { max-width: 300px; margin-top: 6px; padding: 8px 12px; background: var(--face); border: 2px solid;
+  border-color: var(--hi) var(--shadow) var(--shadow) var(--hi); box-shadow: 3px 3px 0 rgba(0,0,0,.28); animation: dn-in .22s ease-out; }
+.roll-toast .roll { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .roll-toast { animation: none; } }
+.quiet .roll-toast { animation: none; }
+
+/* Window menus that open. They looked like menus and did nothing, which in an interface pretending
+   to be an operating system reads as a broken operating system. */
+.mb-menu { position: relative; padding: 0; }
+.mb-menu > button { background: none; border: 0; padding: 2px 7px; font: inherit; color: inherit; cursor: pointer; }
+.mb-menu.open > button, .mb-menu > button:hover { background: var(--sel); color: var(--sel-ink); }
+.mb-drop { position: absolute; left: 0; top: 100%; z-index: 40; min-width: 208px; padding: 2px;
+  background: var(--face); border: 2px solid; border-color: var(--hi) var(--dark) var(--dark) var(--hi); box-shadow: 3px 3px 0 rgba(0,0,0,.35); }
+.mb-drop hr { border: 0; border-top: 1px solid var(--shadow); border-bottom: 1px solid var(--hi); margin: 3px 2px; }
+.mb-item { position: relative; display: flex; align-items: baseline; gap: 14px; width: 100%;
+  background: none; border: 0; padding: 4px 8px 4px 22px; font: inherit; color: inherit; text-align: left; cursor: pointer; white-space: nowrap; }
+.mb-item small { margin-left: auto; }
+.mb-item small { color: var(--disabled); font-size: 11px; }
+.mb-item:hover:not(:disabled) { background: var(--sel); color: var(--sel-ink); }
+.mb-item:hover:not(:disabled) small { color: var(--sel-ink); opacity: .8; }
+.mb-item:disabled { color: var(--disabled); cursor: default; }
+.mb-item.checked::before { content: '✓'; position: absolute; left: 8px; }

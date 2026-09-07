@@ -8,7 +8,7 @@ import { employers, employersFor, slateOdds, gateFor, drawWeather, weatherLine }
 import { trackById, ACADEMIC } from '../data/tracks.js';
 import { venueById } from '../data/venues.js';
 import { random, roll, clamp, pick, shuffle } from './probability.js';
-import { effects, log, message, award, lastName, firstName, fill } from './state.js';
+import { effects, log, message, award, lastName, firstName, fill, activeLabmates } from './state.js';
 import { myProfile } from './scholar.js';
 import { diamonds } from './paper.js';
 
@@ -193,7 +193,7 @@ function pickBeats(s) {
 export const currentBeat = s => epilogueBeats.find(b => b.id === s.epilogue?.beats?.[s.epilogue.index]) || null;
 
 export function beatText(s, beat) {
-  const mate = s.labmates[0]?.name || t('a labmate');
+  const mate = activeLabmates(s)[0]?.name || t('a labmate');
   const accepted = s.projects.filter(p => p.status === 'Accepted');
   const venue = venueById[accepted.at(-1)?.venueId]?.name || t('a venue you know');
   return fill(s, t(beat.text))

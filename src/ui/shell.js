@@ -39,6 +39,42 @@ const deskFixture = (s, id) => {
   return `<button class="${cls}" data-action="fixture" data-id="${id}" aria-label="${esc(t(f.label))}" title="">${FIXTURE_ART[id]}</button>`;
 };
 
+// What is actually under File, Edit, View and Help. Everything here does something; nothing here
+// is decoration. The register is the operating system's, not the game's.
+function windowMenus(s, ui, meta, playing) {
+  const size = meta.settings.textSize ?? 1;
+  return [
+    { id: 'file', label: t('File'), items: [
+      { label: t('New applicant…'), action: 'new-run', hint: t('Ends this run') },
+      { label: t('Save now'), action: 'save-now', disabled: !playing, hint: t('It autosaves anyway') },
+      { sep: true },
+      { label: t('Close window'), action: 'minimize', disabled: !playing },
+      { label: t('Exit to Setup'), action: 'to-wizard' },
+    ] },
+    { id: 'edit', label: t('Edit'), items: [
+      { label: t('Copy the seed'), action: 'copy-seed', disabled: !s, hint: s ? String(s.seed) : '' },
+      { label: t('Copy this month’s notes'), action: 'copy-notes', disabled: !playing },
+      { sep: true },
+      { label: t('Mark all mail read'), action: 'read-all-mail', disabled: !playing || !s?.inbox?.some(m => !m.read) },
+    ] },
+    { id: 'view', label: t('View'), items: [
+      { label: t('Bigger text'), action: 'text-size', id: 'up', disabled: size >= 4 },
+      { label: t('Smaller text'), action: 'text-size', id: 'down', disabled: size <= 0 },
+      { sep: true },
+      { label: t('Sound'), action: 'sound', checked: !!meta.settings.sound },
+      { label: t('Quiet desktop'), action: 'quiet', checked: !!meta.settings.quiet },
+      { sep: true },
+      { label: t('中文 / English'), action: 'lang-toggle' },
+    ] },
+    { id: 'help', label: t('Help'), items: [
+      { label: t('Tips…'), action: 'tips' },
+      { label: t('Achievements & discoveries'), action: 'collection' },
+      { sep: true },
+      { label: t('About Academic OS'), action: 'about' },
+    ] },
+  ];
+}
+
 const reminders = () => [t('You cannot optimize your way out of being a person.'), t('A finished project is a contribution. A perfect project is a rumor.'), t('Reply to the collaborator. (You will not.)'), t('Buy milk. Cite milk.'), t('The deadline is not a person. It cannot be disappointed in you.'), t('Water the plant. Water yourself.')];
 
 export function bootScreen() {
@@ -48,7 +84,10 @@ export function bootScreen() {
 function windowTitle(s, ui) {
   if (ui.screen === 'home') return [t('Academic OS Setup'), 'wizard'];
   if (ui.screen === 'collection') return [t('Achievements & discoveries'), 'star'];
-  if (['prep', 'application', 'interviews', 'admissions'].includes(s?.phase)) return ['GradApply 98', 'doc'];
+  if (['prep', 'application', 'interviews', 'admissions'].includes(s?.phase)) {
+    const early = { mail: [t('Mail'), 'mail'], browser: ['Netscope', 'browser'], life: ['Life.exe', 'heart'], scholar: ['Gaggle Scholar', 'book'] }[ui.app];
+    return early || ['GradApply 98', 'doc'];
+  }
   if (s?.phase === 'ending') return [t('Transcript — {name}', { name: s.player.name }), 'doc'];
   if (s?.stage === 'commencement') return [t('Commencement'), 'star'];
   if (s?.stage === 'epilogue') return [t('After — {name}', { name: s.player.name }), 'doc'];
@@ -60,7 +99,12 @@ function windowTitle(s, ui) {
 function content(s, ui, meta, saved, notices) {
   if (ui.screen === 'home' || !s && ui.screen !== 'collection') return setupWizard(ui, meta, saved, notices);
   if (ui.screen === 'collection') return collectionApp(meta, s);
-  if (['prep', 'application', 'interviews', 'admissions'].includes(s.phase)) return gradApply(s, ui);
+  // GradApply is the main window during the application phases, but the four apps that work
+  // before you enrol take the window when you open one, the way any other program would.
+  if (['prep', 'application', 'interviews', 'admissions'].includes(s.phase)) {
+    const early = { mail: mailApp, browser: browserApp, life: lifeApp, scholar: scholarApp }[ui.app];
+    return early ? early(s, ui) : gradApply(s, ui);
+  }
   if (s.phase === 'epilogue') return epilogueScreen(s, ui);
   // The run is over, but the six years are still yours to look through: Scholar, the inbox, the
   // calendar, the achievements. Only the manager is meaningless now, so that stays the transcript.
@@ -90,6 +134,17 @@ export function shell(run, ui, meta, saved, notices = []) {
   // After the run ends the desktop stays open: the archive is the point of having played.
   const archived = ui.screen === 'game' && s?.phase === 'ending';
   const canOpen = playing || archived;
+  // Before you enrol you are still a person with an inbox, a browser, a bank balance and a Scholar
+  // account — and the OS shipped with all nine icons dead for the first twenty minutes, which is a
+  // long time to look at a desktop that does nothing. These four work from the first screen; the
+  // rest need a department, and say so instead of being silently grey.
+  const PRE_ENROL = ['mail', 'browser', 'life', 'scholar'];
+  const applying = ui.screen === 'game' && ['prep', 'application', 'interviews', 'admissions'].includes(s?.phase);
+  const openable = id => canOpen || (applying && PRE_ENROL.includes(id));
+  const lockedWhy = id => (applying && !PRE_ENROL.includes(id)
+    ? { chat: t('No lab yet. You are not in one.'), portal: t('Not a student yet. That is the whole problem.'),
+        calendar: t('Nothing scheduled until somebody admits you.'), status: t('Ask again once you have a department.') }[id] || t('Not yet.')
+    : '');
   const [title, ic] = windowTitle(s, ui);
   const stress = playing ? s.player.hidden.stress : 0;
   const health = playing ? s.player.stats.health : 100;
@@ -112,9 +167,9 @@ export function shell(run, ui, meta, saved, notices = []) {
   <div class="award-host" data-award-host aria-live="polite"></div>
   <div class="desk-host" data-desk-host aria-live="polite"></div>
 
-  <nav class="desktop-icons" aria-label="${esc(t('Desktop'))}">${appDefs.map(([id, ic2, label]) => `<button class="desk-icon ${canOpen && ui.app === id ? 'active' : ''}" data-action="open" data-app="${id}" ${canOpen ? '' : 'disabled'} title="${esc(t(label))}">${icon(ic2, 32)}<span>${t(label)}</span>${id === 'mail' && unreadMail ? `<b class="badge">${unreadMail}</b>` : ''}${id === 'chat' && unreadChat ? `<b class="badge" title="${esc(t('{n} unread message(s)', { n: unreadChat }))}">${unreadChat}</b>` : ''}${id === 'chat' && !unreadChat && openReq ? `<b class="badge req" title="${esc(t('{n} open request(s) from your advisor', { n: openReq }))}">!</b>` : ''}</button>`).join('')}<button class="desk-icon" data-action="collection" title="${esc(t('Achievements'))}">${icon('star', 32)}<span>${t('Achievements')}</span></button></nav>
+  <nav class="desktop-icons" aria-label="${esc(t('Desktop'))}">${appDefs.map(([id, ic2, label]) => `<button class="desk-icon ${openable(id) && ui.app === id ? 'active' : ''}" data-action="open" data-app="${id}" ${openable(id) ? '' : 'disabled'} title="${esc(lockedWhy(id) || t(label))}">${icon(ic2, 32)}<span>${t(label)}</span>${id === 'mail' && unreadMail ? `<b class="badge">${unreadMail}</b>` : ''}${id === 'chat' && unreadChat ? `<b class="badge" title="${esc(t('{n} unread message(s)', { n: unreadChat }))}">${unreadChat}</b>` : ''}${id === 'chat' && !unreadChat && openReq ? `<b class="badge req" title="${esc(t('{n} open request(s) from your advisor', { n: openReq }))}">!</b>` : ''}</button>`).join('')}<button class="desk-icon" data-action="collection" title="${esc(t('Achievements'))}">${icon('star', 32)}<span>${t('Achievements')}</span></button></nav>
   <main class="workspace ${playing ? '' : 'no-side'}">
-    <section class="window ${ui.minimized ? 'minimized' : ''} ${isWizard ? 'wizard-window' : ''}" aria-label="${esc(title)}">${titlebar(esc(title), ic)}${menubar([t('File'), t('Edit'), t('View'), t('Help')], menuRight)}<div class="client" style="${isWizard ? 'padding:0;display:grid;grid-template-rows:minmax(0,1fr) auto' : ''}">${content(s, ui, meta, saved, notices)}</div>${statusbar([ui.saveError ? '⚠ ' + esc(ui.saveError) : playing ? esc(noticeText(s)) : t(SHORT_DISCLAIMER), playing ? vitalsPane(s) : '', s ? t('Seed {seed}', { seed: s.seed }) : t('Offline'), ui.saveError ? t('Not saved') : t('Autosave on')].filter(Boolean))}</section>
+    <section class="window ${ui.minimized ? 'minimized' : ''} ${isWizard ? 'wizard-window' : ''}" aria-label="${esc(title)}">${titlebar(esc(title), ic)}${menubar(windowMenus(s, ui, meta, playing), menuRight, ui.menu)}<div class="client" style="${isWizard ? 'padding:0;display:grid;grid-template-rows:minmax(0,1fr) auto' : ''}">${content(s, ui, meta, saved, notices)}</div>${statusbar([ui.saveError ? '⚠ ' + esc(ui.saveError) : playing ? esc(noticeText(s)) : t(SHORT_DISCLAIMER), playing ? vitalsPane(s) : '', s ? t('Seed {seed}', { seed: s.seed }) : t('Offline'), ui.saveError ? t('Not saved') : t('Autosave on')].filter(Boolean))}</section>
     ${playing ? `<aside class="sidebar"><div class="mini"><div class="titlebar"><span class="tb-title">${icon('status', 14)}<span>${esc(s.player.name)}</span></span></div><div class="body">${sideStatus(s)}</div></div>
     <div class="mini"><div class="titlebar"><span class="tb-title">${icon('user', 14)}<span>${t('Prof. {name}', { name: lastName(s.advisor.name) })}</span></span></div><div class="body"><div class="presence ${['checkedOut', 'traveling'].includes(s.advisorMode?.id) ? 'off' : s.advisorMode?.id === 'grant' ? 'away' : s.advisorMode?.id === 'pressed' ? 'typing' : ''}"><i></i>${esc(t(mode.presence))}</div><div class="small muted">${esc(t(mode.label))} · ${t('1:1s {cadence}', { cadence: t(s.cadence.oneOnOne) })}</div>${openReq ? `<div class="small" style="margin-top:4px">${tag(t('{n} open request(s)', { n: openReq }), 'warn')}</div>` : ''}<div class="row" style="margin-top:6px">${btn(t('Message'), 'open', { app: 'chat', cls: 'small' })}${btn(t('Requests'), 'open', { app: 'dashboard', cls: 'small link' })}</div></div></div>
     <div class="sticky"><span class="pin"></span>${esc(reminders()[(s.month + s.seed) % 6])}<small>— notes.txt</small></div>

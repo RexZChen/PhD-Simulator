@@ -1,6 +1,6 @@
 import { esc, btn, bar, group, tag, money, note, gauge } from '../helpers.js';
 import { icon } from '../icons.js';
-import { conditions as conditionDefs, clinics, budgets, lifeActions, COFFEE } from '../../data/life.js';
+import { conditions as conditionDefs, clinics, budgets, lifeActions, recharges, COFFEE } from '../../data/life.js';
 import { budgetOf, activeConditions, clinicQuote, lifeActionAvailable, healthWord, healthBand, lonelyWord, outOfPocket } from '../../engine/life.js';
 import { quitBand } from '../../engine/divergence.js';
 import { dateLabel } from '../../data/calendar.js';
@@ -75,8 +75,8 @@ function budgetBox(s) {
   return `<div class="budget-list">${Object.entries(budgets).map(([id, b]) => `<button class="option ${s.budget === id ? 'selected' : ''}" data-action="budget" data-id="${id}" ${s.stage !== 'plan' ? 'disabled' : ''}><span class="radio"></span><span><b>${esc(t(b.name))} · ${money(b.food)}${t('/mo')}</b><span class="muted">${esc(t(b.blurb))}</span></span></button>`).join('')}</div>`;
 }
 
-function actionList(s) {
-  return `<div class="life-actions">${lifeActions.map(a => {
+function actionList(s, list = lifeActions) {
+  return `<div class="life-actions">${list.map(a => {
     const why = lifeActionAvailable(s, a);
     return `<button class="life-act ${why ? 'off' : ''}" data-action="life" data-id="${a.id}" ${why || s.stage !== 'plan' ? 'disabled' : ''} title="${esc(why || t(a.line))}">
       ${icon(a.icon, 20)}<span><b>${esc(t(a.name))}</b><small class="muted">${why ? esc(why) : [a.cost?.energy ? t('−{n} Energy', { n: a.cost.energy }) : '', a.cost?.money ? `−${money(a.cost.money)}` : '', a.effects?.money ? `+${money(a.effects.money)}` : ''].filter(Boolean).join(' · ') || t('free')}</small></span>
@@ -107,8 +107,8 @@ export function lifeApp(s, ui) {
     body: `<div class="cols two"><div>${group(t('Vitals'), vitals(s))}${group(t('What is currently wrong'), conditionList(s))}</div>
       <div>${group(t('Where you could go'), clinicList(s))}${group(t('Your insurance, explained'), insuranceBox(s))}</div></div>`,
     money: `<div class="cols two"><div>${group(t('This month'), moneyBox(s))}</div>
-      <div>${group(t('How you are living'), budgetBox(s))}${group(t('Ways to make it through'), actionList(s))}</div></div>`,
-    living: `<div class="cols two"><div>${group(t('Things you could do that are not the PhD'), actionList(s))}</div>
+      <div>${group(t('How you are living'), budgetBox(s))}${group(t('Getting it back'), `<p class="tiny muted">${t('None of these costs Energy. All of them cost something.')}</p>` + actionList(s, recharges))}${group(t('Ways to make it through'), actionList(s))}</div></div>`,
+    living: `<div class="cols two"><div>${group(t('Getting it back'), actionList(s, recharges))}${group(t('Things you could do that are not the PhD'), actionList(s))}</div>
       <div>${group(t('Vitals'), vitals(s))}${group(t('How you are doing, honestly'), reflection(s))}${s.lifeOutcome ? note(esc(s.lifeOutcome)) : note(t('The life side is not a reward for finishing the work. It is the thing that lets you finish the work.'))}</div></div>`,
     visa: `<div class="cols two"><div>${group(t('Immigration status'), `<table class="grid">
       <tr><td>${t('Status')}</td><td class="num">F-1</td></tr>

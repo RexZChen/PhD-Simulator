@@ -202,3 +202,82 @@ export const deskZh = {
   "A fridge": "一台冰箱",
   "somebody in the lab": "实验室里的某个人",
 };
+
+// 掷骰读数：检定读的是什么、需要多少、由此得到的概率，以及这一次实际掷到了哪里。
+export const rollZh = {
+  "dependency": "依赖",
+  "hope": "希望",
+  "satisfaction": "满意度",
+  "trust": "信任",
+  "their {trait}": "他的{trait}",
+  "{label} {value}": "{label} {value}",
+  "{label} {value} against {difficulty}": "{label} {value}，对上难度 {difficulty}",
+  "rolled {draw}": "掷出 {draw}",
+  "failed": "没过",
+  "the odds": "运气",
+  "your bond with {name}": "你和 {name} 的交情",
+  "a bond": "一段交情",
+};
+
+// 把精力补回来：每一条都不花精力，每一条都花别的东西。
+export const rechargeZh = {
+  "Twenty minutes in the car": "在车里眯二十分钟",
+  "You set an alarm for twenty minutes and sleep in the driver’s seat in a car park you pay for monthly. You wake up before it goes off, every time, and you never once feel rested and you always feel better.": "你定了二十分钟的闹钟，在一个按月付费的停车场里，靠在驾驶座上睡着。每一次你都在闹钟响之前醒来，每一次都没觉得休息够了，而每一次都好受了一些。",
+  "Sleep in the lab": "睡在实验室",
+  "There is a couch on the fourth floor and everybody knows what it is for and nobody says so. You wake at 05:40 with a keyboard pattern on your face and forty uninterrupted minutes before anyone arrives, and those forty minutes are the most productive of the week.": "四楼有一张沙发，所有人都知道它是干什么用的，没有人说出来。你在 05:40 醒来，脸上压着键盘的纹路，在任何人到来之前有四十分钟不被打断的时间——而这四十分钟是这一周里效率最高的四十分钟。",
+  "Order it instead of cooking": "点外卖，不做饭了",
+  "Thirty-four dollars to not stand up. You do the arithmetic on what that is per hour of your stipend, decide not to finish the arithmetic, and eat it at the desk.": "三十四美元，换一个不用站起来。你开始算这相当于你助研津贴的多少小时，算到一半决定不算了，然后在桌前把它吃完。",
+  "Skip the thing you said you would go to": "翘掉那个你说过会去的活动",
+  "You do not go to the seminar. You get the afternoon back and it is a good afternoon. Your advisor mentions, four days later and entirely pleasantly, that the speaker asked after their students.": "你没去那个讲座。你把整个下午拿了回来，而且是个不错的下午。四天之后，你导师非常客气地提了一句：那位讲者问起过他的学生们。",
+  "Go home for the weekend": "回家过个周末",
+  "Four hours each way. Your mother has made too much food and asks when you finish, and you say the thing you always say, and for two days nobody uses the word “contribution” at you.": "单程四小时。你妈做了太多菜，然后问你什么时候能毕业，你说了你每次都说的那句话——而接下来两天里，没有人对你使用“贡献”这个词。",
+  "Take the one your labmate gave you": "吃掉同门给你的那一粒",
+  "It is prescribed to somebody else and it is in an unlabelled section of a pill organiser and the person who gave it to you was being kind. You get eleven hours that feel like a superpower and you do not sleep that night, and the day after the day after is the price, and you will pay it then rather than now, which is the entire appeal.": "那是开给别人的处方药，装在药盒里没有标签的那一格，而给你的人是出于好意。你得到十一个小时，感觉像有了超能力，那天晚上你没睡着；代价在后天，而你会到那时候再付，不是现在——这正是它全部的吸引力所在。",
+  "Getting it back": "把它补回来",
+  "None of these costs Energy. All of them cost something.": "这些都不花精力。它们都花别的东西。",
+  "The day after the day after. You are useless in a way that sleep does not touch, and you know exactly why, and you would probably do it again in April.": "后天到了。你以一种睡觉解决不了的方式毫无用处，而你非常清楚为什么，并且四月份你大概还会再来一次。",
+};
+
+// 窗口菜单：它们看起来像菜单却什么都不做，而在一个假装成操作系统的界面里，那读起来就是一个坏掉的操作系统。
+export const menuZh = {
+  "New applicant…": "新建申请人…",
+  "Save now": "立即保存",
+  "Ends this run": "会结束当前这一局",
+  "It autosaves anyway": "反正它会自动保存",
+  "Close window": "关闭窗口",
+  "Exit to Setup": "退出到安装向导",
+  "Copy the seed": "复制种子",
+  "Copy this month’s notes": "复制本月记录",
+  "Mark all mail read": "把邮件全部标为已读",
+  "Bigger text": "字大一点",
+  "Smaller text": "字小一点",
+  "Quiet desktop": "安静桌面",
+  "中文 / English": "English / 中文",
+  "Tips…": "使用提示…",
+  "Saved.": "已保存。",
+};
+
+// 草稿箱：写了却没发出去的那些。
+export const draftZh = {
+  "Drafts": "草稿箱",
+  "To: {advisor}": "收件人：{advisor}",
+  "Hi {advisor} — we are not going to make it. I would rather say that now than at 3am on the day.\n\nWhat I have is": "{advisor}，我们赶不上了。与其在截稿当天凌晨三点说，我宁愿现在说。\n\n我手上有的是",
+  "Re: Academic progress — response": "回复：学业进展——申辩",
+  "Dear {advisor},\n\nI have read the letter. I want to respond to the second paragraph, because I do not think it is accurate, and because if it stays on the file unanswered then it is the record.\n\nIn the twelve months it covers I": "{advisor}：\n\n信我读了。我想就第二段做出回应，因为我认为它并不准确，也因为如果它就这样留在档案里没有人回应，它就成了记录本身。\n\n在它所涵盖的这十二个月里，我",
+  "To: {labmate}": "收件人：{labmate}",
+  "hey, are you ok? you don’t have to answer that": "嘿，你还好吗？这个问题你可以不用回答",
+  "To: everyone": "收件人：全体",
+  "the desk": "关于那个座位",
+  "Does anyone want to say something about the desk? I will if someone else will.": "有没有人想说一说那个座位的事？只要还有一个人说，我就说。",
+  "To: {fired}": "收件人：{fired}",
+  "hey — long time. I was in the pipeline today and your initials are still in a comment in there and it still works.\n\nHow are you? Genuinely.\n\n": "嘿——好久没联系了。我今天在跑流水线，里面还留着一条注释，上面是你名字的缩写，而它到现在还能用。\n\n你还好吗？真心问的。\n\n",
+};
+
+// 入学之前，你依然是一个有收件箱、有浏览器、有银行余额和 Scholar 账号的人。
+export const preEnrolZh = {
+  "No lab yet. You are not in one.": "还没有实验室。你还不在任何一个里面。",
+  "Not a student yet. That is the whole problem.": "还不是学生。问题就出在这儿。",
+  "Nothing scheduled until somebody admits you.": "在有人录取你之前，日程上什么都没有。",
+  "Ask again once you have a department.": "等你有了系再来问。",
+  "Not yet.": "还不到时候。",
+};

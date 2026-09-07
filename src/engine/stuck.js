@@ -62,7 +62,13 @@ export function askDoor(s, id) {
   const d = doors[id];
   const p = activeProject(s);
   s.stuckAsked = { ...(s.stuckAsked || {}), [id]: s.month };
-  effects(s, { energy: -d.energy });
+  // Cost and restoration are separate: a door with a negative cost silently inverted this into a
+  // grant and made its own availability check unreachable.
+  if (d.energy > 0) effects(s, { energy: -d.energy });
+  if (d.restore) effects(s, { energy: d.restore });
+  // Stopping for the evening is not free of the month. Without this the sixth door was strictly
+  // the best one: energy back, a decent unstick, and the plan still delivered in full.
+  if (id === 'sleep') s.turnBite = clamp((s.turnBite || 0) + .08, 0, .3);
   const won = roll(s, doorOdds(s, d, opt.fits));
   const line = t(pick(s, won ? d.good : d.bad));
 

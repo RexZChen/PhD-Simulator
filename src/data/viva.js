@@ -13,7 +13,6 @@
 // brilliantly right. Saying nothing at all is always the worst outcome, which is also true.
 
 export const VIVA_SECONDS = 11;      // per question, before the silence answers for you
-export const VIVA_QUESTIONS = 6;
 
 // Who is in the room. Your advisor is at the back and may not speak, which is the point of them
 // being there.
@@ -143,6 +142,36 @@ export const vivaQuestions = {
       caught: '“In principle.” Every person in the room has said “in principle” about their own figure and knows what it means.',
       concede: '“Not without me sitting next to them for a day.” True of most of the field, rarely admitted, and the honesty is worth more than the yes.',
       redirect: 'You explain why Figure 6 is interesting. It is interesting. That is not what was asked.' },
+    { id: 'd_years', who: 'reader', domain: 'own', hard: 50,
+      q: '“Chapter two took you two years. Was it worth two years?”',
+      land: 'You say no, and then you say what it bought — the method in chapter three does not exist without it — and that is a more honest answer than yes and everybody in the room knows it.',
+      caught: 'You say yes, immediately, and hear yourself say it, and so does the reader, who was there for both of those years.',
+      concede: '“Probably not two. I could not have known that at the start and I am not sure I would have stopped.” Nobody in this room has ever stopped either.',
+      redirect: 'You describe what chapter two contains rather than what it cost. The question was about the cost.' },
+    { id: 'd_reviewer', who: 'method', domain: 'method', hard: 52,
+      q: '“Reviewer two on your third paper asked for an ablation you never ran. Why not?”',
+      land: 'Because it does not separate the two things they thought it separates, and you show why on the board in four lines, and that is the answer you wish you had put in the rebuttal.',
+      caught: '“We ran out of compute” is true and is not why, and the methodologist waits to see whether a second sentence is coming.',
+      concede: '“I should have run it. I was out of time and I told myself it would not change the result.” Everybody here has done exactly this.',
+      redirect: 'You describe the ablations you did run. There are four of them and they are good and none of them is the one that was asked for.' },
+    { id: 'd_use', who: 'outsider', domain: 'field', hard: 58,
+      q: '“Has anybody outside this university used any of it?”',
+      land: 'Two groups have, and you name them, and one of them found a bug and you fixed it and that exchange is in the acknowledgements.',
+      caught: 'You describe the download count of the repository. The outsider asked about people, not numbers, and did not blink.',
+      concede: '“Not yet. It is on GitHub and it has eleven stars, nine of which are people in this building.” It gets a laugh and it is a completely honest answer.',
+      redirect: 'You talk about who could use it, in the conditional, at some length, and the conditional is doing all the work.' },
+    { id: 'd_scoop', who: 'chair', domain: 'field', hard: 55,
+      q: '“A group at a company published something close to this in March. What is left that is yours?”',
+      land: 'You have read it properly, which most people have not, and you name the two things they did not do and the one thing they did better, and the room relaxes because that is what a scholar sounds like.',
+      caught: 'You say their setting is different. The chair asks how. The answer takes ninety seconds and does not arrive.',
+      concede: '“The overlap is real and I have thought about very little else since March.” Said plainly it is not a weakness; every person in the room has had a March.',
+      redirect: 'You go to the differences in the evaluation protocol, which are real and are not the question.' },
+    { id: 'd_advice', who: 'reader', domain: 'motivation', hard: 40,
+      q: '“What would you tell a first-year starting this project today?”',
+      land: 'Three things, all specific, none of them inspirational — start with the negative result, write the related work in year one, and pick the advisor before the topic. The room goes quiet in the good way.',
+      caught: 'You say “work hard and be curious,” and hear it land exactly as flat as it is.',
+      concede: '“Do not do this project. Do the next one, which is better, and which only exists because of this one.” It is the truest thing said all afternoon.',
+      redirect: 'You describe what you would do differently technically, which is a good answer to a different and easier question.' },
     { id: 'd_next', who: 'chair', domain: 'motivation', hard: 44,
       q: '“What would you do next, if you had another three years and no obligations?”',
       land: 'You answer for ninety seconds without stopping and everyone in the room remembers why they do this. Two of them will cite it in a letter.',
@@ -163,12 +192,4 @@ export const vivaMoves = {
   answer: { id: 'answer', label: 'Answer it', hint: 'Rolls against the question. The only move that can go badly.' },
   concede: { id: 'concede', label: 'Say what you do not know', hint: 'Safe on the field and the method. Not on your own work.' },
   redirect: { id: 'redirect', label: 'Take it somewhere you can stand', hint: 'Works when the question is not about your chapter.' },
-};
-
-// The room reads your composure and so does the roll. This is the spiral, and it is real.
-export const vivaGrades = {
-  strong: 'You leave the room and the corridor is very bright. Somebody says your first name in a different tone than they used this morning.',
-  solid: 'It went the way these go. You answered most of it, you did not know some of it, and you said so, and that was allowed.',
-  shaky: 'Two of those will stay with you for a decade. The committee is conferring and you are looking at a poster you have walked past four hundred times.',
-  bad: 'You are asked to wait in the corridor. The corridor has one chair in it, which tells you the corridor has been used this way before.',
 };

@@ -77,7 +77,32 @@ export const lifeActions = [
   { id: 'foodbank', name: 'Visit the campus food pantry', icon: 'folder', cooldown: 3, cost: { energy: 2 }, effects: { money: 180, hope: -4, stress: -3 }, conditions: { maxMoney: 400 },
     line: 'It is behind the chapel and open Tuesdays. Two people from your cohort are already in line. Nobody makes eye contact; everybody nods.' },
 ];
-export const lifeActionById = Object.fromEntries(lifeActions.map(a => [a.id, a]));
+
+// ── Getting it back ───────────────────────────────────────────────────────────────────────────
+// Energy is the thing the whole game spends, and running out used to be a wall: every action that
+// might have restored it cost some to take. So there is always a way back now, and every one of
+// them is paid for out of something else — your body, your money, your standing, or the month.
+// `recharge` groups them in Life.exe; the honest ones cost nothing you have and everything you are
+// going to want later.
+export const recharges = [
+  { id: 'carnap', name: 'Twenty minutes in the car', icon: 'moon', cooldown: 1, recharge: true, cost: {}, effects: { energy: 7, health: -1 },
+    line: 'You set an alarm for twenty minutes and sleep in the driver’s seat in a car park you pay for monthly. You wake up before it goes off, every time, and you never once feel rested and you always feel better.' },
+  { id: 'crash', name: 'Sleep in the lab', icon: 'moon', cooldown: 2, recharge: true, cost: {}, effects: { energy: 15, health: -5, stress: 3 },
+    line: 'There is a couch on the fourth floor and everybody knows what it is for and nobody says so. You wake at 05:40 with a keyboard pattern on your face and forty uninterrupted minutes before anyone arrives, and those forty minutes are the most productive of the week.' },
+  { id: 'delivery', name: 'Order it instead of cooking', icon: 'home', cooldown: 1, recharge: true, cost: { money: 34 }, effects: { energy: 8, health: -3, hope: 2, stress: -2 },
+    line: 'Thirty-four dollars to not stand up. You do the arithmetic on what that is per hour of your stipend, decide not to finish the arithmetic, and eat it at the desk.' },
+  { id: 'skipseminar', name: 'Skip the thing you said you would go to', icon: 'clock', cooldown: 2, recharge: true, cost: {}, effects: { energy: 10, stress: -5, satisfaction: -5 },
+    line: 'You do not go to the seminar. You get the afternoon back and it is a good afternoon. Your advisor mentions, four days later and entirely pleasantly, that the speaker asked after their students.' },
+  { id: 'homeweekend', name: 'Go home for the weekend', icon: 'plane', cooldown: 6, recharge: true, cost: { money: 190 }, effects: { energy: 18, hope: 11, loneliness: -18, progress: -4, stress: -8 },
+    conditions: { minMonth: 6 },
+    line: 'Four hours each way. Your mother has made too much food and asks when you finish, and you say the thing you always say, and for two days nobody uses the word “contribution” at you.' },
+  // The one everybody in the building knows about and nobody writes down.
+  { id: 'borrowed', name: 'Take the one your labmate gave you', icon: 'bolt', cooldown: 5, recharge: true, cost: {}, effects: { energy: 26, stress: -6, health: -7 },
+    conditions: { minMonth: 8 }, flags: { borrowedFocus: true },
+    line: 'It is prescribed to somebody else and it is in an unlabelled section of a pill organiser and the person who gave it to you was being kind. You get eleven hours that feel like a superpower and you do not sleep that night, and the day after the day after is the price, and you will pay it then rather than now, which is the entire appeal.' },
+];
+
+export const lifeActionById = Object.fromEntries([...lifeActions, ...recharges].map(a => [a.id, a]));
 
 // Coffee. The engine's only renewable resource, and a liar.
 export const COFFEE = {

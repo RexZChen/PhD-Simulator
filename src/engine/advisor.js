@@ -6,7 +6,7 @@ import { advisorPings, meetingDigests, logLines } from '../data/chatter.js';
 import { venues } from '../data/venues.js';
 import { monthOf, isTeachingTerm } from '../data/calendar.js';
 import { random, roll, clamp, pick, pickFresh, pickWeighted } from './probability.js';
-import { effects, log, chat, award, activeProject, absWeek, meetingsPerMonth, lastName, firstName, fill, labmateById, vars } from './state.js';
+import { effects, log, chat, award, activeProject, absWeek, meetingsPerMonth, lastName, firstName, fill, labmateById, vars, activeLabmates } from './state.js';
 import { provenanceOf } from '../i18n/index.js';
 import { eligible, freshness, pushEvent } from './events.js';
 
@@ -348,7 +348,7 @@ export function ask(s, id, composed = '') {
   if (branch.cadence) shiftCadence(s, branch.cadence);
   if (branch.personality) s.player.personality[branch.personality]++;
   if (branch.meeting) pushEvent(s, pickMeeting(s, { tempo: s.tempo, crunch: null, cancelled: false }) || 'meet_progress');
-  if (branch.collaborator && p) { const mate = pick(s, s.labmates); if (mate && !p.collaborators.includes(mate.name)) { p.collaborators.push(mate.name); mate.bond = clamp(mate.bond + 8); } }
+  if (branch.collaborator && p) { const mate = pick(s, activeLabmates(s)); if (mate && !p.collaborators.includes(mate.name)) { p.collaborators.push(mate.name); mate.bond = clamp(mate.bond + 8); } }
   const reply = silent ? pick(s, [t('(no reply)'), t('(read, no reply)'), t('Auto-reply: I am currently away with limited access to email.')]) : fill(s, pick(s, branch.text));
   chat(s, 'advisor', a.name, reply);
   log(s, `${spec.name}: ${silent ? t('no reply.') : success ? t('yes.') : t('no.')} ${reply}`);

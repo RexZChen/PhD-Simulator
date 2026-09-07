@@ -11,7 +11,7 @@ import { t } from '../../i18n/index.js';
 // Session-local. Cleared when the app closes.
 let board = null;
 
-const freshBoard = topic => ({ topic, marks: [], clicks: [], flowed: false, recent: [], seed: (Date.now() | 0) || 1 });
+const freshBoard = topic => ({ topic, marks: [], clicks: [], flowed: false, recent: [], said: null, seed: (Date.now() | 0) || 1 });
 export const boardFull = () => !!board && board.marks.length >= BOARD.capacity;
 export const boardCount = () => (board ? board.marks.length : 0);
 
@@ -45,6 +45,7 @@ export function eraseBoard() {
   const line = eraseLines[Math.floor(rnd() * eraseLines.length)];
   board.marks = [];
   board.clicks = [];
+  board.said = line;
   paintBoard();
   return line;
 }
@@ -66,21 +67,28 @@ export function markBoard(xPct, yPct) {
       ink: rnd() < .22 ? 'red' : rnd() < .3 ? 'green' : 'blue',
     });
   }
+  // The board says its own lines rather than handing them to main.js to put on the desktop: the
+  // desk host sits at z-index 6 and the board is a modal at 20, so a line raised outward from in
+  // here would be read through a black overlay, which is to say not read.
+  const flowed = !board.flowed && board.clicks.length >= BOARD.burstNeed;
+  const out = flowed ? 'flow' : board.marks.length >= BOARD.capacity ? 'full' : null;
+  if (flowed) board.flowed = true;
+  if (out) board.said = flowed ? flowLine : fullLine;
   paintBoard();
-  if (!board.flowed && board.clicks.length >= BOARD.burstNeed) {
-    board.flowed = true;
-    return 'flow';
-  }
-  return board.marks.length >= BOARD.capacity ? 'full' : null;
+  return out;
 }
 
 // Paint directly; the app re-renders around this and must not wipe the marks.
 export function paintBoard() {
   const host = document.querySelector('[data-wb-surface]');
   if (!host || !board) return;
-  host.innerHTML = board.marks.map((m, i) => `<span class="wb-mark ink-${m.ink}" style="left:${m.x}%;top:${m.y}%;--r:${m.rot}deg;font-size:${m.size}px;--i:${i}">${esc(m.text)}</span>`).join('');
+  host.innerHTML = board.marks.map((m, i) => `<span class="wb-mark ink-${m.ink}" style="left:${m.x}%;top:${m.y}%;--r:${m.rot}deg;font-size:${m.size}px;--i:${i}">${esc(t(m.text))}</span>`).join('');
   const meter = document.querySelector('[data-wb-count]');
   if (meter) meter.textContent = t('{n} of {max}', { n: board.marks.length, max: BOARD.capacity });
+  // Inline display rather than a class, because styles.css has no general hidden rule and an empty
+  // paragraph still reserves a line, which moves the surface every time the board speaks.
+  const said = document.querySelector('[data-wb-said]');
+  if (said) { said.textContent = board.said ? t(board.said) : ''; said.style.display = board.said ? '' : 'none'; }
   const surf = document.querySelector('[data-wb-surface]');
   if (surf) surf.classList.toggle('full', board.marks.length >= BOARD.capacity);
 }
@@ -96,9 +104,9 @@ export function whiteboardApp(s) {
       ${btn(`${icon('trash', 14)} ${t('Erase')}`, 'wb-erase', { cls: 'small' })}
     </div>
     <div class="wb-surface" data-wb-surface data-action="wb-mark" role="img" aria-label="${esc(t('A whiteboard. Click it.'))}"></div>
+    <p class="tiny wb-said" data-wb-said aria-live="polite" style="display:none"></p>
     <p class="tiny muted">${esc(t(boardNote))}</p>
   </div>`;
 }
 
-export const boardLines = { full: fullLine, flow: flowLine };
 export const closeBoard = () => { board = null; };

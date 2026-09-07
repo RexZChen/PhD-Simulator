@@ -72,7 +72,14 @@ function paint() {
   if (live.phase === 'corridor') paintCorridor(root, set);
   if (live.phase === 'clear' || live.phase === 'intro') paintClear(root, set);
   root.classList.toggle('resolving', !!live.holdUntil);
-  for (const b of root.querySelectorAll('[data-action="viva-move"]')) b.disabled = !!live.holdUntil;
+  for (const b of root.querySelectorAll('[data-action="viva-move"],[data-action="exam-talk"],[data-action="exam-interrupt"]')) b.disabled = !!live.holdUntil;
+  // Panels for the other phases are display:none, but their buttons were still enabled and still
+  // carried data-hotkey 1..3 — and the hotkey handler takes the first match in the document, so
+  // the number keys during the questions were pressing the hidden talk buttons.
+  for (const panel of root.querySelectorAll('.ex-only')) {
+    const off = !panel.classList.contains(`ex-${live.phase}`);
+    for (const b of panel.querySelectorAll('button')) if (off) b.disabled = true;
+  }
 }
 
 function paintTalk(root, set) {
@@ -150,7 +157,7 @@ function missInterrupt() {
 }
 
 export function examInterrupt() {
-  if (!live || live.phase !== 'talk' || !live.interrupt) return;
+  if (!live || live.phase !== 'talk' || live.holdUntil || !live.interrupt) return;
   live.interrupt = null; live.interruptDone = true; live.badCop = 'handled';
   live.elapsed += INTERRUPT_COST;                       // it costs you two minutes of the talk
   live.composure = Math.min(100, live.composure + 8);
@@ -159,7 +166,7 @@ export function examInterrupt() {
 }
 
 export function examTalk(move) {
-  if (!live || live.phase !== 'talk') return;
+  if (!live || live.phase !== 'talk' || live.holdUntil) return;
   const slide = live.deck[live.slideIndex];
   if (!slide) return;
   if (move === 'hold') {
@@ -179,6 +186,8 @@ export function examTalk(move) {
 }
 
 function endTalk(how) {
+  if (live.talkHow) return;                       // never re-decide a verdict already reached
+  if (live.interrupt) { live.interrupt = null; live.interruptDone = true; live.badCop = 'ignored'; live.composure = Math.max(0, live.composure - 12); }
   live.talkHow = how;
   if (how === 'cut') {
     // Everything you never reached counts against you, which is what running long actually costs.
@@ -264,14 +273,22 @@ function startTalk(s) {
 }
 
 function startQa(s) {
-  const pool = [...(vivaQuestions[live.kind] || vivaQuestions.prelim)];
+  // A defense has two question segments and they must not be the same questions. The room
+  // remembers what it has already asked; without this the closed session re-asked all three of
+  // the open-floor questions word for word, with the same answer prose, and counted them twice.
+  const bank = vivaQuestions[live.kind] || vivaQuestions.prelim;
+  let pool = bank.filter(q => !live.asked.includes(q.id));
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(live.rand() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   // The one who read it always gets a question about your own work in, because in a real room
   // they always do. An ignored interruption buys you one extra, which is exactly how that works.
-  const own = pool.find(q => q.domain === 'own');
   const want = (s.questions || 4) + (live.badCop === 'ignored' && s.tone === 'harsh' ? 1 : 0);
+  // If a future content trim leaves too few, take the shortfall from the bank rather than
+  // silently running a shorter segment — but never prefer a repeat over something unasked.
+  if (pool.length < want) pool = [...pool, ...bank.filter(q => !pool.includes(q))].slice(0, want);
+  const own = pool.find(q => q.domain === 'own');
   const rest = pool.filter(q => q !== own).slice(0, Math.max(0, want - (own ? 1 : 0)));
   const qs = own ? [own, ...rest] : rest;
+  live.asked.push(...qs.map(q => q.id));
   for (let i = qs.length - 1; i > 0; i--) { const j = Math.floor(live.rand() * (i + 1)); [qs[i], qs[j]] = [qs[j], qs[i]]; }
   live.questions = qs;
   live.index = 0;
@@ -285,7 +302,11 @@ function finish() {
     composure: Math.round(live.composure),
     talk: { covered: live.covered, skipped: live.skipped, wasted: live.wasted, how: live.talkHow, trapSeen: !!live.trapSeen },
     badCop: live.badCop,
-    stillness: live.touched.length === 0 ? 'total' : live.touched.includes('nothing') ? 'chair' : null,
+    // The chair, or nothing at all. Awarding this for pure inaction gave it to anyone who walked
+    // away from the keyboard and withheld it from the player who pressed the button whose text is
+    // quoted in the achievement. Looking at your phone first still does not count.
+    stillness: live.touched.length === 0 || (live.touched.length === 1 && live.touched[0] === 'nothing')
+      ? 'total' : live.touched.includes('nothing') ? 'chair' : null,
   };
   const done = live.onDone;
   stopViva();
@@ -304,7 +325,7 @@ export function startViva(seed, kind, skills, onDone) {
     tally: { land: 0, concede: 0, caught: 0, silent: 0 },
     deck: [], slideIndex: 0, covered: 0, skipped: 0, wasted: 0, talkHow: null,
     interrupt: null, interruptSlide: 3, interruptUntil: 0, interruptDone: false, badCop: null, badCopWho: null,
-    questions: [], index: 0, touched: [],
+    questions: [], index: 0, touched: [], asked: [],
   };
   timer = setInterval(step, TICK);
   nextSegment();

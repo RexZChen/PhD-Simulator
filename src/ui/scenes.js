@@ -219,6 +219,7 @@ export function vivaDialog(s) {
     </div>
 
     <div class="ex-only ex-clear"><div class="ex-leaving">${Array.from({ length: 9 }, (_, i) => `<i class="ex-figure" style="--d:${i * .18}s"></i>`).join('')}</div></div>
+    <div class="ex-only ex-intro"><div class="ex-podium"><i class="ex-lectern"></i><i class="ex-speaker"></i><i class="ex-you"></i></div></div>
 
     <p class="vv-flash hidden" data-vv-flash></p>
     <p class="tiny muted">${esc(t(examNote))}</p>

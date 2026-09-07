@@ -4,7 +4,7 @@ import { avatar } from '../avatars.js';
 import { asks } from '../../data/asks.js';
 import { channelActions } from '../../data/social.js';
 import { requestById } from '../../data/requests.js';
-import { absWeek, lastName, firstName, fill, entryDate, chatBody, requestText, activeProject } from '../../engine/state.js';
+import { absWeek, lastName, firstName, fill, entryDate, chatBody, requestText, activeProject, activeLabmates } from '../../engine/state.js';
 import { MODES } from '../../engine/advisor.js';
 import { eligible } from '../../engine/events.js';
 import { composedText, isStreaming } from '../compose.js';
@@ -186,14 +186,14 @@ export function chatApp(s, ui) {
   };
 
   const rail = `<div class="slack-rail">
-    <div class="sl-work"><b>${esc(s.program.name)}</b><small>${esc(t('{n} members', { n: s.labmates.length + s.peers.length + 2 }))}</small></div>
+    <div class="sl-work"><b>${esc(s.program.name)}</b><small>${esc(t('{n} members', { n: activeLabmates(s).length + s.peers.length + 2 }))}</small></div>
     <div class="sl-section">${t('Channels')}</div>
     ${railItem('general', 'general', '#')}
     ${railItem('cohort', 'cohort', '#')}
     <div class="sl-section">${t('Direct messages')}</div>
     ${railItem('advisor', t('Prof. {name}', { name: lastName(s.advisor.name) }), `<i class="dot ${presenceOf(s)}"></i>`)}
     ${dmPeople(s).map(p => railItem(p.channel, firstName(p.name), `<i class="dot ${p.role === 'phantom' ? 'off' : ''}"></i>`, `<span class="sl-role">${esc(t(p.role || 'peer'))}</span>`)).join('')}
-    <div class="sl-people">${s.labmates.filter(l => !dmPeople(s).some(d => d.id === l.id)).map(l => `<div class="sl-person"><i class="dot ${l.role === 'phantom' ? 'off' : ''}"></i>${esc(firstName(l.name))}<span class="muted"> · ${esc(t(l.role))}</span></div>`).join('')}</div>
+    <div class="sl-people">${activeLabmates(s).filter(l => !dmPeople(s).some(d => d.id === l.id)).map(l => `<div class="sl-person"><i class="dot ${l.role === 'phantom' ? 'off' : ''}"></i>${esc(firstName(l.name))}<span class="muted"> · ${esc(t(l.role))}</span></div>`).join('')}</div>
     ${(s.contacts || []).length ? `<div class="sl-section">${t('Outside the lab')}</div>
     ${(s.contacts || []).map(c => `<button class="sl-item net ${channel === `net:${c.id}` ? 'active' : ''} ${c.status !== 'active' ? 'faded' : ''}" data-action="chat-channel" data-id="net:${c.id}" title="${esc(t(contactKinds[c.kind].label))} · ${esc(c.org)}"><span class="sl-ic">${avatar(c.name, 18)}</span><span class="sl-label">${esc(contactLabel(c))}</span>${c.task ? `<b class="sl-badge owe" title="${esc(t('You owe them something'))}">!</b>` : ''}</button>`).join('')}` : ''}
   </div>`;
@@ -207,7 +207,7 @@ export function chatApp(s, ui) {
     : channel === 'advisor'
     ? `<div class="ch-advisor">${faceFor(mode.face || 'ok', 30)}<div><b>${t('Prof. {name}', { name: s.advisor.name })}</b><span class="ch-topic">${esc(t(mode.presence))} · ${esc(t(mode.label))} · ${t('1:1s {cadence}', { cadence: t(s.cadence.oneOnOne) })}</span></div></div>`
     : channel === 'general'
-      ? `<div><b># general</b><span class="ch-topic">${t('The lab. {names} and you.', { names: s.labmates.map(l => firstName(l.name)).join(', ') })}</span></div>`
+      ? `<div><b># general</b><span class="ch-topic">${t('The lab. {names} and you.', { names: activeLabmates(s).map(l => firstName(l.name)).join(', ') })}</span></div>`
       : `<div><b># cohort</b><span class="ch-topic">${t('Other labs, same problems. {names}.', { names: s.peers.map(p => firstName(p.name)).join(', ') })}</span></div>`;
 
   let lastDate = null, lastSender = null;

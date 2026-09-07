@@ -6,7 +6,7 @@ import { HARD_TA, raLostText, raBackText, raExtendText } from '../data/hardta.js
 import { conditions as conditionDefs, clinicById, clinics, budgets, lifeActionById, COFFEE } from '../data/life.js';
 import { monthOf } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, chat, award, absWeek, activeProject, lastName, fill, joined } from './state.js';
+import { effects, log, message, chat, award, absWeek, activeProject, lastName, fill, joined, activeLabmates } from './state.js';
 
 export const PLAN_YEAR_MONTH = 9; // insurance resets in September, like everything else
 
@@ -206,7 +206,7 @@ export function resolveCrisis(s, moveId) {
   log(s, joined(t(move.line), bill ? ' ' : '', bill ? t('The visit cost you ${n} after insurance.', { n: bill }) : ''));
   // What comes next is the point: the deadline did not move.
   chat(s, 'advisor', s.advisor.name, t(pick(s, afterCrisis.advisor)));
-  if (s.labmates?.length) chat(s, 'general', pick(s, s.labmates).name, fill(s, t(pick(s, afterCrisis.lab))));
+  { const here = activeLabmates(s); if (here.length) chat(s, 'general', pick(s, here).name, fill(s, t(pick(s, afterCrisis.lab)))); }
   log(s, t(pick(s, afterCrisis.self)));
   award(s, 'thebody');
   if ((s.counts.crisisTreated || 0) >= 2) award(s, 'twocrisestreated');
@@ -340,7 +340,7 @@ export function vitalsDrift(s, weeks) {
   if (st.health < 25) health += .7;
 
   let lonely = 1 + (s.player.profile.international ? .8 : 0);
-  const bonds = [...s.labmates, ...s.peers];
+  const bonds = [...activeLabmates(s), ...s.peers];
   const avgBond = bonds.length ? bonds.reduce((a, x) => a + x.bond, 0) / bonds.length : 40;
   lonely -= avgBond > 60 ? .7 : avgBond > 45 ? .35 : 0;
   lonely -= s.flags.partner ? .8 : 0;
@@ -395,6 +395,13 @@ export function doLifeAction(s, id) {
 
 // Monthly bookkeeping for the life side.
 export function monthlyLife(s) {
+  // What you borrowed. It was eleven hours that felt like a superpower and it is charged to the
+  // following month, which is the entire appeal and the entire problem.
+  if (s.flags.borrowedFocus) {
+    s.flags.borrowedFocus = false;
+    effects(s, { energy: -9, health: -2, stress: 5 });
+    log(s, t('The day after the day after. You are useless in a way that sleep does not touch, and you know exactly why, and you would probably do it again in April.'));
+  }
   s.caffeine = s.caffeine || { day: 0, week: 0, month: 0, lastCrash: -99 };
   s.caffeine.month = 0; s.caffeine.week = 0; s.caffeine.day = 0;
   s.meals = s.meals || { skipped: 0, skippedMonth: 0 };

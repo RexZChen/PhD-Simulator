@@ -9,6 +9,7 @@ import { t } from '../../i18n/index.js';
 const FOLDERS = () => [
   ['inbox', t('Inbox'), 'folder'],
   ['sent', t('Sent Items'), 'send'],
+  ['drafts', t('Drafts'), 'doc'],
   ['junk', t('Junk Email'), 'trash'],
 ];
 

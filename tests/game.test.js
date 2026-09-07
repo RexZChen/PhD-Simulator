@@ -1913,45 +1913,93 @@ test('each exam runs the hours it claims to, in the order it claims', async () =
 });
 
 test('the labmate who is pushed out stays the same person, and can become a contact', async () => {
-  // The arc spans years and the last beat fires with no eventActor at all, so the person has to be
-  // pinned on the run rather than re-picked. Getting this wrong is silent: the final scene would
-  // simply name somebody else, which is worse than a crash because it still reads as prose.
+  // This test used to hand-set eventActor to exactly the value firesLabmate falls back to (the
+  // highest-bond labmate), so it passed identically whether the actor was carried through the
+  // schedule or re-picked from scratch — it could not detect the very regression it was written
+  // for. And the regression was live: followUps were pushed as { id, week } with no actor, so
+  // beat 2 opened with eventActor === null and named somebody else.
+  //
+  // So: pick the LOWEST-bond labmate, which the fallback would never choose, and drive beat 2
+  // through the real scheduler rather than by hand.
   const { activeContacts } = await import('../src/engine/network.js');
-  const { eventText, templateById } = await import('../src/engine/events.js');
-  const s = enterProgram(11);
-  s.month = 24;
-  const best = s.labmates.filter(l => l.status === 'active').sort((a, b) => b.bond - a.bond)[0];
-  let run = { ...s, eventActor: { type: 'labmate', id: best.id }, event: 'fired_told' };
-  run = dispatch(run, { type: 'CHOICE', id: 'stairwell' });
-  assert.equal(run.fired?.name, best.name, 'the run remembers who it was');
-  assert.equal(run.labmates.find(l => l.id === best.id).status, 'left');
+  const { eventText, templateById, scheduleTurnEvents } = await import('../src/engine/events.js');
+  const base = enterProgram(29);
+  base.month = 20;
+  const mates = base.labmates.filter(l => l.status === 'active').sort((a, b) => b.bond - a.bond);
+  const chosen = mates[mates.length - 1];
+  assert.notEqual(chosen.id, mates[0].id, 'need a labmate the fallback would not pick');
+
+  // Beat 1, about the low-bond one.
+  let run = dispatch({ ...base, eventActor: { type: 'labmate', id: chosen.id }, event: 'fired_tell' }, { type: 'CHOICE', id: 'ask' });
+  assert.equal(run.fired?.name, chosen.name, 'beat 1 does not record who it was about');
+  const beat = run.scheduled.find(x => x.id === 'fired_told');
+  assert.ok(beat, 'beat 2 was not scheduled');
+  assert.equal(beat.actor?.id, chosen.id, 'the follow-up does not carry the person it is about');
+
+  // Beat 2's body renders BEFORE any choice is made, so the name has to be there already.
+  const body = eventText(run, templateById.fired_told);
+  assert.ok(body.includes(chosen.name.split(' ')[0]), 'beat 2 names the wrong person');
+  assert.equal((body.match(/\{[a-zA-Z]+\}/g) || []).length, 0, 'beat 2 left a token unresolved');
+
+  run = dispatch({ ...run, eventActor: beat.actor, event: 'fired_told' }, { type: 'CHOICE', id: 'stairwell' });
+  assert.equal(run.fired.name, chosen.name, 'the arc changed person at beat 2');
+  assert.equal(run.labmates.find(l => l.id === chosen.id).status, 'left');
   assert.equal(run.flags.labmateFired, true);
 
-  // Years later, with the actor long gone, the later beats still name them.
+  // Years later, with no actor at all, the later beats still name them.
   run.month = 40; run.eventActor = null;
   for (const id of ['fired_room', 'fired_after']) {
-    const body = eventText(run, templateById[id]);
-    assert.equal((body.match(/\{[a-zA-Z]+\}/g) || []).length, 0, `${id} left a token unresolved`);
+    const text = eventText(run, templateById[id]);
+    assert.equal((text.match(/\{[a-zA-Z]+\}/g) || []).length, 0, `${id} left a token unresolved`);
   }
-  assert.ok(eventText(run, templateById.fired_room).includes(best.name.split(' ')[0]),
-    'the group meeting names the person who actually left');
+  assert.ok(eventText(run, templateById.fired_room).includes(chosen.name.split(' ')[0]),
+    'the group meeting names somebody other than the person who left');
 
   // Sending the message turns them into a real contact under their own name.
-  run.event = 'fired_after';
-  run = dispatch(run, { type: 'CHOICE', id: 'message' });
-  const contact = activeContacts(run).find(c => c.name === best.name);
+  run = dispatch({ ...run, event: 'fired_after' }, { type: 'CHOICE', id: 'message' });
+  const contact = activeContacts(run).find(c => c.name === chosen.name);
   assert.ok(contact, 'keeping in touch puts them in the network');
   assert.equal(contact.where, 'lab');
   assert.ok(contact.regard > 60, 'they are not bitter');
   assert.equal(run.fired.kept, true);
 
   // Letting it go does not.
-  let other = { ...enterProgram(11), month: 24 };
-  const who = other.labmates.filter(l => l.status === 'active').sort((a, b) => b.bond - a.bond)[0];
-  other = dispatch({ ...other, eventActor: { type: 'labmate', id: who.id }, event: 'fired_told' }, { type: 'CHOICE', id: 'desk' });
+  let other = dispatch({ ...base, eventActor: { type: 'labmate', id: chosen.id }, event: 'fired_told' }, { type: 'CHOICE', id: 'desk' });
   other = dispatch({ ...other, month: 40, event: 'fired_after' }, { type: 'CHOICE', id: 'let' });
-  assert.equal(activeContacts(other).some(c => c.name === who.name), false);
+  assert.equal(activeContacts(other).some(c => c.name === chosen.name), false);
   assert.equal(other.fired.kept, false);
+});
+
+test('the outcome of a choice is actually shown, and it is shown in Chinese', async () => {
+  // Two coupled bugs, both invisible for a long time. translateChoiceList never copied `result`,
+  // so every Chinese outcome translation was dead code; and say() had no branch for a static
+  // result, so the outcome sentence was dropped from the report, the timeline and the field notes
+  // — in English as well. The second bug is what let the zh round-trip test pass: it threw the
+  // untranslated tail away before the assertion could see it.
+  const { entryText } = await import('../src/engine/state.js');
+  const { events } = await import('../src/data/events.js');
+  const { events: zhEvents } = await import('../src/i18n/zh/events.js');
+
+  // Every authored outcome has a Chinese counterpart. 131 of these had none and were reachable.
+  const missing = [];
+  for (const e of events) {
+    const tr = zhEvents[e.id];
+    for (const c of e.choices || []) {
+      for (const k of ['result', 'successText', 'failureText']) {
+        if (c[k] && !tr?.choices?.[c.id]?.[k]) missing.push(`${e.id}.${c.id}.${k}`);
+      }
+    }
+  }
+  assert.deepEqual(missing, [], `${missing.length} outcome string(s) would render in English mid-scene`);
+
+  // And the sentence survives the round trip into the log. Pick a real static-result choice.
+  const s = enterProgram(23);
+  s.month = 30;
+  s.fired = { id: 'lab-0', name: 'Ingrid Ashdown', month: 20, kept: false };
+  const run = dispatch({ ...s, event: 'fired_after' }, { type: 'CHOICE', id: 'message' });
+  const line = entryText(run, run.history[run.history.length - 1]);
+  assert.ok(line.includes('nine minutes'), 'the outcome prose is dropped on re-read');
+  assert.ok(line.length > 120, 'the log line is only the title and the choice');
 });
 
 test('each thing on the desk says its own line, including when it has nothing to say', async () => {
@@ -1984,4 +2032,27 @@ test('each thing on the desk says its own line, including when it has nothing to
   }
   // The whiteboard is a door, not a ritual: it must never go through the engine at all.
   assert.equal(useFixture(s, 'board'), null);
+});
+
+test('touching a decorative object on cooldown does not move the run RNG', async () => {
+  // The whole game is reproducible from a seed — the balance harness, every bug report and the
+  // save format all depend on it. The desk fixtures broke that: the cooldown branch drew from the
+  // run stream to pick a flavour line, so clicking the plant an arbitrary number of times reseeded
+  // every subsequent roll. Same seed, same decisions, different outcome.
+  const { useFixture } = await import('../src/engine/desk.js');
+  const s = enterProgram(7);
+  s.month = 26; s.week = 0;
+  for (const id of ['plant', 'chair', 'fridge']) {
+    useFixture(s, id);                                   // the real use, which is allowed to draw
+    const before = { rng: s.rng, energy: s.player.stats.energy, hope: s.player.stats.hope, stress: s.player.hidden.stress };
+    for (let i = 0; i < 12; i++) useFixture(s, id);      // twelve idle clicks, same week
+    assert.equal(s.rng, before.rng, `${id} advanced the RNG while on cooldown`);
+    assert.equal(s.player.stats.energy, before.energy, `${id} changed Energy while on cooldown`);
+    assert.equal(s.player.stats.hope, before.hope, `${id} changed Hope while on cooldown`);
+    assert.equal(s.player.hidden.stress, before.stress, `${id} changed Stress while on cooldown`);
+  }
+  // And it still says something — inert is not the same as silent.
+  const said = useFixture(s, 'plant');
+  assert.ok(said.line && said.line.length > 10);
+  assert.equal(said.again, false);
 });

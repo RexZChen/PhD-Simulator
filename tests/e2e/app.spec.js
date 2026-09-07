@@ -43,6 +43,35 @@ async function clickInPanel(page, selector, panel = '.summertalk') {
 }
 
 
+// Playwright's default action timeout is unbounded, so an unlucky click waits out the whole test
+// budget instead of failing. Room 214 is full of unlucky clicks: every phase's panel is
+// display:none between its segments, the runner disables the buttons inside an off-phase panel,
+// and it disables every button for two and a half seconds while a verdict lands. Clicking one of
+// those used to hang until the test died — the failure looked like a stuck talk and was a stuck
+// click. So nothing in the exam is clicked unless it is there, visible and enabled, and no click
+// is ever allowed to outlive one beat of the room.
+async function tryClick(locator, ms = 1500) {
+  const one = locator.first();
+  if (!(await locator.count())) return false;
+  if (!(await one.isVisible().catch(() => false))) return false;
+  if (!(await one.isEnabled().catch(() => false))) return false;
+  return one.click({ timeout: ms }).then(() => true, () => false);
+}
+// The room can close between the count() and the read, and a detached element throws.
+const examPhase = room => room.getAttribute('data-phase').catch(() => null);
+// And the room leaving the document is not the exam ending. A render replaces the whole desktop,
+// and anything on a timer can cause one mid-exam — an achievement balloon expiring is enough — so
+// for a frame there is no [data-vv] anywhere while Room 214 is very much still sitting. Reading
+// that frame as "over" is what let this walk out of a half-finished exam and then assert on the
+// verdict it had not waited for. The engine's own signal is the only honest one: the run carries a
+// `viva` from the moment the approach is chosen until the committee's answer is recorded.
+// Cached on the page: this is polled a few hundred times during a defense, and a fresh dynamic
+// import per poll was costing more than the waits it was measuring once the suite ran under load.
+const examOpen = page => page.evaluate(async () => {
+  window.__loadSave ||= (await import('/src/engine/save.js')).loadSave;
+  return !!window.__loadSave(localStorage)?.run?.viva;
+});
+
 // Choosing an approach at a milestone opens Room 214. Answer the six questions and let the
 // committee's verdict land, so tests about what happens *after* the exam stay about that.
 async function sitTheExam(page) {
@@ -52,21 +81,19 @@ async function sitTheExam(page) {
   if (!(await room.count())) return;
   // A defense is six segments and about three minutes of wall clock; give it the iterations.
   for (let i = 0; i < 240; i++) {
-    if (!(await room.count())) break;
-    const phase = await room.getAttribute('data-phase').catch(() => null);
+    if (!(await examOpen(page))) break;
+    const phase = await examPhase(room);
     if (phase === 'talk') {
-      const cut = page.locator('[data-action="exam-interrupt"]:not(.hidden)');
-      if (await cut.count() && await cut.isVisible()) { await cut.click().catch(() => {}); await page.waitForTimeout(200); continue; }
-      const next = page.locator('[data-action="exam-talk"][data-id="next"]');
-      if (await next.count()) { await next.click().catch(() => {}); await page.waitForTimeout(200); continue; }
+      if (await tryClick(page.locator('[data-action="exam-interrupt"]:not(.hidden)'))) { await page.waitForTimeout(200); continue; }
+      if (await tryClick(page.locator('[data-action="exam-talk"][data-id="next"]'))) { await page.waitForTimeout(200); continue; }
     }
     if (phase === 'qa') {
-      const move = room.locator('[data-action="viva-move"]:not([disabled])').first();
-      if (await move.count()) { await move.click({ timeout: 4000 }).catch(() => {}); await page.waitForTimeout(2800); continue; }
+      if (await tryClick(room.locator('[data-action="viva-move"]:not([disabled])'), 4000)) { await page.waitForTimeout(2800); continue; }
     }
-    await page.waitForTimeout(300);           // intro, clearing and the corridor are waits
+    await page.waitForTimeout(300);           // intro, clearing, a landing verdict and the corridor are waits
   }
-  await expect(page.locator('[data-vv]')).toHaveCount(0, { timeout: 25_000 });
+  await expect.poll(() => examOpen(page), { timeout: 25_000, message: 'the committee never came back' }).toBe(false);
+  await expect(page.locator('[data-vv]')).toHaveCount(0, { timeout: 5_000 });
   // Everybody stays for the photograph, and it is modal, so it is in the way until it is closed.
   const photo = page.locator('.dialog.photo [data-action="photo-close"]');
   if (await photo.count()) { await photo.click().catch(() => {}); await page.waitForTimeout(300); }
@@ -386,7 +413,7 @@ test('a conference trip: a real city, a talk you perform, questions, and a bill'
 });
 
 test('defending is not finishing: revisions, format review, then commencement', async ({ page }) => {
-  test.setTimeout(180_000);   // the defense itself is two and a half hours of timetable now
+  test.setTimeout(300_000);   // a defense is six segments and about two minutes of real wall clock
   await seedPlay(page, `s.month = 62;
     p.status = 'Accepted'; p.venueId = 'neuripsy'; p.progress = 95; p.draft = 100;
     p.submissionHistory = [{ venueId: 'neuripsy', venue: 'NeurIPSy', month: 20, outcome: 'Accept', reviewers: [], quality: 76, diamonds: 4 }];
@@ -985,18 +1012,17 @@ test('Room 214 runs the hour: you present, they ask, you wait in the corridor', 
   // has to be reachable, because in a real room it always is.
   let interrupted = false;
   for (let i = 0; i < 80; i++) {
-    if (!(await room.count())) break;
-    if ((await room.getAttribute('data-phase').catch(() => null)) !== 'talk') break;
+    if (!(await examOpen(page))) break;
+    if ((await examPhase(room)) !== 'talk') break;
     const cut = page.locator('[data-action="exam-interrupt"]:not(.hidden)');
-    if (await cut.count() && await cut.isVisible()) {
+    if (await cut.count() && await cut.first().isVisible().catch(() => false)) {
       interrupted = true;
       await expect(page.locator('[data-vv-interrupt]')).not.toBeEmpty();
-      await cut.click().catch(() => {});
+      await tryClick(cut);
       await page.waitForTimeout(220);
       continue;
     }
-    const next = page.locator('[data-action="exam-talk"][data-id="next"]');
-    if (await next.count()) await next.click().catch(() => {});
+    await tryClick(page.locator('[data-action="exam-talk"][data-id="next"]'));
     await page.waitForTimeout(220);
   }
   expect(interrupted, 'one of them always decides to be the difficult one').toBe(true);
@@ -1005,25 +1031,25 @@ test('Room 214 runs the hour: you present, they ask, you wait in the corridor', 
   await expect(room).toHaveAttribute('data-phase', 'qa', { timeout: 15_000 });
   await expect(page.locator('[data-vv-q]')).not.toBeEmpty();
   for (let i = 0; i < 5; i++) {
-    if (!(await room.count())) break;
-    if ((await room.getAttribute('data-phase')) !== 'qa') break;
-    const btn = room.locator('[data-action="viva-move"]:not([disabled])').first();
-    await btn.click({ timeout: 4000 }).catch(() => {});
+    if (!(await examOpen(page))) break;
+    if ((await examPhase(room)) !== 'qa') break;
+    await tryClick(room.locator('[data-action="viva-move"]:not([disabled])'), 4000);
     await page.waitForTimeout(2800);
   }
 
-  // And then you are put outside while they decide, out loud, without you.
-  if (await room.count()) {
+  // And then you are put outside while they decide, out loud, without you. The corridor is twelve
+  // seconds long, so touching the thing is only asserted about while the room is still open.
+  if (await examOpen(page)) {
     await expect(room).toHaveAttribute('data-phase', 'corridor', { timeout: 25_000 });
     const thing = page.locator('[data-action="exam-corridor"]').first();
-    if (await thing.count()) {
-      await thing.click().catch(() => {});
+    if (await tryClick(thing)) {
       await expect(page.locator('[data-vv-flash]')).not.toBeEmpty();
       await expect(thing).toBeDisabled();
     }
   }
 
-  await expect(page.locator('[data-vv]')).toHaveCount(0, { timeout: 20_000 });
+  await expect.poll(() => examOpen(page), { timeout: 25_000, message: 'the committee never came back' }).toBe(false);
+  await expect(page.locator('[data-vv]')).toHaveCount(0, { timeout: 5_000 });
   const st = await page.evaluate(async () => {
     const { loadSave } = await import('/src/engine/save.js');
     const run = loadSave(localStorage)?.run;
@@ -1035,7 +1061,9 @@ test('Room 214 runs the hour: you present, they ask, you wait in the corridor', 
 
 test('the plant is on the desk, not on a menu, and it is plastic', async ({ page }) => {
   await seedPlay(page, "s.month = 26; s.player.hidden.stress = 72;");
-  const plant = page.locator('.desk-plant');
+  // The plant has company now: it is one button in the row of fixtures at the foot of the sidebar,
+  // which is still the desk and still not a menu.
+  const plant = page.locator('.desk-fixtures [data-action="fixture"][data-id="plant"]');
   await expect(plant).toBeVisible();
   // It is never labelled, never badged, and never mentioned by the interface.
   await expect(plant).toHaveText('');

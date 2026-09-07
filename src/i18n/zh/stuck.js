@@ -17,6 +17,7 @@ export const stuckZh = {
 
   // 面板
   "Stuck?": "卡住了？",
+  "Suited to this kind of stuck": "对这种卡住比较对症",
   "Nobody teaches this and everybody has to work it out: which of these to try, and in what order, and how long to give each one.": "没人教这个，而每个人都得自己摸索出来：先试哪一个，按什么顺序，每一个给它多久。",
   "You have already been round this one this month.": "这个月你已经走过这一趟了。",
   "They are not reachable this month.": "这个月找不到人。",
@@ -70,7 +71,7 @@ export const stuckZh = {
 
   // 回家
   "Stop and go home": "停下，回家",
-  "The one that always works and that nobody counts as work.": "那个总是有效、而没人把它算作工作的选项。",
+  "The one that always works and that nobody counts as work. It costs you a piece of the month, because it is a piece of the month.": "那个总是有效、而没人把它算作工作的选项。它会花掉你这个月的一部分——因为它本来就是这个月的一部分。",
   "You wake up at ten past six knowing what is wrong. Nothing happened in between. This is the least explicable and most reliable debugging technique in the field.": "你六点十分醒来，知道哪里错了。中间什么都没发生。这是本领域最无法解释、也最可靠的调试手段。",
   "In the shower, unbidden, with shampoo in your hand: the assumption you never checked. You are back at the desk in forty minutes.": "洗澡的时候，没来由地，手里还捏着洗发水：那个你从来没验证过的假设。四十分钟后你已经坐回桌前。",
   "You sleep badly and think about it the whole time, which is the worst of both and is what \"stop and go home\" usually means at this stage.": "你睡得很差，而且整晚都在想它——两头都占了最坏的一半，而这就是这个阶段的“停下，回家”通常的意思。",

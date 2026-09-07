@@ -92,8 +92,8 @@ export const doors = {
   },
   sleep: {
     id: 'sleep', label: 'Stop and go home', icon: 'moon',
-    hint: 'The one that always works and that nobody counts as work.',
-    fit: ['motivation', 'bug'], energy: -6,
+    hint: 'The one that always works and that nobody counts as work. It costs you a piece of the month, because it is a piece of the month.',
+    fit: ['motivation', 'bug'], energy: 0, restore: 6,
     good: [
       'You wake up at ten past six knowing what is wrong. Nothing happened in between. This is the least explicable and most reliable debugging technique in the field.',
       'In the shower, unbidden, with shampoo in your hand: the assumption you never checked. You are back at the desk in forty minutes.',

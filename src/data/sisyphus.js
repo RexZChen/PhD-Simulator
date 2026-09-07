@@ -31,26 +31,6 @@ export const acceptVerbal = [
   '“Everyone — {venue} for {you}.” Applause. Then, to the room, pleasantly: “It is a good venue. It is not out of reach for anybody sitting here.”\n\nThe compliment is yours. The sentence after it belongs to somebody else.',
 ];
 
-// And then, {n} weeks later.
-export const nextProject = {
-  title: 'A question at the end of a good meeting',
-  text: [
-    'The meeting is nearly over. It has been a good one — the paper is out, the reviews are behind you, and for eleven minutes nobody has said the word "deadline."\n\nThen, warmly, and with what is unmistakably real curiosity: “So — what are you actually curious about for the next one?”\n\nThe next one. The paper came out {n} week(s) ago.',
-    '“Now that that is done.” A pause of about half a second, which is the entire holiday. “What is the next project?”\n\nThey are not being cruel. They are asking the best question they know how to ask, in the only register they have, and it is the question that got them here too.',
-  ],
-  choices: [
-    { id: 'ready', text: 'You have an answer, and it is a good one', hint: 'The boulder, picked up on purpose', effects: { novelty: 8, satisfaction: 8, confidence: 6, hope: 4, energy: -3 },
-      result: 'You have been thinking about it for three weeks without admitting you were thinking about it. They light up. You are already halfway up the hill and you were the one who started walking.' },
-    { id: 'blank', text: '“I have not thought about it. I finished it on Tuesday.”', hint: 'True; not the answer the question wants', effects: { stress: 6, satisfaction: -4, hope: -2 },
-      result: '“Of course, of course.” They mean it, and they ask again in nine days, and they will keep asking, gently, because a lab without a next project is a lab with nothing in the pipeline and they can feel it from where they sit.' },
-    { id: 'rest', text: '“Can I have a month before we start the next one?”', hint: 'The sentence almost nobody says', effects: { energy: 14, stress: -14, hope: 8, satisfaction: -3 },
-      flags: { askedForTime: true },
-      result: '“Take two weeks.” You asked for a month and got two weeks, which is more than you have had in three years, and you will spend the first four days of it unable to work out what to do with yourself.' },
-    { id: 'their', text: 'Ask what they would want you to do next', hint: 'Faster; theirs, not yours', effects: { progress: 8, dependency: 8, satisfaction: 6, novelty: -4 },
-      result: 'They have an answer ready. They have had it ready for a fortnight. It is a good project and you will do it well and in year five you will not be certain whose it was.' },
-  ],
-};
-
 // How long the good feeling lasts, in months, before the question. Ambition and management both
 // shorten it; a warm advisor lengthens it a little, and nobody makes it longer than about a season.
 export function restMonths(a) {

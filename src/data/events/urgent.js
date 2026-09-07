@@ -12,5 +12,7 @@ export default [
   { id: 'missed_deadline', title: 'The deadline passed', category: 'advisor', scene: 'office', speaker: 'advisor', probability: 1, scheduledOnly: true, cooldown: 0,
     text: ['The {venue} deadline came and went. {advisor} does not mention it in the meeting. That is how you know it is being mentioned.', '“We missed {venue}.” {advisor} says “we” the way an airline says “we” about a delay.'],
     choices: [c('own', 'Own it and propose the next venue', 'Confidence check', { energy: -2 }, { check: { stat: 'confidence', difficulty: 50 }, successEffects: { trust: 3, pressure: -6 }, failureEffects: { satisfaction: -8, pressure: 6 }, successText: '“Fine. But the next one is real.” They are all real.', failureText: '“I need to see more urgency.” You have nothing but urgency; it just does not compile.', target: true }),
-      c('quiet', 'Say nothing; aim for the next deadline', 'Pressure lingers', { satisfaction: -5, pressure: 4, stress: 3 }, { target: true, personality: 'cynic' })] },
+      c('quiet', 'Say nothing; aim for the next deadline', 'Pressure lingers', { satisfaction: -5, pressure: 4, stress: 3 },
+        { target: true, personality: 'cynic',
+          draft: { to: 'To: {advisor}', subject: 'the deadline', body: 'Hi {advisor} — we are not going to make it. I would rather say that now than at 3am on the day.\n\nWhat I have is' } })] },
 ];

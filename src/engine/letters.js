@@ -4,7 +4,7 @@ import { t } from '../i18n/index.js';
 import { LETTERS_REQUIRED, writerKinds, askLines, packetVerdicts, darkHorseLines, RANK_NOTE } from '../data/letters.js';
 import { ACADEMIC } from '../data/tracks.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, award, lastName, firstName, joined } from './state.js';
+import { effects, log, message, award, lastName, firstName, joined, activeLabmates } from './state.js';
 
 export const ensureLetters = s => (s.letters = s.letters || { asked: [], closed: false });
 export const letterCount = s => (s.letters?.asked || []).filter(l => l.status === 'yes').length;
@@ -26,7 +26,7 @@ export function availableWriters(s) {
   const mentor = s.lastInternship || (s.intern?.history || [])[0];
   if (mentor) add('w-mentor', 'mentor', (s.intern?.history || [])[0]?.employer || s.lastInternship?.company || t('your internship mentor'));
   if ((s.conferenceConnections || 0) >= 4) add('w-senior', 'senior', t('Prof. {name}', { name: lastName(s.peers[0]?.labOf || s.advisor.name) }));
-  const pd = (s.labmates || []).find(l => l.role === 'postdoc');
+  const pd = activeLabmates(s).find(l => l.role === 'postdoc');
   if (pd) add('w-postdoc', 'postdocmate', pd.name);
   add('w-chair', 'chair', t('the department chair'));
   return out;

@@ -3,7 +3,7 @@
 import { t } from '../i18n/index.js';
 import { reactions, reactionById, replyKinds, replyKindById, repliesFor, dmOpeners, DM_NOTE } from '../data/slack.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, chat, award, chatBody, firstName, labmateById, joined } from './state.js';
+import { effects, log, chat, award, chatBody, firstName, labmateById, joined, activeLabmates } from './state.js';
 
 export const REACT_COST = 0;
 
@@ -26,7 +26,7 @@ export function react(s, messageId, reactionId) {
   if (r.personality) s.player.personality[r.personality]++;
   // Sometimes someone piles on, which is the whole social physics of a channel.
   if (roll(s, .35)) {
-    const others = [...s.labmates, ...s.peers].filter(x => x.name !== m.sender);
+    const others = [...activeLabmates(s), ...s.peers].filter(x => x.name !== m.sender);
     if (others.length) m.reacts.push({ id: reactionId, by: firstName(pick(s, others).name) });
   }
   s.counts.reactions = (s.counts.reactions || 0) + 1;

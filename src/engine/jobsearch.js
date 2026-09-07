@@ -6,7 +6,7 @@ import { employers, employerById, slateOdds, gateFor, drawWeather } from './mark
 import { ACADEMIC } from '../data/tracks.js';
 import { monthOf } from '../data/calendar.js';
 import { random, roll, clamp, pick, shuffle, pickWeighted } from './probability.js';
-import { effects, log, message, chat, award, absWeek, lastName, firstName, joined } from './state.js';
+import { effects, log, message, chat, award, absWeek, lastName, firstName, joined, activeLabmates } from './state.js';
 import { buildCV } from './epilogue.js';
 import { letterGate, needsLetters, letterCount } from './letters.js';
 
@@ -220,7 +220,7 @@ function discovered(s) {
   sec.tell = pickWeighted(s, Object.keys(tells), id => ({
     recruiter: s.jobs.apps.filter(a => ['screen', 'onsite'].includes(a.stage)).length * 3 + s.advisor.connections / 25,
     seminar: s.jobs.apps.filter(a => ACADEMIC.includes(a.track)).length * 3.5,
-    labmate: 1 + Math.max(0, 50 - Math.min(60, ...(s.labmates || []).map(l => l.bond), 60)) / 10,
+    labmate: 1 + Math.max(0, 50 - Math.min(60, ...activeLabmates(s).map(l => l.bond), 60)) / 10,
     referee: s.jobs.apps.filter(a => a.stage === 'onsite').length * 2.5,
     calendar: s.meetingStats.cancelled * .5,
     slip: 1,

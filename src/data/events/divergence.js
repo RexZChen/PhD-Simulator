@@ -14,7 +14,9 @@ export default [
     choices: [
       c('respond', 'Write a measured reply with a real plan', 'Writing check → standing recovers', { energy: -7 }, { check: { skill: 'writing', difficulty: 50 }, successEffects: { standing: 14, trust: 6, satisfaction: 8, confidence: 4 }, failureEffects: { standing: 2, stress: 6 }, successText: 'Three paragraphs, no defensiveness, two dates. They reply: “Thank you. This is what I needed.”', failureText: 'You rewrite it eleven times. The version you send is the eighth, and it is the defensive one.', personality: 'perfectionist' }),
       c('director', 'Take it to the graduate director yourself', 'Networking check → an ally, or a file', { energy: -6, stress: 4 }, { check: { skill: 'networking', difficulty: 55 }, successEffects: { standing: 10, academicCapital: 3, hope: 6 }, failureEffects: { standing: -4, conflict: 8 }, successText: 'The director has seen forty of these. They ask two questions nobody else asked and make one phone call.', failureText: '“I’d encourage you to work this out with your advisor directly.” The door was never open.', personality: 'networker' }),
-      c('quiet', 'Say nothing and try to out-work it', 'Grinder. Sometimes it works.', { energy: -10, stress: 10, progress: 6, draft: 4 }, { personality: 'grinder' }),
+      c('quiet', 'Say nothing and try to out-work it', 'Grinder. Sometimes it works.', { energy: -10, stress: 10, progress: 6, draft: 4 },
+        { personality: 'grinder',
+          draft: { to: 'To: {advisor}', subject: 'Re: Academic progress — response', body: 'Dear {advisor},\n\nI have read the letter. I want to respond to the second paragraph, because I do not think it is accurate, and because if it stays on the file unanswered then it is the record.\n\nIn the twelve months it covers I' } }),
     ] },
 
   { id: 'probation_talk', title: 'Four months', category: 'advisor', scene: 'office', speaker: 'advisor', probability: 1, scheduledOnly: true, cooldown: 6,

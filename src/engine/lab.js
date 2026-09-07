@@ -3,7 +3,7 @@ import { t } from '../i18n/index.js';
 import { venues, nextDeadline, fitsTopic } from '../data/venues.js';
 import { monthOf, holidays, dateLabel, isTeachingTerm } from '../data/calendar.js';
 import { random, roll, pick, clamp, pickFresh } from './probability.js';
-import { chat, message, effects, log, fill, vars } from './state.js';
+import { chat, message, effects, log, fill, vars, activeLabmates } from './state.js';
 
 // Lab and cohort chatter for a new month, plus department mail. Called at month start.
 
@@ -42,7 +42,7 @@ export function monthlyChatter(s) {
     }
   }
   // Bonds decay slowly without contact; wholesome labmates hold the room together.
-  for (const l of s.labmates) l.bond = clamp(l.bond - (l.trait === 'wholesome' ? 0 : 1));
+  for (const l of activeLabmates(s)) l.bond = clamp(l.bond - (l.trait === 'wholesome' ? 0 : 1));
   for (const p of s.peers) p.bond = clamp(p.bond - 1);
 }
 
