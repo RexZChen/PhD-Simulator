@@ -83,11 +83,25 @@ const toll = a => Object.entries(a.effects || {})
   .filter(([k, v]) => TOLL[k] && (INVERTED.has(k) ? v > 0 : v < 0))
   .map(([k, v]) => t('{sign}{n} {what}', { sign: v < 0 ? '−' : '+', n: Math.abs(v), what: t(TOLL[k]) }));
 
+// One figure per thing the player is watching. The gym costs five Energy and gives two back, and
+// printing both produced "+2 Energy · −5 Energy" on the same button, which reads as a
+// contradiction rather than as a trade. Net it, and say what actually happens to the bar.
+function pills(a) {
+  const net = (v, cost) => (v || 0) - (cost || 0);
+  const e = net(a.effects?.energy, a.cost?.energy);
+  const m = net(a.effects?.money, a.cost?.money);
+  return [
+    e ? t('{sign}{n} Energy', { sign: e > 0 ? '+' : '−', n: Math.abs(e) }) : '',
+    ...toll(a),
+    m ? `${m > 0 ? '+' : '−'}${money(Math.abs(m))}` : '',
+  ].filter(Boolean);
+}
+
 function actionList(s, list = lifeActions) {
   return `<div class="life-actions">${list.map(a => {
     const why = lifeActionAvailable(s, a);
     return `<button class="life-act ${why ? 'off' : ''}" data-action="life" data-id="${a.id}" ${why || s.stage !== 'plan' ? 'disabled' : ''} title="${esc(why || t(a.line))}">
-      ${icon(a.icon, 20)}<span><b>${esc(t(a.name))}</b><small class="muted">${why ? esc(why) : [a.effects?.energy > 0 ? t('+{n} Energy', { n: a.effects.energy }) : '', ...toll(a), a.cost?.energy ? t('−{n} Energy', { n: a.cost.energy }) : '', a.cost?.money ? `−${money(a.cost.money)}` : '', a.effects?.money ? `+${money(a.effects.money)}` : ''].filter(Boolean).join(' · ') || t('free')}</small></span>
+      ${icon(a.icon, 20)}<span><b>${esc(t(a.name))}</b><small class="muted">${why ? esc(why) : pills(a).join(' · ') || t('free')}</small></span>
     </button>`;
   }).join('')}</div>`;
 }

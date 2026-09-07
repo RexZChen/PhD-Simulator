@@ -983,6 +983,7 @@ export const ui = {
   "Tax refund": "退税",
   "The offer letter said {gross}. The offer letter was gross. Withholding takes {tax} and nobody mentioned it, because from inside the payroll office there is nothing to mention.": "录取信上写的是 {gross}。录取信写的是税前。预扣拿走 {tax}，而没有人提过这件事——因为站在薪资办公室里面看，这件事根本不值一提。",
   "The refund lands in one piece. It is your own money, held for a year and returned without interest, and it feels like a windfall, which is the trick.": "退税一次性到账。那是你自己的钱，被扣了一年，不带利息地还给你，而它感觉像天上掉下来的——这就是那个把戏。",
+  "{sign}{n} Energy": "{sign}{n} 精力",
   "I am unconvinced this problem needs to exist.": "我不认为这个问题有存在的必要。",
   "The authors should consider whether this is a paper.": "作者应当考虑一下这到底算不算一篇 paper。",
   "Why not just use a bigger model?": "为什么不直接换个更大的模型？",
