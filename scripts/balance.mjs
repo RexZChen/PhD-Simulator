@@ -11,6 +11,7 @@
 import { createRun } from '../src/engine/state.js';
 import { dispatch, focusOptions } from '../src/engine/game.js';
 import { schools } from '../src/data/catalog.js';
+import { interviewStep } from '../src/engine/apply.js';
 import { templateById } from '../src/engine/events.js';
 import { pushbacks } from '../src/data/minigames.js';
 import { questioners } from '../src/data/conference.js';
@@ -61,7 +62,16 @@ async function run(seed, style) {
   s = act(s, { type: 'PREP', id: 'proceed' });
   for (const school of schools.slice(6, 22)) { if (s.player.stats.energy < 3 || s.player.stats.money < 75) break; s = act(s, { type: 'APPLY', schoolId: school.id, effort: 'generic', contact: false, poiId: s.advisors.find(a => a.schoolId === school.id).id }); }
   s = act(s, { type: 'ADMISSIONS' });
-  for (const app of s.applications.filter(a => a.interview)) for (const id of ['honest', 'sleep', 'style']) s = act(s, { type: 'INTERVIEW', schoolId: app.schoolId, id });
+  // Each interview draws its own questions now, so answer whatever is actually asked.
+  for (const app of s.applications.filter(a => a.interview)) {
+    for (let n = 0; n < 8; n++) {
+      const live = s.applications.find(a => a.schoolId === app.schoolId);
+      if (!live?.interview || live.interview.done) break;
+      const q = interviewStep(live);
+      if (!q) break;
+      s = act(s, { type: 'INTERVIEW', schoolId: app.schoolId, id: q.options[0].id });
+    }
+  }
   s = act(s, { type: 'DECISIONS' });
   if (!s.offers.length && s.applications.some(a => a.waitlisted)) s = act(s, { type: 'WAIT_APRIL' });
   if (!s.offers.length) return { ending: 'no_offer', month: 0 };

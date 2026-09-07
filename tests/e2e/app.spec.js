@@ -75,6 +75,8 @@ test('setup wizard requires the license, then the questionnaire creates an appli
 });
 
 test('application phase: prepare, email a professor, apply, interview, decide', async ({ page }) => {
+  // Thirty-two schools and four-question interviews make this a longer walk than it was.
+  test.setTimeout(60_000);
   await fresh(page);
   await page.getByRole('button', { name: /Randomize My Academic Fate/ }).click();
   await page.getByRole('button', { name: /Next >/ }).click();
@@ -100,11 +102,21 @@ test('application phase: prepare, email a professor, apply, interview, decide', 
   for (let i = 0; i < 5; i++) { await page.locator('[data-action="apply"]:not([disabled])').first().click(); await resolveScenes(page); }
   await page.locator('[data-action="admissions"]:not([data-guide])').click();
   await expect(page.getByRole('heading', { name: /GradApply — Status/ })).toBeVisible();
-  while (await page.locator('[data-action="ga-thread"][data-id$=":interview"].primary').count()) {
-    await page.locator('[data-action="ga-thread"][data-id$=":interview"].primary').first().click();
-    for (let i = 0; i < 3; i++) await page.locator('.modal [data-action="interview"]').first().click();
+  // Interviews draw their own questions now, so answer until the call ends rather than counting,
+  // and bound the outer loop so a stuck call fails the test rather than hanging it.
+  for (let call = 0; call < 12; call++) {
+    const join = page.locator('[data-action="ga-thread"][data-id$=":interview"].primary');
+    if (!(await join.count())) break;
+    await join.first().click();
+    for (let i = 0; i < 8; i++) {
+      const opt = page.locator('.modal [data-action="interview"]').first();
+      if (!(await opt.count())) break;
+      await opt.click();
+      await page.waitForTimeout(40);
+    }
     await closeDialogs(page);
   }
+  await expect(page.locator('[data-action="ga-thread"][data-id$=":interview"].primary')).toHaveCount(0);
   await page.locator('[data-action="decisions"]:not([data-guide])').click();
   await expect(page.getByText(/Offers|Not This Cycle/).first()).toBeVisible();
 });
@@ -1070,4 +1082,73 @@ test('the second org chart: people outside the lab, and the work they cost you',
   expect(done.progress).toBeLessThan(mid.progress);
   expect(done.task).toBeFalsy();
   expect(done.done).toBe(1);
+});
+
+test('every school is a different place, and every interview is a different conversation', async ({ page }) => {
+  await fresh(page);
+  await page.getByRole('button', { name: /Randomize My Academic Fate/ }).click();
+  await page.getByRole('button', { name: /Next >/ }).click();
+  await page.check('#eula');
+  await page.getByRole('button', { name: /Generate applicant/ }).click();
+  await closeDialogs(page);
+
+  // Researching a program tells you what the place is like, not only what it ranks.
+  await page.locator('[data-action="ga-school"]').first().click();
+  await page.locator('[data-action="prep"][data-id="research"]').first().click();
+  const vibe = page.locator('.campus');
+  await expect(vibe).toBeVisible();
+  expect(await vibe.locator('dd').count()).toBeGreaterThanOrEqual(5);
+  const first = await vibe.innerText();
+
+  // A different school is a different place.
+  await page.locator('[data-action="ga-school"]').nth(3).click();
+  await page.locator('[data-action="prep"][data-id="research"]').first().click();
+  await expect(page.locator('.campus')).toBeVisible();
+  expect(await page.locator('.campus').innerText()).not.toBe(first);
+
+  // And the interviews are not the same three questions for everyone.
+  const sets = await page.evaluate(async () => {
+    const { createRun } = await import('/src/engine/state.js');
+    const { pickInterview } = await import('/src/engine/apply.js');
+    const s = createRun(4242, { background: 'masters', topic: 'ml', international: true });
+    const out = new Set();
+    for (let i = 0; i < 25; i++) out.add(pickInterview(s, { poiId: s.advisors[i % s.advisors.length].id }).join(','));
+    return out.size;
+  });
+  expect(sets).toBeGreaterThan(15);
+});
+
+test('knocking on the door is a different person every time, and you can see it', async ({ page }) => {
+  await seedPlay(page, `p.progress = 62; p.draft = 45; p.status = 'Drafting';
+    p.targetVenueId = 'neuripsy'; p.targetMonth = s.month; p.targetVenue = 'NeurIPSy';
+    s.week = 3; s.crunch = time.crunchSnapshot(s); s.tempo = time.tempoOf(s); s.focus = null;
+    s.advisor.availability = 95; s.advisorMode = { id: 'attentive', until: s.month + 3, since: s.month };`);
+  await page.locator('[data-action="pop-in"]').click();
+  // The door is drawn, stamped, and animated rather than being one line of grey text.
+  const door = page.locator('.door-scene');
+  await expect(door).toBeVisible();
+  await expect(door.locator('.door-stamp')).not.toBeEmpty();
+  await expect(door.locator('svg')).toBeVisible();
+  await expect(page.locator('.day-note')).not.toBeEmpty();
+
+  // Twenty-eight outcomes behind one door, so the same week does not read the same way twice.
+  const spread = await page.evaluate(async () => {
+    const { popIns } = await import('/src/data/day.js');
+    return { good: popIns.good.length, bad: popIns.bad.length, absent: popIns.absent.length };
+  });
+  expect(spread.good + spread.bad + spread.absent).toBeGreaterThan(20);
+});
+
+test('an achievement lands on screen instead of in a log nobody re-reads', async ({ page }) => {
+  // survivor is awarded at the start of month 12 if hope is still above 60. Seed month 11 and
+  // take the turn, so the toast comes from the engine rather than from the test.
+  await seedPlay(page, `s.month = 11; s.player.stats.hope = 88; s.player.stats.energy = 90;
+    s.achievements = []; s.focus = 'rest';`);
+  await expect(page.locator('.award-toast')).toHaveCount(0);
+  await page.locator('[data-action="continue"]:not([data-guide])').click();
+  await resolveScenes(page);
+  const toast = page.locator('.award-toast').first();
+  await expect(toast).toBeVisible({ timeout: 10_000 });
+  await expect(toast).toContainText(/Achievement unlocked/i);
+  await expect(toast.locator('span')).not.toBeEmpty();
 });

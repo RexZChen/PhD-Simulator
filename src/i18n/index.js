@@ -143,7 +143,7 @@ function translateFollowUps(obj, dict) {
 }
 function translateQuestions(list, dict) {
   const base = remember(list);
-  list.forEach((q, i) => { const b = base[i]; const tr = dict?.[i]; q.them = tr?.them ?? b.them; q.options = b.options.map(o => { const to = tr?.options?.[o.id]; return to ? { ...o, label: to.label ?? o.label, goodReply: to.goodReply ?? o.goodReply, badReply: to.badReply ?? o.badReply } : { ...o }; }); });
+  list.forEach((q, i) => { const b = base[i]; const tr = dict?.[q.id] ?? dict?.[i]; q.them = tr?.them ?? b.them; q.options = b.options.map(o => { const to = tr?.options?.[o.id]; return to ? { ...o, label: to.label ?? o.label, goodReply: to.goodReply ?? o.goodReply, badReply: to.badReply ?? o.badReply } : { ...o }; }); });
 }
 function translateAsks(list, dict) {
   for (const a of list) {

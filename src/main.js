@@ -15,6 +15,8 @@ import { draftFor } from './ui/apps/mail.js';
 import { chatDraft } from './ui/apps/chat.js';
 import { rebuttalDraft } from './ui/apps/browser.js';
 import { conditions as conditionDefs } from './data/life.js';
+import { achievements } from './data/catalog.js';
+import { esc } from './ui/helpers.js';
 import { t, pauseProvenance, resumeProvenance } from './i18n/index.js';
 const conditionNames = Object.fromEntries(Object.entries(conditionDefs).map(([k, v]) => [k, v.name]));
 
@@ -84,6 +86,31 @@ function syncViva() {
   if (run?.stage !== 'minigame' || run?.minigame !== 'cluster') { if (clusterRunning()) stopCluster(); }
 }
 
+// Achievements were a grey line in a log nobody re-reads. When a new one lands, stamp it on the
+// screen for four seconds. Tracked here rather than in the run, because it is about this session's
+// attention, not about the save.
+let seenAwards = null;
+function flashAwards() {
+  if (!run) { seenAwards = null; return; }
+  const now = run.achievements || [];
+  if (seenAwards === null) { seenAwards = new Set(now); return; }
+  const fresh = now.filter(id => !seenAwards.has(id));
+  for (const id of fresh) seenAwards.add(id);
+  if (!fresh.length || !meta.settings.sound && meta.settings.quiet) return;
+  const host = document.querySelector('[data-award-host]');
+  if (!host) return;
+  for (const id of fresh) {
+    const a = achievements[id];
+    if (!a) continue;
+    const el = document.createElement('div');
+    el.className = 'award-toast';
+    el.innerHTML = `<b>${t('Achievement unlocked')}</b><span>${esc(t(a.name))}</span><small>${esc(t(a.desc))}</small>`;
+    host.appendChild(el);
+    setTimeout(() => el.remove(), 5200);
+  }
+  play('chime');
+}
+
 function render({ restoreTyping = false, preserveScroll = true } = {}) {
   const scroll = preserveScroll ? (document.querySelector('.client')?.scrollTop || 0) : 0;
   const modalScroll = document.querySelector('.dialog .body')?.scrollTop || 0;
@@ -99,6 +126,7 @@ function render({ restoreTyping = false, preserveScroll = true } = {}) {
   syncSceneTimer();
   syncLecture();
   syncViva();
+  flashAwards();
 }
 function persist() {
   if (!run) return;

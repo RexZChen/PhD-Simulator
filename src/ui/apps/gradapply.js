@@ -3,7 +3,8 @@ import { icon } from '../icons.js';
 import { avatar, crest, crestMotto } from '../avatars.js';
 import { schools, backgrounds, topics } from '../../data/catalog.js';
 import { emailOpeners, emailFollowUps, studentOpeners, interviewQuestions, visitQuestions } from '../../data/threads.js';
-import { admissionChance, applicationCost, nextStep } from '../../engine/apply.js';
+import { campus, campusFields } from '../../data/campus.js';
+import { admissionChance, applicationCost, nextStep, interviewStep } from '../../engine/apply.js';
 import { LETTERS_EXPECTED, RECOMMENDER_NOTE } from '../../data/recommenders.js';
 import { lastName } from '../../engine/state.js';
 import { t } from '../../i18n/index.js';
@@ -81,7 +82,10 @@ const researched = (s, sc) => {
   if (!r) return `<div class="row">${btn(t('Research this program (−1 Energy)'), 'prep', { id: 'research', cls: 'small link', attrs: `data-target="${sc.id}"` })}<span class="tiny muted">${t('The website, a forum thread, and someone who actually goes there.')}</span></div>`;
   const facts = `<p class="small">${t('Structure')}: ${sc.structure === 'exam' ? t('written qualifier in year two') : t('project-based prelim in year two')} · ${t('climate {c}', { c: t(sc.climate) })} · ${t('rent {r} vs stipend {s}', { r: money(sc.rent), s: money(sc.stipend) })}</p>`;
   const notes = Array.isArray(r.notes) ? r.notes : [];
-  return `${facts}${notes.length ? `<div class="insider"><b class="small">${t('What people who are there say')}</b><ul>${notes.map(n => `<li>“${esc(t(n.line))}” <span class="src">— ${esc(t(n.from))}</span></li>`).join('')}</ul></div>` : ''}`;
+  // The place, not the ranking. Two programs with the same numbers are not the same six years.
+  const v = campus[sc.id];
+  const vibe = v ? `<div class="campus"><b class="small">${t('The place itself')}</b><dl>${campusFields.map(([k, label]) => v[k] ? `<dt>${esc(t(label))}</dt><dd>${esc(t(v[k]))}</dd>` : '').join('')}</dl></div>` : '';
+  return `${facts}${vibe}${notes.length ? `<div class="insider"><b class="small">${t('What people who are there say')}</b><ul>${notes.map(n => `<li>“${esc(t(n.line))}” <span class="src">— ${esc(t(n.from))}</span></li>`).join('')}</ul></div>` : ''}`;
 };
 
 export function programs(s, ui) {
@@ -140,7 +144,7 @@ export function threadDialog(s, ui) {
   const you = t('You');
   if (kind === 'interview') {
     const app = s.applications.find(a => a.schoolId === id); const poi = s.advisors.find(a => a.id === app?.poiId); if (!app?.interview) return '';
-    const q = interviewQuestions[app.interview.step];
+    const q = interviewStep(app);
     return dialog(t('MeetMe — interview with Prof. {name}', { name: poi.name }), 'chat', `<div class="thread">${avatar(poi.id, 64)}<div class="thread-log">${app.interview.questions.map(x => `<div class="msg advisor"><span class="av">${esc(poi.name[0])}</span><div><div class="who"><b>${esc(lastName(poi.name))}</b></div><p>${esc(x.them)}</p></div></div><div class="msg mine"><span class="av">Y</span><div><div class="who"><b>${you}</b></div><p>${esc(x.you)}</p></div></div><div class="msg"><span class="av">·</span><div><p class="muted small">${esc(x.reply)}</p></div></div>`).join('')}${q && !app.interview.done ? `<div class="msg advisor"><span class="av">${esc(poi.name[0])}</span><div><div class="who"><b>${esc(lastName(poi.name))}</b></div><p>${esc(q.them)}</p></div></div>` : ''}</div></div>`,
       q && !app.interview.done ? `<div class="choices">${q.options.map((o, i) => `<button class="btn choice" data-action="interview" data-id="${o.id}" data-target="${id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(o.label)}</b><small>${o.check ? t('{what} check', { what: t(o.check.skill || o.check.stat) }) : t('safe')}</small></span><span class="arrow">→</span></button>`).join('')}</div>` : `<p class="small muted">${t('The call ends. “We’ll be in touch.” They will be in touch in March.')}</p>`);
   }

@@ -53,6 +53,7 @@ export function dayStrip(s) {
       ${btn(`${icon('user', 14)} ${t('Knock on their door')}`, 'pop-in', { cls: 'small', disabled: s.stage !== 'plan' || !!done.popin, title: t('Five unscheduled minutes with your advisor. They may not be there.') })}
       ${btn(`${icon('people', 14)} ${t('Go find the kettle')}`, 'run-into', { cls: 'small', disabled: s.stage !== 'plan' || !!done.runinto, title: t('Whoever is in the corridor is in the corridor.') })}
     </div>
+    ${doorScene(s)}
     <p class="tiny muted day-note">${esc(s.dayOutcome || s.dayNote || cafNote)}</p>
   </div>`;
 }
@@ -274,6 +275,33 @@ function managerNextStep(s) {
     return { title: t('Choose a venue'), detail: t('Work without a deadline expands, and your advisor will keep asking which one it is.'), cta: openApp(t('Set a target'), 'browser') };
   if (!s.focus) return { title: t('Decide what this {unit} goes to', { unit: s.tempo === 'day' ? t('day') : s.tempo === 'week' ? t('week') : t('month') }), detail: t('Pick a plan on the left. Continue is disabled until you do.'), cta: '' };
   return { title: t('Plan set'), detail: t('Use the desktop if you want to, then continue. Everything else is optional.'), cta: go(t('Continue →'), 'continue') };
+}
+
+
+// Knocking on the door is the most-repeated five seconds of a deadline week, and it was one line
+// of grey text. Four states, drawn in code and animated once on arrival, with a stamp on top: the
+// door is the joke, and the joke is that you cannot tell which one you are getting until it opens.
+function doorScene(s) {
+  const d = s.doorScene;
+  if (!d) return '';
+  const open = d.state === 'open' ? 62 : d.state === 'ajar' ? 22 : 0;
+  const dark = d.state === 'dark';
+  return `<div class="door-scene ${d.state}">
+    <svg viewBox="0 0 120 90" width="120" height="90" aria-hidden="true">
+      <rect x="0" y="0" width="120" height="90" fill="${dark ? '#22262c' : '#3c4450'}"/>
+      <rect x="18" y="8" width="84" height="82" fill="${dark ? '#15181c' : '#1d2126'}"/>
+      <g class="door-leaf" style="--open:${open}">
+        <rect x="18" y="8" width="84" height="82" fill="#8d6a44"/>
+        <rect x="26" y="16" width="30" height="30" fill="#7a5a38"/>
+        <rect x="64" y="16" width="30" height="30" fill="#7a5a38"/>
+        <rect x="26" y="54" width="68" height="28" fill="#7a5a38"/>
+        <circle cx="96" cy="52" r="3" fill="#d9b24a"/>
+        <rect x="34" y="20" width="22" height="9" fill="#f4efe2"/>
+      </g>
+      ${dark ? '' : `<circle class="door-face" cx="${d.state === 'open' ? 78 : 66}" cy="46" r="9" fill="#e8c4a2"/>`}
+    </svg>
+    <b class="door-stamp">${esc(t(d.stamp))}</b>
+  </div>`;
 }
 
 export function planList(s) {

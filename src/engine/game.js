@@ -202,7 +202,7 @@ function beginTurn(s) {
   const options = focusOptions(s);
   if (options.length === 1 && options[0].locked) s.focus = options[0].id;
   else if (!options.some(f => f.id === s.focus && !f.disabled)) s.focus = null;
-  s.typed = 0; s.actions = {}; s.needsBegin = false;
+  s.typed = 0; s.actions = {}; s.needsBegin = false; s.doorScene = null;
   if (s.tempo === 'day') { s.dayActions = s.dayActions || {}; s.dayIndex = s.dayIndex || 0; } else { s.dayIndex = 0; s.dayActions = {}; }
   // An open crisis is a gate on the turn, not a screen you can be pushed off. The body is not
   // optional and neither is this: you answer it before you plan anything else.
@@ -324,6 +324,7 @@ function popIn(s) {
     const miss = pick(s, popIns.absent);
     effects(s, { energy: -1, hope: -1 });
     log(s, t(miss.line));
+    s.doorScene = { state: away ? 'dark' : 'closed', stamp: away ? 'AWAY' : 'NOT NOW' };
     return { found: false, line: t(miss.line) };
   }
   const goodOdds = clamp(.35 + (s.advisor.caring - 50) / 180 + (s.relationship.trust - 50) / 220 - (mode === 'pressed' ? .12 : 0) - (s.advisor.toxicity - 40) / 260, .12, .88);
@@ -333,6 +334,7 @@ function popIn(s) {
   const p = activeProject(s);
   if (p && beat.quality) p.novelty = clamp(p.novelty + beat.quality * .6);
   s.meetingStats.held++;
+  s.doorScene = { state: set === popIns.good ? 'open' : 'ajar', stamp: set === popIns.good ? 'COME IN' : 'MAKE IT QUICK' };
   log(s, joined(t('Popped into {advisor}’s office.', { advisor: lastName(s.advisor.name) }), ' ', fill(s, t(beat.line))));
   return { found: true, line: fill(s, t(beat.line)), good: set === popIns.good };
 }

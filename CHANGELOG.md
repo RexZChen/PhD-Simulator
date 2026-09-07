@@ -4,6 +4,45 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.6.0] — 2026-09-07
+
+Every school is a different place, every interview is a different conversation, and the door you
+knock on has somebody different behind it.
+
+### Added
+- **32 schools, up from 22.** The archetypes American CS was missing: a tiny elite institute with an
+  honour code, a land-grant school where football has a bigger budget than your college, a desert
+  campus an hour from a national lab, the cheapest rent in the rankings under ninety inches of snow,
+  a nine-campus city university where the commute *is* the degree, a school with a chapel schedule,
+  one behind a badge reader, one at eight thousand feet that empties on a powder day, and one nine
+  time zones from your co-authors. Five new crests to draw them.
+- **Campus culture, for all 32.** Mascot, yell, campus lore, the town, what people there actually
+  complain about, and — the one that matters — what six years there will have made you: "you park by
+  shade rather than by distance, permanently, in every city." Two programs with the same prestige
+  number are no longer the same six years, which is the thing an applicant is really trying to read.
+- **Interviews are drawn per advisor, from 15 questions instead of a fixed 3.** Who is asking is the
+  entire content of an interview, and it was identical at every school. A Tenured Warlord asks the
+  sweaty ones — the gap in your record, the other candidate who already has a paper, how you feel
+  about weekends. Some questions are gated on toxicity because they are asked by people who do not
+  think they are being anything other than practical: whether you are planning a family, whether you
+  are coming to this "a little later than most." Answering the weekend question with a boundary is
+  the single most informative thing you can do, and what happens next tells you what the six years
+  will be. Measured: 38 distinct interviews out of 40.
+- **Twenty-eight things behind the advisor's door**, up from eleven — and the door is now drawn and
+  animated, with a stamp: COME IN, MAKE IT QUICK, NOT NOW, AWAY. It is the most-repeated five seconds
+  of a deadline week and it was one line of grey text.
+- **Achievements land on screen.** They were a line in a log nobody re-reads.
+- 400 strings of new prose in Simplified Chinese.
+
+### Fixed
+- The interview catalog was translated by array index, which broke silently the moment the pool grew.
+  Keyed by id now, falling back to index.
+- Two `reveal` keys pointed at advisor traits that had no hint lines, which put `undefined` into
+  `advisor.known` and made the save fail its own round-trip test. Added the lines; the array now
+  refuses to hold nothing.
+- The school list is prestige-ordered by construction and the ten new entries broke that, which
+  quietly made the balance harness apply to a much harder set. Sorted.
+
 ## [1.5.0] — 2026-09-07
 
 The second organisation chart: the people you meet who are not in your lab.

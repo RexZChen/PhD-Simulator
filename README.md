@@ -51,7 +51,7 @@ switched at any point mid-run, including for mail and chat you have already rece
 
 ```bash
 npm test          # 96 deterministic engine tests (node --test)
-npm run test:e2e  # 32 Playwright browser flows (uses installed Google Chrome)
+npm run test:e2e  # 35 Playwright browser flows (uses installed Google Chrome)
 npm run build     # production build
 npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
 npm run i18n      # plays real runs in Chinese and lists anything still in English
@@ -60,9 +60,21 @@ npm run i18n      # plays real runs in Chinese and lists anything still in Engli
 ## What is in it
 
 **Applications.** A preparation budget, three recommenders with hidden reliability, an "optional"
-GRE, fee waivers, email threads with prospective advisors and their current students, 22 parody
-programs with generated crests, interviews, waitlists that move in April, and visit days where
-people tell you true things about advisors if you ask well.
+GRE, fee waivers, email threads with prospective advisors and their current students, 32 parody
+programs with generated crests, waitlists that move in April, and visit days where people tell you
+true things about advisors if you ask well.
+
+**Every school is a different place.** Not a prestige number and a tagline — a mascot, a yell,
+campus lore, a town, the thing people there actually complain about, and what six years there will
+have made you. The tiny institute with the honour code, the land-grant school where football
+outspends your college, the campus behind a badge reader, the one nine time zones from your
+co-authors. Two programs with the same ranking are not the same six years.
+
+**Interviews are a different conversation every time.** Four questions drawn per advisor from a pool
+of fifteen, because who is asking is the entire content of an interview. The sweaty ones are gated on
+who would ask them: the gap in your record, the candidate who already has a paper, how you feel about
+weekends — and the questions that are not supposed to be asked and are asked anyway, every cycle, by
+someone.
 
 **Variable time.** Calm months resolve in one step. Deadline weeks and rebuttal windows drop to
 week-by-week. When a deadline is genuinely close, the game drops again to **day by day** — five

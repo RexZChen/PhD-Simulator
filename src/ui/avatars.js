@@ -24,6 +24,11 @@ export function avatar(seed, size = 48, { bg = '#dfe6ee' } = {}) {
 // Crests: a shield, a symbol, and a motto that has given up. Palette matches the OS.
 const PALETTE = { navy: '#0a246a', gold: '#d98b1c', teal: '#1f6a6a', cream: '#f4efe2', red: '#a11d1d', slate: '#3d4a5c' };
 const SYMBOLS = {
+  atom: '<circle cx="32" cy="34" r="4" fill="C2"/><g fill="none" stroke="C2" stroke-width="2.5"><ellipse cx="32" cy="34" rx="17" ry="7"/><ellipse cx="32" cy="34" rx="17" ry="7" transform="rotate(60 32 34)"/><ellipse cx="32" cy="34" rx="17" ry="7" transform="rotate(120 32 34)"/></g>',
+  sun: '<circle cx="32" cy="34" r="9" fill="C2"/><g stroke="C2" stroke-width="3" stroke-linecap="round"><path d="M32 16v6M32 46v6M14 34h6M44 34h6M20 22l4 4M40 42l4 4M44 22l-4 4M24 42l-4 4"/></g>',
+  bison: '<path d="M18 32c0-8 6-12 14-12s14 4 14 12v6c0 7-6 12-14 12s-14-5-14-12z" fill="C2"/><path d="M18 30c-5-2-7-7-5-11 4 1 6 4 7 8zM46 30c5-2 7-7 5-11-4 1-6 4-7 8z" fill="C2"/><circle cx="27" cy="34" r="1.8" fill="C1"/><circle cx="37" cy="34" r="1.8" fill="C1"/>',
+  mountain: '<path d="M10 50l14-24 8 13 6-9 16 20z" fill="C2"/><path d="M18 38l6-12 5 8-4 4z" fill="C1" opacity=".55"/>',
+  wave: '<path d="M10 40c6-8 12-8 18 0s12 8 18 0 8-6 8-6v14H10z" fill="C2"/><path d="M12 30c5-6 10-6 15 0s10 6 15 0" fill="none" stroke="C2" stroke-width="2.5"/>',
   tree: '<path d="M32 12l12 16h-7l9 12h-9l7 10H20l7-10h-9l9-12h-7z" fill="C2"/><rect x="29" y="50" width="6" height="8" fill="C2"/>',
   gear: '<circle cx="32" cy="34" r="12" fill="none" stroke="C2" stroke-width="6" stroke-dasharray="6 5"/><circle cx="32" cy="34" r="5" fill="C2"/>',
   bear: '<circle cx="32" cy="36" r="13" fill="C2"/><circle cx="22" cy="26" r="5" fill="C2"/><circle cx="42" cy="26" r="5" fill="C2"/><rect x="27" y="38" width="10" height="6" fill="C1"/>',

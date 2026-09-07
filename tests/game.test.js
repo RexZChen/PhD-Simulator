@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRun, populateLab } from '../src/engine/state.js';
 import { dispatch, prelimChance, focusOptions } from '../src/engine/game.js';
-import { admissionChance, applicationCost } from '../src/engine/apply.js';
+import { admissionChance, applicationCost, interviewStep } from '../src/engine/apply.js';
 import { schools, mutators, achievements } from '../src/data/catalog.js';
 import { venues, venueReferences, nextDeadline, timelineFor, acceptsThisMonth } from '../src/data/venues.js';
 import { monthOf, dateLabel, holidays } from '../src/data/calendar.js';
@@ -56,7 +56,16 @@ function enterProgramOnce(seed = 1) {
     s = act(s, { type: 'APPLY', schoolId: school.id, effort: 'generic', contact: false, poiId: s.advisors.find(a => a.schoolId === school.id).id });
   }
   s = act(s, { type: 'ADMISSIONS' });
-  for (const app of s.applications.filter(a => a.interview)) for (const id of ['honest', 'sleep', 'style']) s = act(s, { type: 'INTERVIEW', schoolId: app.schoolId, id });
+  // Each interview draws its own questions now, so answer whatever is actually asked.
+  for (const app of s.applications.filter(a => a.interview)) {
+    for (let n = 0; n < 8; n++) {
+      const live = s.applications.find(a => a.schoolId === app.schoolId);
+      if (!live?.interview || live.interview.done) break;
+      const q = interviewStep(live);
+      if (!q) break;
+      s = act(s, { type: 'INTERVIEW', schoolId: app.schoolId, id: q.options[0].id });
+    }
+  }
   s = act(s, { type: 'DECISIONS' });
   if (!s.offers.length && s.applications.some(a => a.waitlisted)) s = act(s, { type: 'WAIT_APRIL' });
   assert.ok(s.offers.length > 0, `seed ${seed} should have at least one offer`);

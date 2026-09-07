@@ -1,6 +1,6 @@
 import { schools } from '../data/catalog.js';
 import { t, t as tr } from '../i18n/index.js';
-import { emailOpeners, emailFollowUps, studentOpeners, studentFlavor, interviewQuestions, visitQuestions } from '../data/threads.js';
+import { emailOpeners, emailFollowUps, studentOpeners, studentFlavor, interviewQuestions, visitQuestions, INTERVIEW_QUESTIONS } from '../data/threads.js';
 import { recommenderPools, LETTERS_EXPECTED } from '../data/recommenders.js';
 import { insiderNotes, poolsFor, NOTE_SOURCES } from '../data/insider.js';
 import { firstNames, surnames } from '../data/names.js';
@@ -146,9 +146,10 @@ export function nextStep(s) {
 const openingsLine = a => a.openings === 0 ? t('I am not taking students this year, though the committee may still route your file to me.') : a.openings === 1 ? t('I am taking one student this year.') : t('I am taking one or two students this year.');
 const fundingWord = a => a.funding > 70 ? t('not a concern') : a.funding > 45 ? t('fine for the first two years') : t('tight; first-years usually TA');
 function hintFor(s, a, trait) {
-  const lines = { caring: a.caring > 60 ? t('they cover for students when life happens') : a.caring < 40 ? t('they do not ask how you are doing, and they mean it') : t('they are fine; fine is underrated'), availability: a.availability > 65 ? t('they read drafts the same day') : a.availability < 35 ? t('email is a void; catch them in the hallway') : t('they are reachable if you know which app'), toxicity: a.toxicity > 55 ? t('two students left last year and nobody says why') : a.toxicity < 25 ? t('nobody has left the lab angry') : t('they have moods; learn the calendar'), management: a.management > 65 ? t('every project has a date by which it is cut or shipped') : a.management < 35 ? t('they have never finished a project on the original plan') : t('about half the meetings have an agenda') };
-  const pool = trait ? [lines[trait]] : Object.values(lines);
+  const lines = { caring: a.caring > 60 ? t('they cover for students when life happens') : a.caring < 40 ? t('they do not ask how you are doing, and they mean it') : t('they are fine; fine is underrated'), availability: a.availability > 65 ? t('they read drafts the same day') : a.availability < 35 ? t('email is a void; catch them in the hallway') : t('they are reachable if you know which app'), toxicity: a.toxicity > 55 ? t('two students left last year and nobody says why') : a.toxicity < 25 ? t('nobody has left the lab angry') : t('they have moods; learn the calendar'), management: a.management > 65 ? t('every project has a date by which it is cut or shipped') : a.management < 35 ? t('they have never finished a project on the original plan') : t('about half the meetings have an agenda'), funding: a.funding > 65 ? t('summer is covered and nobody has to ask') : a.funding < 35 ? t('the third year is a teaching year, for everyone, every time') : t('there is money for two of the three things you will want'), ambition: a.ambition > 65 ? t('they aim everything at the top venue and take the rejections personally') : a.ambition < 35 ? t('they would rather it be right than be first, which costs you a year and buys you a chapter') : t('they pick the venue by who is reviewing that cycle') };
+  const pool = (trait && lines[trait] ? [lines[trait]] : Object.values(lines)).filter(Boolean);
   const line = pick(s, pool);
+  if (!line) return '';
   a.known = [...(a.known || []), line].filter((x, i, arr) => arr.indexOf(x) === i);
   return line;
 }
@@ -250,7 +251,7 @@ export function submitAll(s) {
   for (const app of s.applications) {
     const school = schools.find(x => x.id === app.schoolId);
     app.chance = admissionChance(s, school, app);
-    app.interview = school.prestige > 78 && roll(s, .45) ? { questions: [], step: 0, delta: 0, done: false } : null;
+    app.interview = school.prestige > 78 && roll(s, .45) ? { questions: [], step: 0, delta: 0, done: false, qs: pickInterview(s, app) } : null;
     app.status = app.interview ? 'interview' : 'under review';
   }
   s.phase = 'interviews';
@@ -260,10 +261,50 @@ export function submitAll(s) {
   log(s, invites.length ? t('Applications submitted. {n} interview invitation(s) arrive in January.', { n: invites.length }) : t('Applications submitted. No interviews; some programs decide from the file alone.'));
   for (const app of invites) { const school = schools.find(x => x.id === app.schoolId); const poi = s.advisors.find(x => x.id === app.poiId); message(s, t('{school} Admissions', { school: school.name }), t('Interview request — {school}', { school: school.name }), t('{name} would like to schedule a 30-minute video interview. Please indicate availability using the attached spreadsheet, which does not open.', { name: poi.name }), null); }
 }
+
+// Who is asking decides what gets asked. A Tenured Warlord asks the sweaty ones; the intrusive
+// questions are gated on toxicity, because they are asked by people who do not think they are being
+// anything other than practical. "Do you have any questions for me?" always goes last, because it
+// always does.
+export function pickInterview(s, app) {
+  const poi = s.advisors.find(a => a.id === app.poiId);
+  const arch = poi?.archetype || 'parent';
+  const tox = poi?.toxicity ?? 40;
+  const intl = s.player.profile.international;
+  const pool = interviewQuestions.filter(q => {
+    if (q.last) return false;
+    if (q.international && !intl) return false;
+    if (q.archetypes && !q.archetypes.includes(arch)) return false;
+    if (q.intrusive && tox < 45) return false;
+    if (q.harsh && tox < 32) return false;
+    return true;
+  });
+  const weight = q => (q.archetypes ? 2.4 : 1) * (q.harsh ? .5 + tox / 90 : 1) * (q.intrusive ? .3 + tox / 140 : 1);
+  const chosen = [];
+  const left = [...pool];
+  while (chosen.length < INTERVIEW_QUESTIONS - 1 && left.length) {
+    const total = left.reduce((a, q) => a + weight(q), 0);
+    let r = random(s) * total;
+    let i = 0;
+    while (i < left.length - 1 && (r -= weight(left[i])) > 0) i++;
+    chosen.push(left.splice(i, 1)[0].id);
+  }
+  const closer = interviewQuestions.find(q => q.last);
+  return [...chosen, ...(closer ? [closer.id] : [])];
+}
+
+// The question in front of you, for both the UI and the answer handler.
+export const interviewStep = app => {
+  const ids = app?.interview?.qs;
+  if (!ids) return interviewQuestions[app?.interview?.step ?? 0];
+  const id = ids[app.interview.step];
+  return id ? interviewQuestions.find(q => q.id === id) : null;
+};
+
 export function interviewAnswer(s, schoolId, optionId) {
   const app = s.applications.find(a => a.schoolId === schoolId && a.interview && !a.interview.done); if (!app) throw new Error(t('No interview pending there.'));
   const poi = s.advisors.find(x => x.id === app.poiId);
-  const q = interviewQuestions[app.interview.step]; const o = q.options.find(x => x.id === optionId); if (!o) throw new Error(t('Choose an answer.'));
+  const q = interviewStep(app); if (!q) throw new Error(t('The interview is over.')); const o = q.options.find(x => x.id === optionId); if (!o) throw new Error(t('Choose an answer.'));
   let good = true;
   if (o.check) { const val = o.check.skill ? s.player.skills[o.check.skill] : s.player.stats[o.check.stat]; good = roll(s, clamp(.5 + (val - o.check.difficulty) / 110, .1, .9)); }
   const delta = good ? o.good : o.bad;
@@ -272,7 +313,7 @@ export function interviewAnswer(s, schoolId, optionId) {
   if (o.reveal && good) reply = reply.replace('{hint}', hintFor(s, poi, o.reveal));
   app.interview.questions.push({ them: q.them, you: o.label, reply });
   app.interview.step++;
-  if (app.interview.step >= interviewQuestions.length) { app.interview.done = true; app.status = 'under review'; app.chance = clamp(app.chance * (1 + app.interview.delta), .03, .92); log(s, t('Interview with {name} finished. {how}', { name: lastName(poi.name), how: app.interview.delta > .05 ? t('It went well.') : app.interview.delta < 0 ? t('It went.') : t('It was fine, in the way of dentists.') })); }
+  if (app.interview.step >= (app.interview.qs?.length ?? interviewQuestions.length)) { app.interview.done = true; app.status = 'under review'; app.chance = clamp(app.chance * (1 + app.interview.delta), .03, .92); log(s, t('Interview with {name} finished. {how}', { name: lastName(poi.name), how: app.interview.delta > .05 ? t('It went well.') : app.interview.delta < 0 ? t('It went.') : t('It was fine, in the way of dentists.') })); }
   return app;
 }
 export function decisions(s) {
