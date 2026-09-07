@@ -1,5 +1,12 @@
 // 申请结果：邮件只说「有更新」，答案在门户里，而这两者之间的空隙就是这个阶段的全部感受。
 export const decisionZh = {
+  // 引用不是平滑增长的。它一阵一阵地来。
+  "Something cites you eleven times in a fortnight. It turns out to be one survey with a very long related-work section, and for about four days you check the number more often than is reasonable.": "两个星期里，有东西引了你十一次。后来发现是一篇综述，相关工作那一节特别长；而接下来大约四天，你刷新那个数字的频率高得不太合理。",
+  "A lab you have heard of built on it. The citation is in the introduction rather than the related work, which is a distinction that matters to approximately nine people, all of whom are you.": "一个你听说过的实验室在它上面做了工作。引用出现在引言里而不是相关工作里——这个区别大约对九个人重要，而这九个人都是你。",
+  "The number moves by six overnight. You find out later it is one group, one paper, one bibliography that got picked up by a preprint that itself got picked up.": "那个数字一夜之间涨了六。你后来才知道，是一个组、一篇论文、一份参考文献，被一篇预印本引了，而那篇预印本又被别人引了。",
+  "A tutorial at a workshop used your figure. They spelled your name wrong on the slide and you would not change a thing about that afternoon.": "某个 workshop 的 tutorial 用了你的图。他们把你的名字在幻灯片上拼错了，而那个下午你一个字都不想改。",
+  "You arrive with one paper. It is a workshop paper, you were third author, and for the next six years it will be the top entry on your Scholar page and you will be quietly tired of it.": "你带着一篇论文来。那是一篇 workshop 论文，你是三作，而在接下来的六年里它会一直是你 Scholar 页面上的第一条，而你会对它悄悄地感到厌倦。",
+
   // 第二轮：一轮空白代价是一年，不是存档。
   "A year passes. You have the statement, the letters, and now you know what a long shot looks like.": "一年过去了。你有那份自述，有推荐信，而现在你知道「够不着」长什么样了。",
   "You, a year ago": "一年前的你",
@@ -58,4 +65,26 @@ export const decisionZh = {
   "There is no update on that one yet.": "那一所还没有更新。",
   "You have read that one.": "那一封你已经读过了。",
   "That one did not make you an offer.": "那一所没有给你 offer。",
+};
+
+// 你入学时带着的那篇论文。
+export const priorZh = {
+  "A Comparative Study of Attention Mechanisms for Low-Resource Text Classification": "低资源文本分类中注意力机制的对比研究",
+  "On the Sample Efficiency of Curriculum Ordering in Small-Data Regimes": "小数据条件下课程式排序的样本效率",
+  "Revisiting Data Augmentation for Fine-Grained Visual Recognition": "细粒度视觉识别中数据增强方法的再审视",
+  "Annotator Disagreement as Signal: A Case Study in Sentiment Corpora": "把标注分歧当作信号：情感语料上的一个案例研究",
+  "A Lightweight Baseline for Cross-Lingual Named Entity Recognition": "跨语言命名实体识别的一个轻量级基线",
+  "Measuring Tail Latency in Serverless Function Cold Starts": "无服务器函数冷启动的尾延迟测量",
+  "An Empirical Study of Cache Configuration in Undergraduate Teaching Clusters": "本科教学集群缓存配置的实证研究",
+  "Tighter Bounds for a Restricted Case of the Online Bipartite Matching Problem": "在线二分图匹配问题一个受限情形下的更紧界",
+  "A Simpler Proof of a Known Result, With One Fewer Assumption": "一个已知结果的更简证明，少用一条假设",
+  "What Twelve Undergraduates Said About a Prototype: A Qualitative Study": "十二个本科生对一个原型说了什么：一项质性研究",
+  "Designing for Interruption in Shared Study Spaces": "面向共享自习空间中断场景的设计",
+  "Sim-to-Real Transfer for a Low-Cost Manipulator: What Did Not Work": "低成本机械臂的仿真到实机迁移：哪些没成",
+  "A Benchmark Nobody Asked For, and the Three Baselines It Broke": "一个没人要求过的 benchmark，以及它打破的三个基线",
+  "a workshop at a conference you have still never attended": "某个会议下面的 workshop，而那个会议你到今天都没去过",
+  "the student track": "学生 track",
+  "a regional symposium": "一个地区性研讨会",
+  "a workshop, after two rejections": "一个 workshop，在被拒两次之后",
+  "an IEEE venue whose name you have to look up every time": "一个 IEEE 的会，名字你每次都得去查",
 };

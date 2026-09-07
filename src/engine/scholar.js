@@ -33,6 +33,15 @@ export function citationMail(s, project, n) {
 }
 
 // Accepted work accrues citations; preprints accrue a trickle. Called once a month.
+// What it looks like when a paper stops being ignored. Not a triumph — an inbox event you notice
+// on a Tuesday and mention to nobody.
+const citationSpikes = [
+  'Something cites you eleven times in a fortnight. It turns out to be one survey with a very long related-work section, and for about four days you check the number more often than is reasonable.',
+  'A lab you have heard of built on it. The citation is in the introduction rather than the related work, which is a distinction that matters to approximately nine people, all of whom are you.',
+  'A tutorial at a workshop used your figure. They spelled your name wrong on the slide and you would not change a thing about that afternoon.',
+  'The number moves by six overnight. You find out later it is one group, one paper, one bibliography that got picked up by a preprint that itself got picked up.',
+];
+
 export function accrueCitations(s) {
   s.citations = s.citations || {};
   for (const p of s.projects) {
@@ -45,9 +54,22 @@ export function accrueCitations(s) {
     const q = diamonds(p);
     // A hump: nobody cites you for a year, then a few people do, then it tapers.
     const curve = since < 4 ? .25 : since < 10 ? 1 : since < 26 ? .8 : .45;
-    const expected = tierPull * curve * (.4 + q * .17) * (1 + p.hype / 400);
+    // Quality is superlinear, because citation counts are. The old term ran .4 + q * .17, so a
+    // genuinely good paper earned 1.37× a mediocre one — which made the whole Scholar page look
+    // like a function of time rather than of work. Real distributions are closer to exponential:
+    // most papers get single digits forever and the occasional one runs away.
+    const quality = [.22, .38, .7, 1.5, 2.8][q - 1] ?? .7;
+    const expected = tierPull * curve * quality * (1 + p.hype / 400);
     let n = Math.floor(expected);
     if (roll(s, expected - n)) n++;
+    // And it arrives in lumps. Nothing for two months, then a survey cites you and eleven people
+    // find it in a fortnight. A smooth curve is the one thing a real Scholar page never is.
+    if (q >= 4 && since >= 6 && random(s) < .055 + (q - 4) * .04) {
+      const burst = 3 + Math.floor(random(s) * (q === 5 ? 9 : 5));
+      n += burst;
+      p.spiked = (p.spiked || 0) + 1;
+      log(s, t(pick(s, citationSpikes)), true);
+    }
     if (n) {
       const first = !Object.values(s.citations).some(v => v > 0);
       if (first) award(s, 'cited');

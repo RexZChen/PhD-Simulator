@@ -47,8 +47,14 @@ function enterProgram(seed = 1) {
     try { return enterProgramOnce(seed + bump * 1000); } catch (e) { if (bump === 11) throw e; }
   }
 }
-function enterProgramOnce(seed = 1) {
-  let s = createRun(seed, { background: 'masters', topic: 'systems', international: false });
+// Same walk, with the questionnaire answers under test.
+function enterProgramWith(seed, extra) {
+  for (let bump = 0; bump < 12; bump++) {
+    try { return enterProgramOnce(seed + bump * 1000, extra); } catch (e) { if (bump === 11) throw e; }
+  }
+}
+function enterProgramOnce(seed = 1, extra = {}) {
+  let s = createRun(seed, { background: 'masters', topic: 'systems', international: false, ...extra });
   s = act(s, { type: 'PREP', id: 'sop_draft' });
   s = act(s, { type: 'PREP', id: 'letter_ask', target: 'rec-0' });
   s = act(s, { type: 'PREP', id: 'proceed' });
@@ -2135,4 +2141,42 @@ test('a cycle that produces nothing costs a year, not the save file', async () =
   s = act(s, { type: 'DECISIONS' });
   assert.equal(s.phase, 'ending');
   assert.equal(s.ending.id, 'no_offer');
+});
+
+test('the paper you arrived with is a real paper, and quality actually drives citations', async () => {
+  // "Prior publications" was a questionnaire field that nothing read — a question about nothing.
+  // And every accepted paper accrued citations at nearly the same rate: the quality term ran
+  // .4 + q * .17, so a genuinely good paper earned 1.37x a mediocre one and the Scholar page was
+  // a function of time rather than of work.
+  const { myProfile, accrueCitations } = await import('../src/engine/scholar.js');
+  const { diamonds } = await import('../src/engine/paper.js');
+  const { venueById } = await import('../src/data/venues.js');
+
+  const withPapers = enterProgramWith(12, { publications: 'yes' });
+  const without = enterProgramWith(12, { publications: 'none' });
+  assert.equal(myProfile(without).papers.length, 0, 'a student with no prior work has an empty profile');
+  const prof = myProfile(withPapers);
+  assert.equal(prof.papers.length, 1, 'the paper you arrived with is not on your Scholar page');
+  assert.ok(prof.papers[0].title.length > 20);
+  assert.ok(prof.total >= 0, 'it carries its own citation history');
+
+  // Quality separates. A 5-diamond paper at a top venue must clearly outrun a 3-diamond one.
+  const run = (v0, tier, seed) => {
+    const s = enterProgram(seed);
+    s.month = 12; s.citations = {}; s.pendingCites = [];
+    const v = Object.values(venueById).find(x => x.tier === tier);
+    s.projects = [{ id: 'p1', title: 'X', kind: 'main', status: 'Accepted', progress: 100, draft: 100,
+      hype: 40, scope: 40, collaborators: [], venueId: v.id,
+      novelty: v0, technicalDepth: v0, evidence: v0, writingQuality: v0, reproducibility: v0,
+      submissionHistory: [{ venueId: v.id, month: 12, outcome: 'Accept', reviewers: [], quality: v0, diamonds: 4 }] }];
+    for (let m = 13; m <= 60; m++) { s.month = m; accrueCitations(s); }
+    return { n: s.citations.p1 || 0, d: diamonds(s.projects[0]) };
+  };
+  const great = [1, 2, 3].map(i => run(88, 1, i));
+  const fine = [1, 2, 3].map(i => run(56, 1, i));
+  assert.equal(great[0].d, 5);
+  assert.equal(fine[0].d, 3);
+  const avg = xs => xs.reduce((a, x) => a + x.n, 0) / xs.length;
+  assert.ok(avg(great) > avg(fine) * 2.5,
+    `a genuinely good paper earns ${Math.round(avg(great))} against ${Math.round(avg(fine))} — quality barely matters`);
 });

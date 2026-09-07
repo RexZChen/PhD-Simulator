@@ -1,4 +1,5 @@
 import { backgrounds, skillNames, advisorArchetypes, traitNames, stageWeights, schools, mutators, personalityTitles, topics } from '../data/catalog.js';
+import { priorTitles, priorVenues } from '../data/priorwork.js';
 import { t, provenanceOf, rememberSource, readSlot } from '../i18n/index.js';
 import { firstNames, surnames, labmateRoles, labmateTraits, companies } from '../data/names.js';
 import { dateLabel as calendarLabel, phdYear } from '../data/calendar.js';
@@ -136,6 +137,28 @@ export function createRun(seed = Date.now() >>> 0, answers = {}) {
 }
 
 // Called at enrollment: everything that depends on the chosen program and advisor.
+// The paper you arrived with. See src/data/priorwork.js — the questionnaire asked and nothing
+// read the answer, which made it a question about nothing.
+export function seedPriorWork(s) {
+  if (s.player.profile.publications !== 'yes') return;
+  const topic = s.player.profile.topic;
+  const pool = priorTitles[topic] || priorTitles.ml;
+  const title = pick(s, pool);
+  const venue = pick(s, priorVenues);
+  // Two to four years old on arrival, which is why it is the top of your profile for a while.
+  const age = 24 + Math.floor(random(s) * 24);
+  s.projects.push({
+    id: 'prior-0', title, kind: 'prior', status: 'Accepted', prior: true,
+    progress: 100, draft: 100, scope: 30, evidence: 55, writingQuality: 55, novelty: 40,
+    reproducibility: 45, hype: 12, collaborators: [], startedMonth: -age,
+    venueId: null, venue, priorVenue: venue,
+    submissionHistory: [{ venueId: null, venue, month: -age, outcome: 'Accept', reviewers: [], quality: 52, diamonds: 2 }],
+  });
+  s.citations = s.citations || {};
+  // It has been out for years, so it already has a few. Small numbers, honestly distributed.
+  s.citations['prior-0'] = Math.floor(random(s) * 5) + (age > 40 ? 2 : 0);
+}
+
 export function populateLab(s) {
   const used = new Set([s.advisor.name]);
   const count = clamp(Math.round(s.advisor.labSize / 5), 2, 4);

@@ -5,7 +5,7 @@ import { chatphdLines, chatphdReplies, advisorPings, logLines } from '../data/ch
 import { repliesFor } from '../data/replies.js';
 import { channelActionById } from '../data/social.js';
 import { clamp, random, roll, pick, pickFresh } from './probability.js';
-import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS, vars, activeLabmates } from './state.js';
+import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS, vars, activeLabmates, seedPriorWork } from './state.js';
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
 import { createProject, createThesis, benchSession, clusterSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
@@ -111,6 +111,7 @@ function enroll(s, id) {
   s.phase = 'playing'; s.stage = 'plan'; s.eventReturn = null; s.month = 0; s.week = 0;
   s.player.stats.energy = Math.max(65, s.player.stats.energy);
   populateLab(s);
+  seedPriorWork(s);        // the workshop paper you arrived with, if you have one
   const moving = 650 + Math.round(random(s) * 600);
   effects(s, { money: -moving, hope: 8, stress: 5 });
   const app = s.applications.find(x => x.schoolId === advisor.schoolId);
