@@ -1,6 +1,6 @@
 {
   "name": "phdsim",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "A satirical US CS PhD simulator, presented as a 90s desktop OS. Runs entirely in the browser.",
   "license": "MIT",
   "private": false,

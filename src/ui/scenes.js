@@ -4,7 +4,7 @@ import { avatar } from './avatars.js';
 import { memeFor, memeCard } from '../data/memes.js';
 import { dateLabel } from '../data/calendar.js';
 import { templateById, eventText } from '../engine/events.js';
-import { fill, lastName, labmateById } from '../engine/state.js';
+import { fill, lastName, labmateById, activeProject } from '../engine/state.js';
 import { prelimChance, proposalChance, defenseChance } from '../engine/game.js';
 import { pushbacks, lectureLines } from '../data/minigames.js';
 import { benchNote } from '../data/bench.js';
@@ -15,21 +15,51 @@ import { summonsKinds, summonsMoves, summonsNote, SUMMONS } from '../data/summon
 import { crises, crisisMoves, CRISIS_NOTE } from '../data/crisis.js';
 import { t } from '../i18n/index.js';
 
+// ── Scene art ────────────────────────────────────────────────────────────────────────────────
+// The strips existed but were static: the same lab at two in the morning as at three in the
+// afternoon, in December as in June, in year one as in year six. The art now carries state, which
+// is the only reason to have art in a game that is otherwise all prose — you should be able to tell
+// roughly when it is and roughly how you are before you read a word.
+//
+//   sky        time of day, from the tempo and the day index
+//   season     the month; snow on the sill in winter, low sun in autumn
+//   clutter    coffee cups accumulate as you drink them
+//   board      the whiteboard fills as the project does
+//   mood       the room desaturates as stress rises
+
+// Day pace knows the hour; anything coarser gets a plausible one from the seed and the month.
+function timeOfDay(s) {
+  if (s.tempo === 'day') return ['morning', 'day', 'day', 'dusk', 'night'][Math.min(4, s.dayIndex || 0)];
+  if (s.player?.hidden?.stress > 72) return 'night';
+  return ['morning', 'day', 'dusk'][(s.month + (s.week || 0)) % 3];
+}
+const seasonOf = m => { const mo = ((m + 8) % 12) + 1; return mo <= 2 || mo === 12 ? 'winter' : mo <= 5 ? 'spring' : mo <= 8 ? 'summer' : 'autumn'; };
+
 function strip(scene, s, e) {
   const advisor = e.speaker === 'advisor' || e.category === 'meeting';
   const caption = advisor ? `${t('PROF.')} ${esc(s.advisor?.name.toUpperCase() || t('ADVISOR'))}` : { lab: t('THE LAB · SOME TIME AFTER COFFEE'), home: t('HOME · SUCH AS IT IS'), life: t('HOME · SUCH AS IT IS'), campus: t('CAMPUS'), party: t('LAB SOCIAL · NOBODY IS WORKING'), portal: t('STUDENT PORTAL · NOTICE'), conference: t('CONFERENCE · HALLWAY TRACK'), winter: t('DECEMBER'), office: t('OFFICE') }[scene] || t('SOMEWHERE');
+  const p = activeProject(s);
+  const cups = Math.min(5, (s.caffeine?.month || 0) + (s.caffeine?.day || 0));
+  const board = Math.round(Math.min(100, p?.progress || 0));
+  const time = timeOfDay(s);
+  const season = seasonOf(s.month || 0);
+  const stress = s.player?.hidden?.stress ?? 30;
+  const mood = stress > 74 ? 'm-frayed' : stress > 52 ? 'm-tired' : '';
+  // Layers every location gets: a sky behind the window, dust in the light, and the clock.
+  const common = `<div class="s-sky"></div>${season === 'winter' ? '<div class="s-snow"></div>' : ''}${time === 'night' ? '<div class="s-dark"></div>' : ''}<div class="s-dust"></div>`;
+  const desk = n => `<div class="s-desk"></div><div class="s-cups" data-n="${n}">${'<i></i>'.repeat(n)}</div>`;
   const inner = {
-    office: `<div class="s-window"></div><div class="s-shelf"></div><div class="s-desk"></div><div class="s-plant"></div><div class="portrait-avatar">${s.advisor ? avatar(s.advisor.id, 110, { bg: 'transparent' }) : ''}</div><div class="call-bar"><i></i> ${t('LIVE')} · ${esc(t(s.cadence?.oneOnOne || 'meeting'))}</div>`,
-    lab: `<div class="s-window"></div><div class="s-server"></div><div class="s-desk"></div><div class="portrait" style="--shirt:#4f7c5b;right:52%"><i></i></div>`,
-    home: `<div class="s-window"></div><div class="s-plant" style="left:70%"></div><div class="s-desk" style="left:10%;width:40%"></div><div class="portrait" style="--shirt:#6b6b8f;right:60%"><i></i></div>`,
-    life: `<div class="s-window"></div><div class="s-plant" style="left:70%"></div><div class="s-desk" style="left:10%;width:40%"></div><div class="portrait" style="--shirt:#6b6b8f;right:60%"><i></i></div>`,
-    campus: `<div class="s-banner">${esc(s.program?.name || t('CAMPUS'))} · ${t('DEPARTMENT OF COMPUTER SCIENCE')}</div><div class="s-poster"></div><div class="portrait" style="--shirt:#4f7c5b;right:30%"><i></i></div><div class="portrait p3" style="right:55%"><i></i></div>`,
-    party: `<div class="s-lights"></div><div class="s-window"></div><div class="s-desk"></div><div class="portrait" style="--shirt:#8f4f6b;right:25%"><i></i></div><div class="portrait p3"><i></i></div>`,
-    portal: `<div class="s-form"><b>${t('FORM 27-B · REQUEST FOR PERMISSION TO REQUEST')}</b>${t('Name')}: ________ ID: ________<br>${t('Reason')}: ________________________<br>${t('Approved by')}: ____ ${t('Date')}: ____ ${t('Hold')}: [x]</div>`,
-    conference: `<div class="s-banner">${t('WELCOME ATTENDEES · REGISTRATION →')}</div><div class="s-poster"></div><div class="portrait" style="--shirt:#637ab0;right:40%"><i></i></div><div class="portrait p2"><i></i></div>`,
+    office: `<div class="s-window"></div><div class="s-shelf"></div>${desk(0)}<div class="s-plant"></div><div class="s-papers"></div><div class="portrait-avatar">${s.advisor ? avatar(s.advisor.id, 110, { bg: 'transparent' }) : ''}</div><div class="call-bar"><i></i> ${t('LIVE')} · ${esc(t(s.cadence?.oneOnOne || 'meeting'))}</div>`,
+    lab: `<div class="s-window"></div><div class="s-server"></div><div class="s-board"><i style="width:${board}%"></i></div>${desk(cups)}<div class="s-monitor"><b></b></div><div class="portrait" style="--shirt:#4f7c5b;right:52%"><i></i></div>`,
+    home: `<div class="s-window"></div><div class="s-plant" style="left:70%"></div><div class="s-desk" style="left:10%;width:40%"></div><div class="s-cups" data-n="${cups}" style="left:14%">${'<i></i>'.repeat(cups)}</div><div class="s-monitor" style="left:16%"><b></b></div><div class="s-laundry"></div><div class="portrait" style="--shirt:#6b6b8f;right:60%"><i></i></div>`,
+    life: `<div class="s-window"></div><div class="s-plant" style="left:70%"></div><div class="s-desk" style="left:10%;width:40%"></div><div class="s-cups" data-n="${cups}" style="left:14%">${'<i></i>'.repeat(cups)}</div><div class="s-laundry"></div><div class="portrait" style="--shirt:#6b6b8f;right:60%"><i></i></div>`,
+    campus: `<div class="s-tree"></div><div class="s-banner">${esc(s.program?.name || t('CAMPUS'))} · ${t('DEPARTMENT OF COMPUTER SCIENCE')}</div><div class="s-poster"></div><div class="s-bike"></div><div class="portrait" style="--shirt:#4f7c5b;right:30%"><i></i></div><div class="portrait p3" style="right:55%"><i></i></div>`,
+    party: `<div class="s-lights"></div><div class="s-window"></div><div class="s-desk"></div><div class="s-cups" data-n="4"><i></i><i></i><i></i><i></i></div><div class="portrait" style="--shirt:#8f4f6b;right:25%"><i></i></div><div class="portrait p3"><i></i></div>`,
+    portal: `<div class="s-form"><b>${t('FORM 27-B · REQUEST FOR PERMISSION TO REQUEST')}</b>${t('Name')}: ________ ID: ________<br>${t('Reason')}: ________________________<br>${t('Approved by')}: ____ ${t('Date')}: ____ ${t('Hold')}: [x]</div><div class="s-stamp">${t('PENDING')}</div>`,
+    conference: `<div class="s-banner">${t('WELCOME ATTENDEES · REGISTRATION →')}</div><div class="s-poster"></div><div class="s-lanyard"></div><div class="portrait" style="--shirt:#637ab0;right:40%"><i></i></div><div class="portrait p2"><i></i></div>`,
     winter: `<div class="s-snow"></div><div class="s-window"></div><div class="s-desk" style="background:#8a8f99;border-top-color:#b9bfc9"></div><div class="portrait" style="--shirt:#2f4f6f;right:50%"><i></i></div>`,
-  }[scene] || `<div class="s-window"></div><div class="s-desk"></div><div class="portrait"><i></i></div>`;
-  return `<div class="scene-strip ${scene}">${inner}<span class="scene-caption">${caption}</span>${memeCard(memeFor(e))}</div>`;
+  }[scene] || `<div class="s-window"></div>${desk(cups)}<div class="portrait"><i></i></div>`;
+  return `<div class="scene-strip ${scene} t-${time} sn-${season} ${mood}">${common}${inner}<span class="scene-caption">${caption}</span>${memeCard(memeFor(e))}</div>`;
 }
 
 export function sceneDialog(s) {

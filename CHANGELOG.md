@@ -4,6 +4,25 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.10.0] — 2026-09-07
+
+Scene art that carries state.
+
+### Added
+- **The scene strips know what time it is.** They existed but were static — the same lab at two in
+  the morning as at three in the afternoon, in December as in June, in year one as in year six. The
+  sky behind the window now runs morning / day / dusk / night, taken from the day index at day pace
+  and from the calendar otherwise, and a run at high stress reads as night because that is when you
+  are looking at it. Winter frosts the sill and puts snow in the air; autumn drops the saturation.
+- **The props are the systems, drawn.** Coffee cups accumulate on the desk as you drink them — the
+  caffeine counter, visible. The lab whiteboard fills with the active project's progress, so a 20%
+  project and a 95% project are different rooms. A monitor with a blinking cursor, a stack of papers
+  in the office, laundry at home, a tree and a bike on campus, a lanyard at the conference, a
+  PENDING stamp on the portal form.
+- **The room desaturates as you do.** Above 52 stress it loses a quarter of its colour; above 74 it
+  loses more than half. The desktop tint already did this for the whole OS; now the art agrees.
+- Dust in the light, drifting, on every scene. One element, and the strips stopped looking flat.
+
 ## [1.9.0] — 2026-09-07
 
 The calendar interrupts you, and the month can be read before it is read.

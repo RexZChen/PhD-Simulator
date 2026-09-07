@@ -439,4 +439,5 @@ export const campusZh = {
   "A month.": "一个月而已。",
   "A hard one.": "难熬的一个月。",
   "That was a bad month.": "这个月很糟。",
+  "PENDING": "待处理",
 };

@@ -1312,3 +1312,38 @@ test('the advisor’s mood is a face, not a sentence you have to parse', async (
   await seedPlay(page, `s.month = 20; s.advisorMode = { id: 'attentive', until: s.month + 3, since: s.month };`);
   expect(await page.locator('.advisor-card .mode-face .face-svg').getAttribute('class')).toContain('great');
 });
+
+test('the scene art carries the time, the season, and how you are', async ({ page }) => {
+  // A calm month in the middle of a normal day.
+  await seedPlay(page, `s.month = 8; s.player.hidden.stress = 20; s.caffeine = { day: 0, week: 0, month: 0 };`, undefined, 9001, true);
+  // Drive the strip directly across states — it is a pure function of the run.
+  const shots = await page.evaluate(async () => {
+    const { sceneDialog } = await import('/src/ui/scenes.js');
+    const { loadSave } = await import('/src/engine/save.js');
+    const base = loadSave(localStorage).run;
+    const grab = mut => {
+      const s = structuredClone(base);
+      Object.assign(s, { event: 'burnout' });
+      mut(s);
+      const html = sceneDialog(s);
+      const m = html.match(/class="scene-strip ([^"]+)"/);
+      return { cls: m ? m[1] : '', cups: (html.match(/s-cups" data-n="(\d+)"/) || [])[1], board: (html.match(/s-board"><i style="width:(\d+)%/) || [])[1] };
+    };
+    return {
+      winterNight: grab(s => { s.month = 4; s.tempo = 'day'; s.dayIndex = 4; }),
+      summerDay: grab(s => { s.month = 10; s.tempo = 'day'; s.dayIndex = 1; }),
+      frayed: grab(s => { s.player.hidden.stress = 85; }),
+      coffee: grab(s => { s.caffeine = { day: 3, week: 3, month: 2 }; s.event = 'labmate_help'; }),
+    };
+  });
+  // Month 4 is December here: winter, and the fifth block of the day is night.
+  expect(shots.winterNight.cls).toContain('sn-winter');
+  expect(shots.winterNight.cls).toContain('t-night');
+  // Month 10 is June: summer, and the second block is daytime.
+  expect(shots.summerDay.cls).toContain('sn-summer');
+  expect(shots.summerDay.cls).toContain('t-day');
+  // Stress desaturates the room.
+  expect(shots.frayed.cls).toContain('m-frayed');
+  // And the coffee you drank is on the desk.
+  expect(Number(shots.coffee.cups)).toBeGreaterThan(0);
+});

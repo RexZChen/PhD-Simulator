@@ -51,7 +51,7 @@ switched at any point mid-run, including for mail and chat you have already rece
 
 ```bash
 npm test          # 96 deterministic engine tests (node --test)
-npm run test:e2e  # 40 Playwright browser flows (uses installed Google Chrome)
+npm run test:e2e  # 41 Playwright browser flows (uses installed Google Chrome)
 npm run build     # production build
 npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
 npm run i18n      # plays real runs in Chinese and lists anything still in English
@@ -101,6 +101,13 @@ interest. Debt that compounds quietly and gets paid down when there is slack.
 **International students** carry it differently and the model says so: higher loneliness, visa fees,
 CPT paperwork, remittances home, employers that will not sponsor, national labs that are closed to
 them outright, and travel that needs a visa which usually comes through and sometimes does not.
+
+**The art carries state.** The scene behind each event knows what time it is — the sky runs morning
+to night from the day index, winter frosts the sill, autumn drops the saturation. The coffee cups on
+the desk are the ones you drank. The lab whiteboard fills with your project's progress, so a 20%
+project and a 95% project are visibly different rooms. And the whole scene desaturates as your stress
+rises, which is the same thing the desktop does, so the game tells you how you are twice without
+using a number either time.
 
 **The calendar is not yours.** Unscheduled meetings arrive *after* you have chosen what the month
 goes to, and take a piece of that choice — 42% of what you planned, 62% in a crunch week. You see
