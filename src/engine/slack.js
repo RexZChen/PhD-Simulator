@@ -52,9 +52,44 @@ export function replyTo(s, messageId, kindId, composed = '') {
   effects(s, { ...rest, ...(labBond ? { [key]: labBond } : {}) });
   if (kind.personality) s.player.personality[kind.personality]++;
   chat(s, m.channel, s.player.name, composed || t(pick(s, kind.drafts)), { mine: true, replyTo: m.id });
+  const n = roomReacts(s, kindId, m.channel);
   const back = t(pick(s, kind.replies));
   chat(s, m.channel, m.sender, back);
-  return { line: back };
+  return { line: back, reacts: n };
+}
+
+// The room answering you, in chips rather than in prose.
+//
+// Posting used to produce a sentence about the reaction — "Four reactions. The senior student asks
+// a real question about it" — printed under a message that visibly had none. The sentence is the
+// tell that the room is scenery. So the room reacts for real now, on your own message, and the
+// number of people who do is about how well you are known and how well you are doing.
+//
+// Silence is one of the outcomes and it is the whole joke. It is not an error state and it does
+// not get a consolation chip: a post nobody answers looks exactly like a post nobody answered.
+const REACT_FOR = {
+  boast: ['fire', 'plus1', 'eyes'], help: ['heart', 'plus1', 'fire'],
+  support: ['heart', 'sob'], ask: ['eyes', 'plus1'], vent: ['sob', 'heart', 'laugh'],
+};
+export function roomReacts(s, kindId, channel) {
+  const mine = [...s.chatMessages].reverse().find(m => m.mine && m.channel === channel);
+  if (!mine) return 0;
+  const room = [...activeLabmates(s), ...(channel === 'cohort' ? s.peers || [] : [])].filter(x => x.status === 'active');
+  if (!room.length) return 0;
+  const bond = room.reduce((a, x) => a + (x.bond || 50), 0) / room.length;
+  // A well-liked person in a good month gets three or four; a stranger in a bad one gets nothing,
+  // and that is a real thing that happens in a real channel on a real Tuesday.
+  const warmth = clamp((bond - 34) / 66 + ((s.standing ?? 60) - 50) / 220, .05, .92);
+  const glyphs = REACT_FOR[kindId] || ['plus1', 'eyes'];
+  mine.reacts = mine.reacts || [];
+  let n = 0;
+  for (const who of room) {
+    if (n >= 4) break;
+    if (!roll(s, warmth * (n === 0 ? 1 : .55))) continue;
+    mine.reacts.push({ id: pick(s, glyphs), by: firstName(who.name) });
+    n++;
+  }
+  return n;
 }
 
 // ── Direct messages with people who are not your advisor ──────────────────────

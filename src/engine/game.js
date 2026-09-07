@@ -34,7 +34,7 @@ import { crunchOf, tempoOf, focusOptions, focusById, crunchSnapshot, milestoneOf
 import { applyInternships, canApplyIntern, openInternTalk, playInternMove, endInternship, ensureIntern, internWindow } from './internship.js';
 import { addFunding } from './funding.js';
 import { fundingSources } from '../data/fundingSources.js';
-import { react, replyTo, sendDm, dmPeople, dmOptions, replyOptionsFor } from './slack.js';
+import { react, replyTo, sendDm, dmPeople, dmOptions, replyOptionsFor, roomReacts } from './slack.js';
 import { askLetter, availableWriters, letterCount, lettersReady, packetStrength, closeLetters, needsLetters } from './letters.js';
 import { applyJob, jobsMonth, discloseSearch, withdrawApp, setWorkAuth, listingsFor, openPortals, funnel, liveOffers, ensureJobs } from './jobsearch.js';
 import * as applyEngine from './apply.js';
@@ -891,6 +891,9 @@ export function dispatch(state, action) {
       if (act.personality) s.player.personality[act.personality]++;
       s.askCooldowns[`soc:${a.id}`] = absWeek(s) + act.cooldown;
       chat(s, a.channel, s.player.name, a.text || fill(s, t(act.draft)), { mine: true });
+      // The room reacts on the message rather than in a sentence underneath it. "Four reactions in
+      // ninety seconds" printed over a message with no reactions is the tell that nobody is there.
+      roomReacts(s, act.personality === 'peoplePleaser' ? 'support' : act.id === 'cluster' ? 'vent' : 'ask', a.channel);
       const responder = a.channel === 'general' ? pick(s, s.labmates.filter(l => l.status === 'active')) : pick(s, s.peers.filter(pr => pr.status === 'active'));
       const line = t(act.reply());
       if (responder) chat(s, a.channel, responder.name, line);

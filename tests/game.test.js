@@ -681,6 +681,34 @@ test('advisor pushback is a real second beat, and hesitation has a cost', () => 
   assert.ok(s.player.hidden.stress >= stress, 'and saying nothing is not free');
 });
 
+test('the room reacts on your message, and a cold room stays silent', () => {
+  // Posting used to print "Four reactions in ninety seconds" underneath a message that had none.
+  // A sentence about the room is the tell that the room is scenery.
+  let warm = enterProgram(44);
+  for (const l of warm.labmates) { l.status = 'active'; l.bond = 95; }
+  warm.standing = 92;
+  warm = dispatch(warm, { type: 'SOCIAL', channel: 'general', id: 'cluster' });
+  const wmine = [...warm.chatMessages].reverse().find(m => m.mine && m.channel === 'general');
+  assert.ok(wmine, 'you posted');
+  assert.ok((wmine.reacts || []).length >= 1, 'a room that likes you answers on the message');
+  for (const r of wmine.reacts) assert.ok(r.by && !r.mine, 'and it is other people reacting, not you');
+
+  // Silence is an outcome, not an error, and it must be allowed to look like silence.
+  let cold = enterProgram(44);
+  for (const l of cold.labmates) { l.status = 'active'; l.bond = 4; }
+  cold.standing = 6;
+  let quiet = 0;
+  for (let i = 0; i < 12; i++) {
+    let c = enterProgram(44 + i);
+    for (const l of c.labmates) { l.status = 'active'; l.bond = 4; }
+    c.standing = 6;
+    c = dispatch(c, { type: 'SOCIAL', channel: 'general', id: 'cluster' });
+    const m = [...c.chatMessages].reverse().find(x => x.mine && x.channel === 'general');
+    if (m && !(m.reacts || []).length) quiet++;
+  }
+  assert.ok(quiet >= 4, `a room that does not know you sometimes says nothing (${quiet}/12 silent)`);
+});
+
 test('the spinout arc walks from a disclosure form to a company, and the advisor is on the cap table', () => {
   // The user's ask, in their words: "you keep the grinding, and i get the money for free shares
   // kinda vibe." That only lands if the whole chain is walkable — the form, the suggestion, the
