@@ -10,6 +10,7 @@ import { pushbacks, lectureLines } from '../data/minigames.js';
 import { benchNote } from '../data/bench.js';
 import { vivaMoves, examiners } from '../data/viva.js';
 import { clusterNote } from '../data/cluster.js';
+import { officeAction, patentShare, patentNote, patentMeetings, PATENT } from '../data/patent.js';
 import { crises, crisisMoves, CRISIS_NOTE } from '../data/crisis.js';
 import { t } from '../i18n/index.js';
 
@@ -172,5 +173,26 @@ export function clusterDialog() {
     <div class="cl-log" data-cl-log></div>
     <p class="vv-flash hidden" data-cl-flash></p>
     <p class="tiny muted">${esc(t(clusterNote))}</p>
+  </div></section></div>`;
+}
+
+// The innovation office, and the rejection. Both are gates: a scheduled conversation you have to
+// have, and a forty-one page document you have to answer.
+export function patentDialog(s) {
+  const pt = s.patent;
+  if (!pt) return '';
+  const meeting = pt.stage === 'meetings' ? patentMeetings[pt.meeting] || null : null;
+  const action = pt.stage === 'action';
+  if (!meeting && !action) return '';
+  const title = action ? t('US Patent Office — non-final rejection') : t('Innovation Office');
+  const body = action ? officeAction : meeting;
+  const opts = body.choices;
+  const share = t(patentShare, { advisor: PATENT.advisorShare, you: 100 - PATENT.advisorShare });
+  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="pat-title"><div class="titlebar"><span class="tb-title">${icon('portal', 16)}<span>${esc(title)}</span></span></div><div class="body">
+    <h2 id="pat-title">${esc(t(body.title || t('Every claim, rejected')))}</h2>
+    <p class="scene-text">${esc(t(Array.isArray(body.text) ? body.text[(s.month + (pt.meeting || 0)) % body.text.length] : body.text))}</p>
+    <div class="choices">${opts.map((o, i) => `<button class="btn choice" data-action="${action ? 'patent-action' : 'patent-meet'}" data-id="${o.id}" data-hotkey="${i + 1}" ${s.stage !== 'plan' ? 'disabled' : ''}><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(o.text))}</b><small>${esc(t(o.hint))}</small></span><span class="arrow">→</span></button>`).join('')}</div>
+    <p class="tiny muted">${esc(share)}</p>
+    <p class="tiny muted">${esc(t(patentNote))}</p>
   </div></section></div>`;
 }

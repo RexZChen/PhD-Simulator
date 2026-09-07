@@ -183,6 +183,17 @@ export const achievements = {
   keptemeritus: { name: 'Advisor Of Record, Emeritus', desc: 'Keep a retiring advisor to the end by finding someone to sign the form.' },
   labinheritor: { name: 'Where Everything Is Kept', desc: 'Take on the lab\u2019s unfinished work. A form of power and a form of sentence.' },
 
+  askedforamonth: { name: 'You Asked For A Month', desc: 'Ask for time off after an acceptance. You got two weeks, which is more than you have had in three years.' },
+
+  // ── The patent ─────────────────────────────────────────────────────────────────────────────
+  namedinventor: { name: 'Named Inventor', desc: 'Get an application filed. It appears on your Scholar profile about a year later, indexed next to your papers as though it were one.' },
+  patentgranted: { name: 'Two Years, Four Months', desc: 'Argue a rejection down to a granted patent. There is a certificate. It is genuinely beautiful and it arrives in a cardboard tube.' },
+
+  // ── The spinout ────────────────────────────────────────────────────────────────────────────
+  readthepolicy: { name: 'Section 4.2', desc: 'Read the university IP policy before signing the disclosure. Forty pages, and the only forty that matter.' },
+  askedthenumber: { name: '“What Is That Slice For?”', desc: 'Ask, out loud, in the room, what your advisor\u2019s equity is for. Almost nobody does.' },
+  theotherside: { name: 'A Day A Month', desc: 'Take the board seat and the shares and stay academic. You understand your advisor completely now, and you cannot un-understand it.' },
+
   // ── The second organisation chart ──────────────────────────────────────────────────────────
   rolodex: { name: 'Five People Who Answer', desc: 'Know five people outside your lab at once. This is the part of a PhD that outlasts the PhD.' },
   keptintouch: { name: 'Kept In Touch', desc: 'Have six real conversations with one contact. A relationship that is only ever used for asks is not one.' },

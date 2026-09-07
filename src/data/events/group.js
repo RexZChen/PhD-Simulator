@@ -9,6 +9,25 @@
 const c = (id, text, hint, effects = {}, extra = {}) => ({ id, text, hint, effects, ...extra });
 export default [
 
+  // ── Sisyphus ───────────────────────────────────────────────────────────────────────────────
+  // The compliment is real and it is aimed at the room. Both of those are true and neither
+  // cancels the other; that is the register this whole game is written in.
+  { id: 'group_praise_public', title: 'Before we start', category: 'lab', scene: 'lab', probability: 1, scheduledOnly: true, cooldown: 2,
+    conditions: { flag: 'acceptPraise' },
+    text: ['“Before we start — {you} had a paper accepted at {venue} this week.” A round of applause that is genuine and lasts about four seconds. Then: “Which is what happens when somebody stays with one problem for two years.”\n\nEverybody in the room hears the second sentence. It is aimed at the room. It is also completely true, which is what makes it work.',
+      '“{you} got into {venue}.” They say the venue name slightly slowly, so that it lands. “Third submission. Third.” They look around the table on the word.\n\nTwo people write something down. One of them is not writing down congratulations.',
+      '“Everyone — {venue} for {you}.” Applause. Then, to the room, pleasantly: “It is a good venue. It is not out of reach for anybody sitting here.”\n\nThe compliment is yours. The sentence after it belongs to somebody else.'],
+    choices: [
+      c('take', 'Take the four seconds', 'They are yours; take them', { hope: 8, confidence: 8, satisfaction: 4 },
+        { flags: { acceptPraise: false }, result: 'You take it. It is a good four seconds and you have earned every one of them, and you notice the second sentence and decide, deliberately, to let it be somebody else\'s problem today.' }),
+      c('deflect', 'Redirect it to the people who helped', 'Costs the moment; buys the room', { hope: 4, confidence: 3 },
+        { flags: { acceptPraise: false }, labBond: 10,
+          result: 'You name two people and what they actually did. The room warms about four degrees. Your advisor looks momentarily unsure whether their point survived, and it did not, and that is fine.' }),
+      c('uncomfortable', 'Notice what the compliment is being used for', 'Clear-eyed; slightly lonely', { hope: 2, confidence: 4, satisfaction: -2 },
+        { flags: { acceptPraise: false }, personality: 'cynic',
+          result: 'It is a genuine compliment, deployed as a management technique, by somebody who does not experience those as different things. You will use it the same way one day and you will notice yourself doing it.' }),
+    ] },
+
   // ── The round-the-table ────────────────────────────────────────────────────────────────────
   // The one everybody actually dreads: no slides, no warning, thirty seconds each, out loud, in
   // front of the room. What you have is what you have, and the room can tell in about four words.

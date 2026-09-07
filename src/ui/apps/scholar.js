@@ -19,6 +19,8 @@ function yearChart(byYear, startYear, endYear) {
   </div>`;
 }
 
+import { patentEntry } from '../../engine/patent.js';
+
 export function scholarApp(s, ui) {
   const me = myProfile(s);
   const others = otherProfiles(s).sort((a, b) => b.total - a.total);
@@ -38,6 +40,7 @@ export function scholarApp(s, ui) {
   </div>
   ${yearChart(me.byYear, startYear, Math.max(startYear + 3, thisYear))}
   ${me.papers.length ? `<div class="listview sch-list"><div class="lv-head"><span>${t('Title')}</span><span>${t('Cited by')}</span><span>${t('Year')}</span></div>
+    ${(() => { const pt = patentEntry(s); return pt ? `<div class="lv-row patent-row"><span><b>${esc(pt.title)}</b><br><span class="muted tiny">${esc(pt.venue)} · ${esc(pt.inventors)}</span></span><span class="num"><b>${pt.n}</b></span><span class="num">${pt.year}</span></div>` : ''; })()}
     ${me.papers.map(p => `<div class="lv-row"><span><b>${esc(p.title)}</b><br><span class="muted tiny">${esc(p.venue)} · ${diamondBar(p.diamonds)}${p.status === 'Accepted' ? '' : ` · ${t('preprint')}`}</span></span><span class="num"><b>${p.n}</b></span><span class="num">${p.year}</span></div>`).join('')}</div>`
     : `<p class="muted small">${t('No indexed work yet. The page exists. That is all it does.')}</p>`}
   <p class="small muted" style="margin-top:8px">${esc(comparison(s))}</p>`;

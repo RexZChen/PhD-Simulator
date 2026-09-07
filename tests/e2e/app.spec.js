@@ -1152,3 +1152,54 @@ test('an achievement lands on screen instead of in a log nobody re-reads', async
   await expect(toast).toContainText(/Achievement unlocked/i);
   await expect(toast.locator('span')).not.toBeEmpty();
 });
+
+test('the patent is a process with its own clock, and it lands on Scholar', async ({ page }) => {
+  await seedPlay(page, `
+    s.month = 26; p.status = 'Accepted'; p.progress = 80; s.counts.accepted = 1;
+    s.player.stats.energy = 100;
+  `);
+  // Filing the disclosure starts a two-and-a-half-year clock.
+  const st = await page.evaluate(async () => {
+    const { loadSave, saveRun } = await import('/src/engine/save.js');
+    const { openPatent, doPatentMeeting, nextPatentMeeting, patentMonth, patentEntry, answerOfficeAction } = await import('/src/engine/patent.js');
+    const save = loadSave(localStorage);
+    const s = save.run;
+    openPatent(s, s.projects[0].id);
+    const stages = [`${s.patent.stage} m${s.month}`];
+    for (let i = 0; i < 3; i++) { s.player.stats.energy = 100; doPatentMeeting(s, nextPatentMeeting(s).choices[0].id); }
+    stages.push(`${s.patent.stage} m${s.month}`);
+    let filed = null, action = null;
+    for (let m = s.month; m <= 70; m++) {
+      s.month = m; const before = s.patent.stage; patentMonth(s);
+      if (s.patent.stage !== before) stages.push(`${s.patent.stage} m${m}`);
+      if (s.patent.stage === 'filed' && filed === null) filed = m;
+      if (s.patent.stage === 'action' && action === null) {
+        action = m;
+        // The office action is a gate on the desktop, which is the point of it — answer it.
+        s.player.stats.energy = 100;
+        answerOfficeAction(s, 'fight');
+      }
+    }
+    saveRun(localStorage, s, save.meta);
+    return { stages, filed, action, entry: patentEntry(s) };
+  });
+  // Meetings, then about a year to a filing, then a rejection.
+  expect(st.stages[0]).toContain('meetings');
+  expect(st.filed).toBeGreaterThan(35);
+  expect(st.action).toBeGreaterThan(st.filed);
+  expect(st.entry).toBeTruthy();
+  expect(st.entry.venue).toMatch(/Patent/);
+  expect(st.entry.inventors).toMatch(/Prof\./);
+
+  // And Scholar lists it next to the papers.
+  await page.reload();
+  await page.locator('.boot').click();
+  await page.getByRole('button', { name: /Continue the saved run/ }).click();
+  await page.locator('[data-action="wiz-next"]').click();
+  await closeDialogs(page);
+  await resolveScenes(page);
+  await closeDialogs(page);
+  await page.locator('[data-action="open"][data-app="scholar"]').first().dblclick();
+  await expect(page.locator('.patent-row')).toBeVisible();
+  await expect(page.locator('.patent-row')).toContainText(/Patent/);
+});

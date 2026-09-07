@@ -1,11 +1,12 @@
 import { venues, venueById, nextDeadline, acceptsThisMonth, timelineFor, topicFit, venuesForTopic } from '../data/venues.js';
 import { t } from '../i18n/index.js';
 import { BENCH_ENERGY, benchGrades } from '../data/bench.js';
+import { acceptMail, acceptChat, restMonths, restNote } from '../data/sisyphus.js';
 import { CLUSTER_ENERGY, clusterGrades } from '../data/cluster.js';
 import { rebuttals, topics } from '../data/catalog.js';
 import { monthOf, dateLabel } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, chat, award, activeProject, absWeek, lastName, editable, joined } from './state.js';
+import { effects, log, message, chat, award, activeProject, absWeek, lastName, editable, joined, fill } from './state.js';
 import { pushEvent, hooks } from './events.js';
 
 const TITLES = {
@@ -264,6 +265,18 @@ export function decide(s, p, bonus) {
   if (s.flags.wasScooped) award(s, 'scooped');
   const aq = diamonds(p);
   log(s, t('{venue}: {result}. You read the email twice, then a third time for the word “pleased.”', { venue: v.name, result: t(result) }));
+  // Congratulations, in writing, within a day. This part is unambiguously kind.
+  const note = pick(s, acceptMail);
+  message(s, s.advisor.name, t(note.subject), t(note.body), 'dashboard', 'inbox', null);
+  chat(s, 'advisor', s.advisor.name, fill(s, t(pick(s, acceptChat))).replace('{venue}', v.name));
+  // Out loud at the next group meeting, where the compliment is doing a second job on the room.
+  s.flags.acceptPraise = true;
+  s.lastAcceptVenue = v.name;
+  // And then the question. The interval is the whole point: an Empire Builder asks within a
+  // fortnight, an Academic Parent gives you two months, and nobody ever names a length of rest.
+  const rest = restMonths(s.advisor);
+  s.scheduled.push({ id: 'next_project', week: absWeek(s) + Math.max(2, rest * 4), restMonths: rest });
+  log(s, t(pick(s, restNote)));
   if (aq <= 2) log(s, t('Between you and the reviewers: this was a {bar} paper. Sometimes the lottery pays out. Take it.', { bar: diamondBar(aq) }));
   message(s, 'OpenRegret', t('Decision: {result} — {venue}', { result: t(result), venue: v.name }), t('We are pleased to inform you. {conf}', { conf: p.timeline?.conference !== null && p.timeline?.conference !== undefined ? t('The conference is in {month}.', { month: dateLabel(p.timeline.conference) }) : t('Camera-ready instructions will follow, in a font of their choosing.') }), 'browser', 'inbox', 'decisionAccept');
   chat(s, 'advisor', s.advisor.name, pick(s, [t('Accepted! Congratulations. Camera-ready by Friday.'), t('Great news. Let’s aim for the next one before the conference.'), t('Well done. Now the hard part: the talk.')]));

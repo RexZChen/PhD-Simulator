@@ -15,7 +15,7 @@ const URGENT = events.filter(e => e.urgent).map(e => e.id);
 const cadenceRank = { whenever: 0, monthly: 1, biweekly: 2, weekly: 3 };
 // The scenes that can occupy the weekly group-meeting slot.
 const GROUP_POOL = ['group_present', 'group_nobody_read', 'group_someone_else', 'group_derail', 'group_visitor', 'group_reading', 'group_your_turn_again',
-  'group_round_thin', 'group_round_strong', 'group_public_correction', 'group_laughed_at'];
+  'group_round_thin', 'group_round_strong', 'group_public_correction', 'group_laughed_at', 'group_praise_public'];
 
 // ctx: { tempo, crunch (null|{type}), cancelled, actor }
 export function eligible(s, e, ctx = {}) {
@@ -140,7 +140,16 @@ export function scheduleTurnEvents(s, ctx) {
   const due = s.scheduled.filter(x => x.week <= now);
   s.scheduled = s.scheduled.filter(x => x.week > now);
   const queue = [];
-  for (const x of due) if (templateById[x.id] && eligible(s, templateById[x.id], ctx) && !queue.includes(x.id)) queue.push(x.id);
+  // A scheduled beat that is not eligible on its due week used to be thrown away, which meant any
+  // multi-beat storyline could break silently and permanently — a follow-up landing during a trip,
+  // a crunch, or a month when its own conditions happened not to hold was simply lost. Retry it for
+  // a few weeks before giving up, so an arc survives an inconvenient calendar.
+  for (const x of due) {
+    if (!templateById[x.id]) continue;
+    if (eligible(s, templateById[x.id], ctx) && !queue.includes(x.id)) { queue.push(x.id); continue; }
+    const tries = (x.tries || 0) + 1;
+    if (tries <= 8) s.scheduled.push({ ...x, week: now + 1, tries });
+  }
   for (const id of URGENT) if (eligible(s, eventById[id], ctx) && !queue.includes(id)) queue.push(id);
   for (const e of events) if (e.forced && !queue.includes(e.id) && eligible(s, e, ctx)) queue.push(e.id);
   for (const id of s.eventQueue) if (!queue.includes(id)) queue.push(id);
@@ -150,7 +159,7 @@ export function scheduleTurnEvents(s, ctx) {
   // the meeting is about something other than what it was supposed to be about.
   if (ctx.present) {
     const pool = GROUP_POOL.filter(id => eventById[id] && eligible(s, eventById[id], ctx));
-    if (pool.length) queue.push(pickWeighted(s, pool, id => (id === 'group_present' ? 1.3 : 1)));
+    if (pool.length) queue.push(pickWeighted(s, pool, id => (id === 'group_praise_public' ? 9 : id === 'group_present' ? 1.3 : 1)));
   }
   const isDay = ctx.tempo === 'day';
   const isMonth = ctx.tempo === 'month' || ctx.tempo === 'season';
@@ -317,6 +326,7 @@ export function resolveChoice(s, id) {
   if (c.jobTrack !== undefined && hooks.jobTrack) hooks.jobTrack(s, c.jobTrack);
   if (c.jobOffers && hooks.jobOffers) result = hooks.jobOffers(s) || result;
   if (c.newAdvisor && hooks.newAdvisor) result = hooks.newAdvisor(s) || result;
+  if (c.patent && hooks.openPatent) hooks.openPatent(s);
   if (c.travel) { if (s.flags.travelFunded) { s.flags.travelFunded = false; log(s, t('Travel covered by the lab. You still bring granola bars.')); } else effects(s, { money: -900 }); if (s.player.stats.money < 700) award(s, 'cuisine'); }
   s.cooldowns[e.id] = s.month;
   s.seen[e.id] = (s.seen[e.id] || 0) + 1;

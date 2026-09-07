@@ -51,7 +51,7 @@ switched at any point mid-run, including for mail and chat you have already rece
 
 ```bash
 npm test          # 96 deterministic engine tests (node --test)
-npm run test:e2e  # 35 Playwright browser flows (uses installed Google Chrome)
+npm run test:e2e  # 36 Playwright browser flows (uses installed Google Chrome)
 npm run build     # production build
 npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
 npm run i18n      # plays real runs in Chinese and lists anything still in English
@@ -101,6 +101,19 @@ interest. Debt that compounds quietly and gets paid down when there is slack.
 **International students** carry it differently and the model says so: higher loneliness, visa fees,
 CPT paperwork, remittances home, employers that will not sponsor, national labs that are closed to
 them outright, and travel that needs a visa which usually comes through and sometimes does not.
+
+**Storylines that run for years.** The spinout: Technology Transfer emails about your paper, your
+advisor raises commercialising at the end of a meeting about something else, and then there is a cap
+table on a whiteboard with everybody smiling — the university's slice, because you assigned it on day
+one; your advisor's, roughly the size of yours, for a board seat and a day a month. And the patent
+behind it, which is a clock rather than an event: three meetings explaining your own diagram, a year
+to a filing that lands on your Google Scholar profile next to your papers, a first office action that
+rejects every claim because they all do, and months of argument. Two and a half years, 70/30.
+
+**The loop, closed.** Every acceptance brings congratulations in writing and out loud at group
+meeting — genuine, deserved, and simultaneously aimed at everyone else in the room. Then, a specific
+number of weeks later, "so what are you actually curious about for the next one?" An Empire Builder
+asks after a month. An Academic Parent after three. Nobody ever names a length of rest.
 
 **The second organisation chart.** The people you meet who are not in your lab: the person from the
 poster next to yours, the postdoc who answered at midnight, the professor whose citation came with an
@@ -181,7 +194,7 @@ days. And your advisor can leave before you do — tenure denied, emeritus, an o
 you have heard of, or an email that goes out at 7:40 in the morning — and you have to find somebody
 else, or race their clock, or inherit the lab.
 
-**Endings and achievements.** 23 endings and 92 achievements, in a register that refuses to call
+**Endings and achievements.** 24 endings and 100 achievements, in a register that refuses to call
 you a failure for any of them.
 
 ## How it is built

@@ -4,6 +4,40 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.7.0] — 2026-09-07
+
+Storylines rather than events: arcs that run for years, one decision at a time.
+
+### Added
+- **The spinout, in six beats.** It starts only if the work justifies it — a real result, published,
+  with novelty behind it. Technology Transfer emails. Your advisor raises commercialising, lightly,
+  at the end of a meeting about something else: board seat, a day a month, and they would obviously
+  stay involved. Then the cap table, on a whiteboard, with everybody smiling: the university takes a
+  slice because you assigned it on day one in a stack of enrolment forms, your advisor takes a slice
+  roughly the size of the one you kept, and yours is the biggest single number and smaller than the
+  three of them together. Nobody is lying. Asking, out loud, in the room, what your advisor's slice
+  is *for* is the highest-leverage move in the arc and almost nobody makes it. Ends in a new ending.
+- **The patent, as a clock rather than an event.** Three back-and-forth meetings with the innovation
+  office, who have read the abstract and ask you to describe your own diagram out loud. Then about a
+  year to a filing — which appears on your Google Scholar profile, indexed next to your papers as
+  though it were one. Then the first office action, which is a rejection of every claim, which is
+  completely normal and which nobody warns a first-time inventor about. Then months of argument, and
+  a grant or an abandonment. Two and a half years end to end. The inventors' share is 70/30 to the
+  senior inventor, in accordance with a policy set by a committee in 1994 and not subject to appeal.
+- **Sisyphus, closed.** Every acceptance now produces congratulations in writing (email and chat,
+  unambiguously kind) and out loud at the next group meeting — where the compliment is real, is
+  deserved, and is simultaneously doing a second job on everybody else in the room. Then, a specific
+  number of weeks later, the question: "so what are you actually curious about for the next one?"
+  The interval is the design: an Empire Builder asks after one month, an Academic Parent after
+  three, and nobody ever names a length of rest. Measured: it reaches 89% of runs.
+- 4 achievements, for 100.
+
+### Fixed
+- **A scheduled beat that was not eligible on its due week was discarded permanently**, so any
+  multi-beat arc could break silently and forever — a follow-up landing during a trip, a crunch, or
+  a month when its own conditions happened not to hold was simply lost. Beats retry for eight weeks
+  before giving up.
+
 ## [1.6.0] — 2026-09-07
 
 Every school is a different place, every interview is a different conversation, and the door you

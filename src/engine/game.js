@@ -9,6 +9,7 @@ import { effects, log, message, sentMail, chat, finish, award, populateLab, acti
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
 import { createProject, createThesis, benchSession, clusterSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
+import { patentMonth, openPatent, doPatentMeeting, answerOfficeAction, nextPatentMeeting } from './patent.js';
 import { networkMonth, netTalk, netCollab, doCollab, askNetLetter, netIntro, meetContact } from './network.js';
 import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, expireRequests, doRequest, pushbackRequest, declineRequest, ask, updatePressure, advisorPing, shiftCadence, revealHint, reviewLatencyWeeks, advisorResponds, newAdvisor } from './advisor.js';
 import { monthlyChatter, monthlyMail, fieldNote } from './lab.js';
@@ -58,6 +59,7 @@ hooks.jobTrack = (s, track) => {
   if (!ACADEMIC.includes(track) && a.ambition > 70) chat(s, 'advisor', a.name, t('I will support whatever you decide. I would be lying if I said I was not disappointed, and you should ignore that entirely.'));
 };
 hooks.newAdvisor = s => newAdvisor(s);
+hooks.openPatent = s => openPatent(s, activeProject(s)?.id);
 hooks.fired = s => fired(s);
 hooks.conference = (s, p) => { s.pendingTrip = p.id; };
 hooks.quit = (s, how) => quit(s, how);
@@ -150,7 +152,7 @@ function monthStart(s, first = false, intermediate = false) {
   if (s.burnoutMonths > 0) s.burnoutMonths--;
   if (s.flags.recovery) { s.burnoutMonths = Math.max(0, s.burnoutMonths - 1); s.flags.recovery = false; }
   updateAdvisorMode(s);
-  if (!first) { updatePressure(s); advisorPing(s); monthlyChatter(s); monthlyMail(s); monthlyLife(s); accrueCitations(s); updateStanding(s); updateQuitPressure(s); revisionMonth(s); timelineDrift(s); jobsMonth(s); networkMonth(s); }
+  if (!first) { updatePressure(s); advisorPing(s); monthlyChatter(s); monthlyMail(s); monthlyLife(s); accrueCitations(s); updateStanding(s); updateQuitPressure(s); revisionMonth(s); timelineDrift(s); jobsMonth(s); networkMonth(s); patentMonth(s); }
   // The body does not wait for a convenient month.
   // The window where "I am still not right" is a thing you can say closes; after that it is just
   // how you are now.
@@ -768,6 +770,8 @@ export function dispatch(state, action) {
     case 'TIMELINE_MOVE': playTimelineMove(s, a.id); break;
     case 'BENCH': benchSession(s, a.tally); break;
     case 'CLUSTER': clusterSession(s, a.result); break;
+    case 'PATENT_MEET': doPatentMeeting(s, a.id); break;
+    case 'PATENT_ACTION': answerOfficeAction(s, a.id); break;
     case 'NET_TALK': once(`net:${a.id}`); netTalk(s, a.id); break;
     case 'NET_COLLAB': netCollab(s, a.id, a.size); break;
     case 'DO_COLLAB': doCollab(s, a.id); break;
