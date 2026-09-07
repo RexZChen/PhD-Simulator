@@ -58,3 +58,46 @@ export const gauge = (value, cls = '') => `<span class="gauge ${cls}">${Array.fr
 export const gaugeRow = (label, value, cls = '', title = '') => `<div class="gauge-row"${title ? ` title="${esc(title)}"` : ''}><span class="lbl">${esc(label)}</span>${gauge(value, cls)}<b class="right">${Math.round(value)}</b></div>`;
 export const mood = (level, label = '') => `<span class="mood ${level}"><span class="face"><i></i></span>${label ? `<span class="small">${esc(label)}</span>` : ''}</span>`;
 export const statusWord = status => t(status);
+
+// ── Show it before you read it ───────────────────────────────────────────────────────────────
+// The monthly report is the screen a player sees seventy-two times a run and it was three tables
+// and a wall of prose. These are the parts that can be seen rather than read: a face for how the
+// month went, and a bar that visibly moves from where a number was to where it is now.
+
+// Five expressions, code-drawn, no assets.
+export function faceFor(level, size = 44) {
+  const skin = '#e8c4a2';
+  const brow = { awful: 'M20 24l10 4M44 24l-10 4', bad: 'M20 25l10 2M44 25l-10 2', ok: '', good: '', great: '' }[level] || '';
+  const mouth = {
+    awful: 'M22 44c4-6 16-6 20 0',
+    bad: 'M22 43h20',
+    ok: 'M22 42h20',
+    good: 'M22 40c4 6 16 6 20 0',
+    great: 'M20 38c5 9 19 9 24 0z',
+  }[level] || 'M22 42h20';
+  const eyes = level === 'awful'
+    ? '<path d="M22 30l6 6M28 30l-6 6M36 30l6 6M42 30l-6 6" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
+    : level === 'great'
+      ? '<path d="M20 32c3-4 7-4 10 0M34 32c3-4 7-4 10 0" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
+      : '<circle cx="25" cy="32" r="2.6" fill="#222"/><circle cx="39" cy="32" r="2.6" fill="#222"/>';
+  return `<svg class="face-svg ${level}" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true">
+    <circle cx="32" cy="34" r="24" fill="${skin}" stroke="#00000022"/>
+    ${brow ? `<path d="${brow}" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round"/>` : ''}
+    ${eyes}
+    <path d="${mouth}" stroke="#222" stroke-width="2.8" fill="${level === 'great' ? '#222' : 'none'}" stroke-linecap="round"/>
+  </svg>`;
+}
+
+// A bar that shows where the number was and animates to where it is.
+export function deltaBar(label, before, after, { max = 100, fmt = null, invert = false } = {}) {
+  const from = Math.max(0, Math.min(100, (before / max) * 100));
+  const to = Math.max(0, Math.min(100, (after / max) * 100));
+  const d = after - before;
+  const dir = d === 0 ? 'flat' : (d > 0) !== invert ? 'up' : 'down';
+  const shown = fmt ? fmt(Math.abs(d)) : Math.abs(Math.round(d));
+  return `<div class="dbar ${dir}">
+    <span class="dbar-l">${esc(label)}</span>
+    <span class="dbar-track"><i class="dbar-ghost" style="width:${Math.min(from, to)}%"></i><i class="dbar-fill" style="--from:${from}%;--to:${to}%"></i></span>
+    <b class="dbar-d">${d === 0 ? '—' : (d > 0 ? '+' : '−') + shown}</b>
+  </div>`;
+}

@@ -4,6 +4,35 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.9.0] — 2026-09-07
+
+The calendar interrupts you, and the month can be read before it is read.
+
+### Added
+- **Unscheduled meetings that actually cost the turn.** Every other event in this game happens
+  around your decision; this one happens *to* it. It is raised after you have chosen what the month
+  goes to and before the turn resolves, and going costs **42% of the output you planned** (62% in a
+  crunch week). Saying you have four days to a deadline recovers most of it when it is heard, and is
+  heard as a complaint when it is not. Declining is always available and never free. Five kinds:
+  "can you come by?" with no agenda, an idea about your paper four days out, a collaborator whose
+  deadline is not yours, mandatory training about a chemical you will never meet, and a labmate in a
+  stairwell. About six a run, likelier from a managerial advisor and likelier in a crunch.
+- **The interrupt is shown as a calendar, not described as one** — your day in nine blocks, with the
+  meeting dropped into the middle of it and the hours it eats shaded red. You can see what it costs
+  before you read what it is.
+- **The month at a glance.** The monthly report is the screen a player sees seventy-two times a run
+  and it was three tables and a wall of prose. It now opens with a face for how the month went, four
+  bars that animate from where each number was to where it is, and the month's events as category
+  icons. The prose is still underneath; it is no longer the only way in.
+- **The advisor's mood is a face.** Their mode is referenced on nearly every screen and was a text
+  label; it now has an expression, on the manager card and in the LabChat header.
+- 1 achievement, for 104.
+
+### Fixed
+- The interrupt initially fired ~10 times a run, which at 42% of a turn each cost four turns of
+  output over a run and showed up as diligent players defending and never depositing (6 of 40).
+  Tuned to about six a run; `undeposited` back to 1.
+
 ## [1.8.0] — 2026-09-07
 
 Two more storylines, and a questionnaire whose optional half decides which one you get.

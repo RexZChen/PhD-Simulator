@@ -10,13 +10,14 @@ import { effects, log, chat, award, activeProject, absWeek, meetingsPerMonth, la
 import { provenanceOf } from '../i18n/index.js';
 import { eligible, freshness, pushEvent } from './events.js';
 
+// `face` is the glance version: the mode is referenced on nearly every screen and was text only.
 export const MODES = {
-  attentive: { label: 'Unusually attentive', requests: 1.5, cancel: .03, ask: .15, presence: 'Active now' },
-  normal: { label: 'Reachable', requests: 1, cancel: 0, ask: 0, presence: 'Active today' },
-  pressed: { label: 'Deadline mode', requests: 2.2, cancel: .1, ask: -.15, presence: 'Active now · typing…' },
-  grant: { label: 'Grant season', requests: 1.3, cancel: .2, ask: -.1, presence: 'Busy' },
-  checkedOut: { label: 'Gone quiet', requests: .2, cancel: .5, ask: -.4, presence: 'Last seen 3 weeks ago' },
-  traveling: { label: 'Traveling', requests: .4, cancel: .7, ask: -.5, presence: 'Away · time zone unknown' },
+  attentive: { label: 'Unusually attentive', face: 'great', requests: 1.5, cancel: .03, ask: .15, presence: 'Active now' },
+  normal: { label: 'Reachable', face: 'ok', requests: 1, cancel: 0, ask: 0, presence: 'Active today' },
+  pressed: { label: 'Deadline mode', face: 'bad', requests: 2.2, cancel: .1, ask: -.15, presence: 'Active now · typing…' },
+  grant: { label: 'Grant season', face: 'bad', requests: 1.3, cancel: .2, ask: -.1, presence: 'Busy' },
+  checkedOut: { label: 'Gone quiet', face: 'awful', requests: .2, cancel: .5, ask: -.4, presence: 'Last seen 3 weeks ago' },
+  traveling: { label: 'Traveling', face: 'ok', requests: .4, cancel: .7, ask: -.5, presence: 'Away · time zone unknown' },
 };
 export const modeOf = s => MODES[s.advisorMode?.id || 'normal'];
 const cadenceSteps = ['whenever', 'monthly', 'biweekly', 'weekly'];

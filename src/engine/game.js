@@ -14,6 +14,7 @@ import { networkMonth, netTalk, netCollab, doCollab, askNetLetter, netIntro, mee
 import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, expireRequests, doRequest, pushbackRequest, declineRequest, ask, updatePressure, advisorPing, shiftCadence, revealHint, reviewLatencyWeeks, advisorResponds, newAdvisor } from './advisor.js';
 import { monthlyChatter, monthlyMail, fieldNote } from './lab.js';
 import { hardTaMonth, onHardTA } from './life.js';
+import { maybeSummons, answerSummons, summonsKeep, clearSummons, summonsOpen } from './summons.js';
 import { monthlyLedger, monthlyLife, vitalsDrift, doLifeAction, visitClinic, payDebt, setBudget, coffee, skipMeal, charge, caffeineState, crisisDue, openCrisis, resolveCrisis, crisisMoveList } from './life.js';
 import { popIns, runIns, dayWeather } from '../data/day.js';
 import { accrueCitations } from './scholar.js';
@@ -233,7 +234,9 @@ function applyTurn(s) {
   const work = weeks - leave;
   const st = s.player.stats;
   const productivity = clamp((.55 + s.player.skills.research / 150) * (st.energy < 25 ? .55 : 1) * (st.hope < 25 ? .7 : 1) * (s.burnoutMonths > 0 ? .65 : 1) * (s.mutators.includes('drought') && ['ml', 'nlp', 'robotics'].includes(s.player.profile.topic) ? .9 : 1), .2, 1.3);
-  const scale = isDay ? work : tempo === 'week' ? work : tempo === 'season' ? work / 4 * .9 : work / 4;
+  // An unscheduled meeting does not cost you its own length; it costs the turn around it.
+  const kept = summonsKeep(s);
+  const scale = (isDay ? work : tempo === 'week' ? work : tempo === 'season' ? work / 4 * .9 : work / 4) * kept;
   const delta = {};
   for (const [k, v] of Object.entries(f.effects)) delta[k] = v * scale;
   const p = activeProject(s);
@@ -246,6 +249,7 @@ function applyTurn(s) {
   if (f.id === 'career' && [9, 10, 11].includes(monthOf(s.month))) delta.career = (delta.career || 0) * 1.3;
   if (f.id === 'teach' && !s.ta) delta.money = (delta.money || 0) * .5;
   effects(s, delta);
+  clearSummons(s);
   if (leave) { effects(s, { energy: 12 * leave, stress: -10 * leave, hope: 4 * leave }); log(s, leave === weeks ? t('On leave. The laptop stayed closed for a whole week, which counts as a miracle.') : t('A week of leave, then back to it.')); }
   const commute = s.housing.commute * .5, taDrag = s.ta ? .8 : 0, stressDrag = s.player.hidden.stress > 65 ? 1.5 : 0, health = s.flags.resolutionHealth ? .5 : 0, cat = s.flags.cat ? .3 : 0;
   const openRequests = s.requests.filter(r => r.status === 'open').length;
@@ -631,6 +635,14 @@ export function dispatch(state, action) {
   }
   if (a.type === 'SELECT_PROJECT') { if (!s.projects.some(p => p.id === a.id)) throw new Error(t('No such project.')); s.activeProjectId = a.id; return s; }
   if (a.type === 'DISMISS_REPORT') { dismissReport(s); return s; }
+  if (a.type === 'SUMMONS') {
+    if (s.stage !== 'summons') throw new Error(t('There is nothing in the calendar.'));
+    answerSummons(s, a.id);
+    s.stage = 'plan';
+    applyTurn(s);
+    if (s.stage === 'plan' && s.needsBegin) beginTurn(s);
+    return s;
+  }
   if (a.type === 'CRISIS') { if (s.stage !== 'crisis') throw new Error(t('There is nothing to deal with.')); resolveCrisis(s, a.id); if (s.phase === 'playing' && s.stage === 'plan' && s.needsBegin) beginTurn(s); return s; }
   // The room's verdict, carried back from Room 214. Like CRISIS and MILESTONE it has to sit above
   // the "stage must be plan" guard, because the whole point is that you are not on the plan screen.
@@ -645,7 +657,14 @@ export function dispatch(state, action) {
   if (a.type === 'PRELIM' || a.type === 'MILESTONE') { if (s.stage !== 'milestone') throw new Error(t('The committee is not assembled yet.')); if (a.id === 'master' && s.coursework < 55) throw new Error(t('The MS exit requires 55 coursework progress.')); milestone(s, s.milestoneKind, a.id); if (s.phase === 'playing' && s.stage === 'plan' && s.needsBegin) beginTurn(s); return s; }
   if (s.stage !== 'plan') throw new Error(s.stage === 'report' ? t('Close the monthly report first.') : t('Finish what is on screen first.'));
   if (a.type === 'PLAN') { const f = focusById(s, a.id); if (!f) throw new Error(t('That is not an option right now.')); if (f.disabled) throw new Error(f.disabled); s.focus = a.id; return s; }
-  if (a.type === 'CONTINUE') { applyTurn(s); if (s.stage === 'plan' && s.needsBegin) beginTurn(s); return s; }
+  if (a.type === 'CONTINUE') {
+    // The interrupt is raised after the plan is chosen and before the turn resolves, which is the
+    // whole point of it: everything else happens around your decision, this happens to it.
+    if (!s.summons && maybeSummons(s, { crunch: s.crunch })) { s.stage = 'summons'; return s; }
+    applyTurn(s);
+    if (s.stage === 'plan' && s.needsBegin) beginTurn(s);
+    return s;
+  }
   const once = id => { if (s.actions[id]) throw new Error(t('You already did that this turn.')); s.actions[id] = true; };
   const p = activeProject(s);
   switch (a.type) {

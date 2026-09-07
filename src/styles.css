@@ -1140,3 +1140,60 @@ table.mini th { background: var(--face); }
 .optional-block > summary { cursor: pointer; font-size: 13px; font-weight: 700; padding: 2px 0; }
 .optional-block > summary::marker { color: var(--accent); }
 .optional-block .form { margin-top: 6px; }
+
+/* The interrupt, shown as a calendar rather than described as one. */
+.dialog.summons { max-width: 560px; }
+.sm-head { display: flex; gap: 12px; align-items: center; }
+.sm-head h2 { margin: 0; font-size: 16px; }
+.sm-day { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; margin: 12px 0 4px; }
+.sm-hour { text-align: center; }
+.sm-hour .sm-t { display: block; font-size: 10px; color: var(--disabled); margin-bottom: 2px; }
+.sm-hour i { display: block; height: 26px; border: 1px solid var(--shadow); animation: sm-drop .32s ease-out backwards; animation-delay: calc(var(--i) * 28ms); }
+.sm-hour.yours i { background: repeating-linear-gradient(135deg, #cfe0ee 0 5px, #bcd3e6 5px 10px); }
+.sm-hour.eaten i { background: repeating-linear-gradient(135deg, #e8b9b9 0 5px, #d79a9a 5px 10px); border-color: #a11d1d; }
+.sm-legend { display: flex; align-items: center; gap: 4px; }
+.sm-legend .sw { display: inline-block; width: 11px; height: 11px; border: 1px solid var(--shadow); margin: 0 2px 0 8px; }
+.sm-legend .sw.yours { background: #bcd3e6; }
+.sm-legend .sw.eaten { background: #d79a9a; border-color: #a11d1d; }
+@keyframes sm-drop { from { opacity: 0; transform: translateY(-7px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sm-hour i { animation: none; } }
+
+/* The month, before the tables. A face, four bars that move, and what happened as icons. */
+.glance { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center;
+  border: 1px solid var(--shadow); background: var(--paper); padding: 10px 12px; margin: 0 0 10px; }
+.glance-face { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 92px; }
+.glance-face b { font-size: 12px; text-align: center; line-height: 1.2; }
+.face-svg { animation: face-in .32s cubic-bezier(.2,1.4,.5,1); }
+.face-svg.great { animation: face-in .32s cubic-bezier(.2,1.4,.5,1), face-bob 1.6s ease-in-out .35s 2; }
+.face-svg.awful { animation: face-in .32s ease-out, face-shake .4s ease-in-out .3s 1; }
+.glance-bars { display: grid; gap: 3px; }
+.dbar { display: grid; grid-template-columns: 62px minmax(0, 1fr) 44px; align-items: center; gap: 6px; font-size: 11px; }
+.dbar-l { color: var(--disabled); }
+.dbar-track { position: relative; height: 11px; background: var(--face); border: 1px solid; border-color: var(--shadow) var(--hi) var(--hi) var(--shadow); overflow: hidden; }
+.dbar-ghost { position: absolute; inset: 0 auto 0 0; background: #b9c6e0; }
+.dbar-fill { position: absolute; inset: 0 auto 0 0; width: var(--to); animation: dbar-grow .55s cubic-bezier(.2,.9,.3,1) backwards; }
+.dbar.up .dbar-fill { background: #5f9a5f; }
+.dbar.down .dbar-fill { background: #b45a5a; }
+.dbar.flat .dbar-fill { background: #8f9aa8; }
+.dbar-d { text-align: right; font-weight: 700; }
+.dbar.up .dbar-d { color: #2f6b3f; } .dbar.down .dbar-d { color: #8a2f2f; } .dbar.flat .dbar-d { color: var(--disabled); }
+.glance-cats { display: flex; flex-wrap: wrap; gap: 4px; max-width: 96px; justify-content: flex-end; }
+.gcat { display: grid; place-items: center; width: 26px; height: 26px; border: 1px solid var(--shadow); background: var(--face);
+  animation: gcat-in .3s ease-out backwards; }
+.glance-cats .gcat:nth-child(2) { animation-delay: .05s } .glance-cats .gcat:nth-child(3) { animation-delay: .1s }
+.glance-cats .gcat:nth-child(4) { animation-delay: .15s } .glance-cats .gcat:nth-child(5) { animation-delay: .2s }
+.glance-cats .gcat:nth-child(6) { animation-delay: .25s } .glance-cats .gcat:nth-child(7) { animation-delay: .3s }
+.glance-cats .gcat:nth-child(8) { animation-delay: .35s }
+@keyframes face-in { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes face-bob { 0%, 100% { transform: none; } 50% { transform: translateY(-3px) rotate(-4deg); } }
+@keyframes face-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+@keyframes dbar-grow { from { width: var(--from); } to { width: var(--to); } }
+@keyframes gcat-in { from { opacity: 0; transform: translateY(5px) scale(.8); } to { opacity: 1; transform: none; } }
+@media (max-width: 900px) { .glance { grid-template-columns: auto minmax(0, 1fr); } .glance-cats { display: none; } }
+@media (prefers-reduced-motion: reduce) { .face-svg, .dbar-fill, .gcat { animation: none; } }
+.quiet .face-svg, .quiet .dbar-fill, .quiet .gcat { animation: none; }
+
+/* The advisor's mode, as a face. It is referenced on nearly every screen and was text only. */
+.ch-advisor { display: flex; align-items: center; gap: 9px; }
+.mode-face { display: inline-grid; place-items: center; margin-left: -14px; margin-top: 26px; align-self: flex-start;
+  background: var(--face); border-radius: 50%; box-shadow: 0 0 0 2px var(--face); }

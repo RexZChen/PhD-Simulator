@@ -33,6 +33,11 @@ function advance(s) {
   // grinder does the minimum; lazy ignores it and pays for that later.
   if (s.stage === 'crisis') return dispatch(s, { type: 'CRISIS', id: s.__style === 'diligent' ? 'treat' : s.__style === 'grinder' ? 'minimum' : 'ignore' });
   if (s.stage === 'pushback') { const pb = pushbacks.find(x => x.id === s.pushback.id); return dispatch(s, { type: 'PUSHBACK', id: pb.options[0].id }); }
+  if (s.stage === 'summons') {
+    // Diligent goes and says it is a bad week; the grinder just goes; lazy declines everything.
+    const id = s.__style === 'diligent' ? 'late' : s.__style === 'grinder' ? 'go' : 'decline';
+    return dispatch(s, { type: 'SUMMONS', id });
+  }
   if (s.stage === 'minigame' && s.minigame === 'viva') {
     // Diligent knows their own work and says so when they do not; lazy bluffs and goes quiet.
     const tally = s.__style === 'diligent' ? { land: 4, concede: 2, caught: 0, silent: 0, composure: 82 }

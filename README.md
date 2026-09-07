@@ -51,7 +51,7 @@ switched at any point mid-run, including for mail and chat you have already rece
 
 ```bash
 npm test          # 96 deterministic engine tests (node --test)
-npm run test:e2e  # 37 Playwright browser flows (uses installed Google Chrome)
+npm run test:e2e  # 40 Playwright browser flows (uses installed Google Chrome)
 npm run build     # production build
 npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
 npm run i18n      # plays real runs in Chinese and lists anything still in English
@@ -101,6 +101,12 @@ interest. Debt that compounds quietly and gets paid down when there is slack.
 **International students** carry it differently and the model says so: higher loneliness, visa fees,
 CPT paperwork, remittances home, employers that will not sponsor, national labs that are closed to
 them outright, and travel that needs a visa which usually comes through and sometimes does not.
+
+**The calendar is not yours.** Unscheduled meetings arrive *after* you have chosen what the month
+goes to, and take a piece of that choice — 42% of what you planned, 62% in a crunch week. You see
+the cost before you read the reason: your day in nine blocks with the meeting dropped into the middle
+and the hours it eats shaded red. Saying you are four days from a deadline recovers most of it when
+it is heard, and is heard as a complaint when it is not.
 
 **The questionnaire has an optional half.** Five fields, collapsed, every one answerable with
 "rather not say": why you are actually doing this, who else is in your life, whether you are the
@@ -201,7 +207,7 @@ days. And your advisor can leave before you do — tenure denied, emeritus, an o
 you have heard of, or an email that goes out at 7:40 in the morning — and you have to find somebody
 else, or race their clock, or inherit the lab.
 
-**Endings and achievements.** 24 endings and 103 achievements, in a register that refuses to call
+**Endings and achievements.** 24 endings and 104 achievements, in a register that refuses to call
 you a failure for any of them.
 
 ## How it is built

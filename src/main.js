@@ -302,6 +302,7 @@ root.addEventListener('click', event => {
       return;
     }
     case 'cluster-line': clusterPick(Number(id)); play('click'); return;
+    case 'summons': perform({ type: 'SUMMONS', id }, { preserveScroll: false }); return;
     case 'patent-meet': perform({ type: 'PATENT_MEET', id }, { preserveScroll: false }); return;
     case 'patent-action': perform({ type: 'PATENT_ACTION', id }, { preserveScroll: false }); return;
     case 'set-pace': perform({ type: 'SET_PACE', id }, { preserveScroll: false }); return;

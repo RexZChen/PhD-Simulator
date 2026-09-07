@@ -1,4 +1,4 @@
-import { esc, money, btn, bar, group, tag, note, signed, band, effectPills, gauge, gaugeRow, mood } from '../helpers.js';
+import { esc, money, btn, bar, group, tag, note, signed, band, effectPills, gauge, gaugeRow, mood, faceFor, deltaBar } from '../helpers.js';
 import { icon } from '../icons.js';
 import { avatar } from '../avatars.js';
 import { dateLabel, monthOf, semester, holidays, seasonalFlavor, phdYear, isTeachingTerm } from '../../data/calendar.js';
@@ -380,7 +380,7 @@ export function advisorCard(s, compact = false) {
   const presenceCls = ['checkedOut', 'traveling'].includes(s.advisorMode?.id) ? 'off' : s.advisorMode?.id === 'grant' ? 'away' : s.advisorMode?.id === 'pressed' ? 'typing' : '';
   const rel = s.relationship;
   const words = rel.conflict > 60 ? t('Strained') : rel.trust > 65 && rel.satisfaction > 60 ? t('Good') : rel.satisfaction < 35 ? t('Cooling') : t('Fine, for now');
-  return `<div class="advisor-card">${avatar(a.id, 48)}<div><b>${t('Prof. {name}', { name: a.name })}</b><div class="presence ${presenceCls}"><i></i>${esc(t(mode.presence))} · <span class="muted">${esc(t(mode.label))}</span></div>
+  return `<div class="advisor-card">${avatar(a.id, 48)}<span class="mode-face" title="${esc(t(mode.label))}">${faceFor(mode.face || 'ok', 22)}</span><div><b>${t('Prof. {name}', { name: a.name })}</b><div class="presence ${presenceCls}"><i></i>${esc(t(mode.presence))} · <span class="muted">${esc(t(mode.label))}</span></div>
   <div class="small muted">${esc(topics[a.topic])} · ${t('lab of {n}', { n: a.labSize })} · ${esc(s.program.name)}</div>
   ${compact ? '' : `<div class="traits" style="margin-top:6px">${['ambition', 'prestige', 'connections', 'funding'].map(k => `<span>${t(k)}<b title="${a[k]}">${band(a[k])}</b></span>`).join('')}</div>`}
   <div class="row" style="margin-top:6px;gap:12px">${mood(rel.conflict > 60 || rel.satisfaction < 35 ? 'sad' : rel.satisfaction > 65 ? 'happy' : 'flat', words)}<span class="small">${t('Pressure')} ${gauge(s.pressure, s.pressure > 60 ? 'red' : 'gold')}</span></div>
@@ -413,6 +413,34 @@ export function managerApp(s, ui) {
   </div>`;
 }
 
+
+// How the month went, before the tables. A face, four bars that move, and the events as icons —
+// so the shape of the month is visible in about a second and the prose is there if you want it.
+const CAT_ICON = { advisor: 'user', lab: 'people', peer: 'people', research: 'research', department: 'portal',
+  life: 'heart', career: 'case', holiday: 'gift', crunch: 'clock', review: 'paper', conference: 'plane',
+  urgent: 'warn', divergence: 'flag', funding: 'bolt', meeting: 'chat' };
+
+function monthAtAGlance(s, r, b) {
+  const st = s.player.stats;
+  // The face reads the whole month, not one number: how you are, plus how it went with them.
+  const score = (st.hope - b.stats.hope) * .9 + (st.energy - b.stats.energy) * .5
+    + (st.health - (b.stats.health ?? st.health)) * .7 + (s.relationship.satisfaction - b.relationship.satisfaction) * .8
+    - (s.player.hidden.stress - b.stress) * .7;
+  const level = score > 16 ? 'great' : score > 5 ? 'good' : score > -5 ? 'ok' : score > -16 ? 'bad' : 'awful';
+  const word = { great: t('A good month.'), good: t('Better than most.'), ok: t('A month.'), bad: t('A hard one.'), awful: t('That was a bad month.') }[level];
+  const cats = [...new Set(r.events.map(e => e.category).filter(Boolean))].slice(0, 8);
+  return `<div class="glance">
+    <div class="glance-face">${faceFor(level, 52)}<b>${esc(word)}</b></div>
+    <div class="glance-bars">
+      ${deltaBar(t('Hope'), b.stats.hope, st.hope)}
+      ${deltaBar(t('Energy'), b.stats.energy, st.energy)}
+      ${deltaBar(t('Health'), b.stats.health ?? st.health, st.health)}
+      ${deltaBar(t('Advisor'), b.relationship.satisfaction, s.relationship.satisfaction)}
+    </div>
+    ${cats.length ? `<div class="glance-cats">${cats.map(c => `<span class="gcat" title="${esc(t(c))}">${icon(CAT_ICON[c] || 'star', 18)}</span>`).join('')}</div>` : ''}
+  </div>`;
+}
+
 export function reportDialog(s) {
   const r = s.report; if (!r) return '';
   const b = r.before, st = s.player.stats;
@@ -428,6 +456,7 @@ export function reportDialog(s) {
   const next = msNow && msNow.month === s.month ? t('Next: {what}.', { what: { prelim: t('the preliminary examination'), proposal: t('the thesis proposal'), defense: t('the dissertation defense') }[msNow.kind] }) : s.month >= 71 ? t('Next: the end of the funding.') : t('Next: {month}', { month: dateLabel(s.month + 1) }) + (holidays(s.month + 1).length ? ` · ${holidays(s.month + 1).map(h => esc(h.name)).join(', ')}` : '');
   return `<div class="modal"><section class="dialog wide" role="dialog" aria-modal="true" aria-labelledby="report-title"><div class="titlebar"><span class="tb-title">${icon('doc', 16)}<span>${r.monthsCovered > 1 ? t('Season statement — {from} to {to}', { from: dateLabel(s.month), to: dateLabel(s.month + r.monthsCovered - 1) }) : t('Monthly statement — {month}', { month: dateLabel(s.month) })}</span></span></div><div class="body">
     <h2 id="report-title">${esc(r.focus || t('A month, week by week'))}</h2>
+    ${monthAtAGlance(s, r, b)}
     <div class="report-grid"><div>${group(t('What changed'), stats)}${group(t('Money'), ledger || `<p class="muted small">${t('First month: moving costs and a deposit you will never see again.')}</p>`)}</div>
     <div>${group(t('What happened'), events)}${group(t('Meetings'), meetings)}${group(t('Projects'), projects ? `<table class="grid"><tr><th>${t('Project')}</th><th>${t('Research')}</th><th>${t('Draft')}</th><th>${t('Status')}</th></tr>${projects}</table>` : `<p class="muted small">${t('No project yet.')}</p>`)}</div></div>
     <div class="dialog-footer"><span>${next}</span><span>${t('Autosaved.')}</span></div></div>

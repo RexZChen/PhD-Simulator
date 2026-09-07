@@ -1246,3 +1246,69 @@ test('the optional questionnaire is optional, and answering it changes the story
     expect(g.on, `${g.id} must fire for a player who answered`).toBe(true);
   }
 });
+
+test('the month can be read before it is read: a face, bars that move, and icons', async ({ page }) => {
+  await seedPlay(page, `s.month = 20; s.player.stats.energy = 90;`);
+  if (!(await page.locator('[data-action="plan"]').first().count())) test.skip(true, 'no plan this seed');
+  await page.locator('[data-action="plan"]').first().click();
+  await page.locator('[data-action="continue"]:not([data-guide])').click();
+  // A summons can land on the way out of the turn; answer it and continue.
+  // A summons or a scene can land on the way out of the turn; clear whatever is modal first.
+  for (let i = 0; i < 12; i++) {
+    if (await page.locator('.glance').count()) break;
+    const b = page.locator('.modal [data-action="summons"], .modal [data-action="choice"], .modal [data-action="pushback"], .modal [data-action="close-dialog"]').first();
+    if (!(await b.count()) || !(await b.isVisible())) break;
+    await b.click().catch(() => {});
+    await page.waitForTimeout(80);
+  }
+  await expect(page.locator('.glance')).toBeVisible({ timeout: 10_000 });
+
+  // The face says how it went before any of the tables do.
+  await expect(page.locator('.glance .face-svg')).toBeVisible();
+  const level = await page.locator('.glance .face-svg').getAttribute('class');
+  expect(level).toMatch(/great|good|ok|bad|awful/);
+
+  // Four bars that animate from where the number was to where it is.
+  await expect(page.locator('.glance .dbar')).toHaveCount(4);
+  const anim = await page.locator('.glance .dbar-fill').first().evaluate(el => getComputedStyle(el).animationName);
+  expect(anim).toContain('dbar-grow');
+  const dir = await page.locator('.glance .dbar').first().getAttribute('class');
+  expect(dir).toMatch(/up|down|flat/);
+});
+
+test('an unscheduled meeting takes a piece of the turn you already chose', async ({ page }) => {
+  await seedPlay(page, `s.month = 20;`);
+  const shape = await page.evaluate(async () => {
+    const { createRun } = await import('/src/engine/state.js');
+    const { maybeSummons, answerSummons, summonsKeep } = await import('/src/engine/summons.js');
+    const mk = () => { const s = createRun(5, { background: 'masters', topic: 'ml', international: false });
+      s.phase = 'playing'; s.month = 20; s.contacts = []; s.counts = {};
+      s.advisor = { ambition: 70, management: 60, caring: 60, id: 'a', name: 'A B' };
+      s.advisorMode = { id: 'attentive' };
+      s.relationship = { trust: 60, satisfaction: 60, conflict: 0, dependency: 20 };
+      while (!maybeSummons(s, { crunch: false })) { s.summons = null; }
+      return s; };
+    const out = {};
+    for (const move of ['go', 'late', 'decline']) { const s = mk(); answerSummons(s, move); out[move] = summonsKeep(s); }
+    return out;
+  });
+  // Going costs the turn; naming the deadline recovers most of it; declining costs the relationship.
+  expect(shape.go).toBeLessThan(0.7);
+  expect(shape.late).toBeGreaterThan(shape.go);
+  expect(shape.decline).toBe(1);
+});
+
+test('the advisor’s mood is a face, not a sentence you have to parse', async ({ page }) => {
+  await seedPlay(page, `s.month = 20; s.advisorMode = { id: 'checkedOut', until: s.month + 3, since: s.month };`);
+  // On the manager card, next to their avatar.
+  await expect(page.locator('.advisor-card .mode-face .face-svg')).toBeVisible();
+  expect(await page.locator('.advisor-card .mode-face .face-svg').getAttribute('class')).toContain('awful');
+
+  // And in LabChat, where the advisor is the whole point of the screen.
+  await page.locator('[data-action="open"][data-app="chat"]').first().dblclick();
+  await expect(page.locator('.ch-advisor .face-svg')).toBeVisible();
+
+  // A different mode is a different face.
+  await seedPlay(page, `s.month = 20; s.advisorMode = { id: 'attentive', until: s.month + 3, since: s.month };`);
+  expect(await page.locator('.advisor-card .mode-face .face-svg').getAttribute('class')).toContain('great');
+});

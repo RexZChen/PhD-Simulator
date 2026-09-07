@@ -11,6 +11,7 @@ import { benchNote } from '../data/bench.js';
 import { vivaMoves, examiners } from '../data/viva.js';
 import { clusterNote } from '../data/cluster.js';
 import { officeAction, patentShare, patentNote, patentMeetings, PATENT } from '../data/patent.js';
+import { summonsKinds, summonsMoves, summonsNote, SUMMONS } from '../data/summons.js';
 import { crises, crisisMoves, CRISIS_NOTE } from '../data/crisis.js';
 import { t } from '../i18n/index.js';
 
@@ -194,5 +195,33 @@ export function patentDialog(s) {
     <div class="choices">${opts.map((o, i) => `<button class="btn choice" data-action="${action ? 'patent-action' : 'patent-meet'}" data-id="${o.id}" data-hotkey="${i + 1}" ${s.stage !== 'plan' ? 'disabled' : ''}><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(o.text))}</b><small>${esc(t(o.hint))}</small></span><span class="arrow">→</span></button>`).join('')}</div>
     <p class="tiny muted">${esc(share)}</p>
     <p class="tiny muted">${esc(t(patentNote))}</p>
+  </div></section></div>`;
+}
+
+// The interrupt. Shown as a calendar rather than described as one: your day, with a block dropped
+// into the middle of it, and the hours it eats shaded out. You can see the cost before you read it.
+export function summonsDialog(s) {
+  const sm = s.summons;
+  if (!sm) return '';
+  const def = summonsKinds[sm.id];
+  if (!def) return '';
+  const bite = sm.hard ? SUMMONS.biteHard : SUMMONS.bite;
+  const hours = ['9', '10', '11', '12', '1', '2', '3', '4', '5'];
+  const startAt = 2 + (sm.variant % 3);
+  const eaten = Math.max(2, Math.round(hours.length * bite));
+  const who = { advisor: t('Prof. {n}', { n: lastName(s.advisor.name) }), contact: sm.who || t('a collaborator'), department: t('the department'), labmate: t('the lab') }[def.from];
+  return `<div class="modal"><section class="dialog summons" role="dialog" aria-modal="true" aria-labelledby="sm-title"><div class="titlebar"><span class="tb-title">${icon('calendar', 16)}<span>${t('Today')}</span></span></div><div class="body">
+    <div class="sm-head">${avatar(def.from === 'advisor' ? s.advisor.id : (sm.who || def.from), 44)}<div>
+      <h2 id="sm-title">${esc(fill(s, t(def.title)).replace('{who}', who))}</h2>
+      <p class="tiny muted">${esc(who)}</p>
+    </div></div>
+    <div class="sm-day" aria-hidden="true">${hours.map((h, i) => {
+      const inBlock = i >= startAt && i < startAt + eaten;
+      return `<div class="sm-hour ${inBlock ? 'eaten' : 'yours'}" style="--i:${i}"><span class="sm-t">${h}</span><i></i></div>`;
+    }).join('')}</div>
+    <p class="tiny muted sm-legend"><b class="sw yours"></b>${t('what you planned')} <b class="sw eaten"></b>${t('what this takes')}</p>
+    <p class="scene-text">${esc(fill(s, t(def.text[sm.variant % def.text.length])).replace('{who}', who))}</p>
+    <div class="choices">${Object.values(summonsMoves).map((m, i) => `<button class="btn choice" data-action="summons" data-id="${m.id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(m.label))}</b><small>${esc(t(m.hint))}</small></span><span class="arrow">→</span></button>`).join('')}</div>
+    <p class="tiny muted">${esc(t(summonsNote))}</p>
   </div></section></div>`;
 }

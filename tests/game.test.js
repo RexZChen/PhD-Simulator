@@ -24,6 +24,7 @@ function resolveAll(state) {
   // Clear those too, or a test that only drained the event queue asserts against the wrong stage.
   let guard = 0;
   while ((state.event || ['minigame', 'pushback'].includes(state.stage)) && guard++ < 60) {
+    if (state.stage === 'summons') { state = dispatch(state, { type: 'SUMMONS', id: 'go' }); continue; }
     if (state.stage === 'minigame' && state.minigame === 'viva') { state = dispatch(state, { type: 'VIVA', tally: { land: 3, concede: 2, caught: 1, silent: 0, composure: 66 } }); continue; }
     if (state.stage === 'minigame') { state = dispatch(state, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 }); continue; }
     if (state.stage === 'pushback') {
@@ -304,6 +305,7 @@ function advance(s) {
     if (s.trip.qa && !s.trip.qaDone) { const q = questioners.find(x => x.id === s.trip.qa[s.trip.qaIndex]); return dispatch(s, { type: 'TRIP_QA', id: q.best }); }
     return dispatch(s, { type: 'TRIP_DAY', id: 'sessions' });
   }
+  if (s.stage === 'summons') return dispatch(s, { type: 'SUMMONS', id: 'go' });
   if (s.stage === 'minigame' && s.minigame === 'viva') return dispatch(s, { type: 'VIVA', tally: { land: 3, concede: 2, caught: 1, silent: 0, composure: 66 } });
   if (s.stage === 'crisis') return dispatch(s, { type: 'CRISIS', id: 'treat' });
   if (s.stage === 'commencement') return dispatch(s, { type: 'TAKE_OFFER', id: s.jobs.market[0].kind });

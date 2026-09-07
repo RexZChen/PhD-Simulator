@@ -1,4 +1,4 @@
-import { esc, btn, tag } from '../helpers.js';
+import { esc, btn, tag, faceFor } from '../helpers.js';
 import { icon } from '../icons.js';
 import { avatar } from '../avatars.js';
 import { asks } from '../../data/asks.js';
@@ -205,7 +205,7 @@ export function chatApp(s, ui) {
     : dmWho
     ? `<div><b>${esc(dmWho.name)}</b><span class="ch-topic">${esc(t(dmWho.role || 'peer'))} · ${t('a direct message, which nobody else sees')}</span></div>`
     : channel === 'advisor'
-    ? `<div><b>${t('Prof. {name}', { name: s.advisor.name })}</b><span class="ch-topic">${esc(t(mode.presence))} · ${esc(t(mode.label))} · ${t('1:1s {cadence}', { cadence: t(s.cadence.oneOnOne) })}</span></div>`
+    ? `<div class="ch-advisor">${faceFor(mode.face || 'ok', 30)}<div><b>${t('Prof. {name}', { name: s.advisor.name })}</b><span class="ch-topic">${esc(t(mode.presence))} · ${esc(t(mode.label))} · ${t('1:1s {cadence}', { cadence: t(s.cadence.oneOnOne) })}</span></div></div>`
     : channel === 'general'
       ? `<div><b># general</b><span class="ch-topic">${t('The lab. {names} and you.', { names: s.labmates.map(l => firstName(l.name)).join(', ') })}</span></div>`
       : `<div><b># cohort</b><span class="ch-topic">${t('Other labs, same problems. {names}.', { names: s.peers.map(p => firstName(p.name)).join(', ') })}</span></div>`;

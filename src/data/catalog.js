@@ -189,6 +189,8 @@ export const achievements = {
 
   heldtheline: { name: 'The Line You Drew', desc: 'Stop where you said you would stop, before you started. The person who set that line had more perspective than the person reading it.' },
 
+  thecalendarisnotyours: { name: 'The Calendar Is Not Yours', desc: 'Absorb six unscheduled meetings. An unscheduled ninety minutes costs the afternoon either side of it.' },
+
   // ── The patent ─────────────────────────────────────────────────────────────────────────────
   namedinventor: { name: 'Named Inventor', desc: 'Get an application filed. It appears on your Scholar profile about a year later, indexed next to your papers as though it were one.' },
   patentgranted: { name: 'Two Years, Four Months', desc: 'Argue a rejection down to a granted patent. There is a certificate. It is genuinely beautiful and it arrives in a cardboard tube.' },
