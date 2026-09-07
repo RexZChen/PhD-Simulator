@@ -1387,6 +1387,26 @@ test('the advisor’s mood is a face, not a sentence you have to parse', async (
   expect(await page.locator('.advisor-card .mode-face .face-svg').getAttribute('class')).toContain('great');
 });
 
+test('the advisor card is a card, not a column: the face is a badge and the text has room', async ({ page }) => {
+  // Regression guard. The mood face was added as a third child of a two-column grid
+  // (48px avatar + 1fr text), which pushed the entire text block into the 48px column: the name
+  // broke one word per line and the card ran 565px tall inside a 318px box. Every existing test
+  // still passed, because they all asserted the face EXISTS — none of them looked at the layout.
+  await seedPlay(page, "s.month = 26;");
+  const card = page.locator('.advisor-card').first();
+  await expect(card).toBeVisible();
+  const box = await card.boundingBox();
+  expect(box.height, 'the advisor card has collapsed into the avatar column').toBeLessThan(260);
+  // The name must have the width of the text column, not of the avatar.
+  const name = card.locator('b').first();
+  const nb = await name.boundingBox();
+  expect(nb.width, 'the name is wrapping inside the 48px avatar column').toBeGreaterThan(110);
+  // And the face is still there, overlapping the portrait rather than taking a column of its own.
+  await expect(card.locator('.mode-face')).toBeVisible();
+  const face = await card.locator('.mode-face').boundingBox();
+  expect(face.x).toBeLessThan(nb.x);
+});
+
 test('the scene art carries the time, the season, and how you are', async ({ page }) => {
   // A calm month in the middle of a normal day.
   await seedPlay(page, `s.month = 8; s.player.hidden.stress = 20; s.caffeine = { day: 0, week: 0, month: 0 };`, undefined, 9001, true);

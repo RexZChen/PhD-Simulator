@@ -109,7 +109,12 @@ table.grid td.num, table.grid th.num { text-align: right; }
    and always for a disabled one, where the reason is the point — and in the title for the rest. */
 .radio-list.plans .option { align-items: center; padding: 3px 6px; }
 .radio-list.plans .option .opt-name { min-width: 0; }
-.radio-list.plans .option .eff { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; margin-top: 1px; }
+/* One row per option is deliberate (see above), but a hard clip guillotines a pill mid-glyph and
+   reads as a broken layout rather than a compressed one. Fade the last few pixels instead, which
+   says "there is more" in the way a scroll shadow does. */
+.radio-list.plans .option .eff { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; margin-top: 1px;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent 100%); }
 .radio-list.plans .option:not(.selected):not(:disabled) .muted { display: none; }
 .option.selected .eff { color: #cfe8cf; }
 
@@ -1197,6 +1202,11 @@ table.mini th { background: var(--face); }
 .ch-advisor { display: flex; align-items: center; gap: 9px; }
 .mode-face { display: inline-grid; place-items: center; margin-left: -14px; margin-top: 26px; align-self: flex-start;
   background: var(--face); border-radius: 50%; box-shadow: 0 0 0 2px var(--face); }
+/* In the advisor card the face is a badge on the portrait, not a column. The card is a two-column
+   grid (48px avatar + 1fr text); leaving the face in flow made it the second grid item and pushed
+   the entire text block into the 48px column, one word per line. Out of flow it goes. */
+.advisor-card { position: relative; }
+.advisor-card > .mode-face { position: absolute; left: 31px; top: 29px; margin: 0; z-index: 1; }
 
 /* ── Scene art that carries state ───────────────────────────────────────────────────────────
    Time of day, season, coffee cups, whiteboard fill, and how frayed you are. The strip is the
