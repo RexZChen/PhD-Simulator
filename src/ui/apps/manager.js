@@ -270,13 +270,13 @@ function managerNextStep(s) {
   if (s.thesis && !s.thesis.deposited) return canDeposit(s)
     ? { title: t('Deposit the dissertation'), detail: t('Every revision is done. The degree is conferred on deposit, not on the defense.'), cta: go(t('Deposit it →'), 'deposit') }
     : { title: t('Finish the committee’s revisions'), detail: t('{n} left. Defending was not finishing.', { n: revisionsLeft(s) }), cta: '' };
-  if (!s.projects.length) return { title: t('Start a project'), detail: t('Nothing is running. A PhD is made of projects and you do not have one.'), cta: go(t('Start main project'), 'start-project', { disabled: !canStartMain(s) }) };
+  if (canStartMain(s)) return { title: s.projects.length ? t('Start the next one') : t('Start a project'), detail: s.projects.length ? t('The last one is finished. Six years is three or four projects, not one, and Research does nothing while there is nothing to research.') : t('Nothing is running. A PhD is made of projects and you do not have one.'), cta: go(t('Start main project'), 'start-project', { disabled: !canStartMain(s) }) };
   if (open.length) return { title: t('Your advisor asked for something'), detail: t('{n} open request(s). Do them, push back, or decline — ignoring them is also a choice, with a cost.', { n: open.length }), cta: openApp(t('Open LabChat'), 'chat', 'advisor') };
   if (p?.status === 'Rebuttal') return { title: t('The rebuttal window is open'), detail: t('Reviews are in. The window closes at the end of this month.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
   if (p?.status === 'Ready' && p.kind !== 'thesis') return { title: t('A draft is approved'), detail: t('Submit it when a venue is open.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
   if (p && ['Drafting', 'Experiments', 'Prototype', 'Idea'].includes(p.status) && !p.targetVenueId && p.progress >= 35)
     return { title: t('Choose a venue'), detail: t('Work without a deadline expands, and your advisor will keep asking which one it is.'), cta: openApp(t('Set a target'), 'browser', 'openregret') };
-  if (!s.focus) return { title: t('Decide what this {unit} goes to', { unit: s.tempo === 'day' ? t('day') : s.tempo === 'week' ? t('week') : t('month') }), detail: t('Pick a plan on the left. Continue is disabled until you do.'), cta: '' };
+  if (!s.focus) return null;
   return { title: t('Plan set'), detail: t('Use the desktop if you want to, then continue. Everything else is optional.'), cta: go(t('Continue →'), 'continue') };
 }
 
@@ -428,7 +428,7 @@ export function managerApp(s, ui) {
   return `<div class="topstrip raised"><div><h1>${dateLabel(s.month)} ${tempo === 'day' ? `<span class="tag info">${esc(dayName(s))} · ${t('week {n}', { n: Math.min(4, s.week + 1) })}</span>` : tempo === 'week' ? `<span class="tag info">${t('Week {n} of 4', { n: Math.min(4, s.week + 1) })}</span>` : ''} ${crunch ? tag(crunchLabel(crunch), 'crunch') : ''}</h1><div class="sub">${esc(semester(s.month))} · ${t('Year {n}', { n: phdYear(s.month) })} · ${esc(seasonalFlavor(s.month, s.seed + s.month))}</div></div><div class="stack right">${btn(nextLabel, 'continue', { cls: 'continue primary', disabled: s.stage !== 'plan' || !s.focus, title: s.stage !== 'plan' ? t('Answer what is on screen first.') : !s.focus ? t('Pick a plan on the left first — that is what the turn spends.') : t('Enter') })}<span class="tiny muted">${tempoNote}</span>${paceControl(s)}</div></div>
   ${journeyBar(s)}
   ${standingBanner(s)}
-  ${(() => { const n = managerNextStep(s); return `<div class="next-step"><span class="ns-mark">${icon('arrow', 18)}</span><div><b>${esc(n.title)}</b><span class="muted small">${esc(n.detail)}</span></div><span class="ns-cta">${n.cta}</span></div>`; })()}
+  ${(() => { const n = managerNextStep(s); if (!n) return ''; return `<div class="next-step"><span class="ns-mark">${icon('arrow', 18)}</span><div><b>${esc(n.title)}</b><span class="muted small">${esc(n.detail)}</span></div><span class="ns-cta">${n.cta}</span></div>`; })()}
   <div class="grid-3">
     <div>${tempo === 'day' ? group(t('Today'), dayStrip(s)) : ''}${group(tempo === 'day' ? t('Today goes to') : tempo === 'week' ? t('This week goes to') : t('Plan for the month'), planList(s))}</div>
     <div>${s.thesis && !s.thesis.deposited ? group(t('Almost'), revisionPanel(s)) : timelinePanel(s) ? group(t('The timeline'), timelinePanel(s)) : ''}${internPanel(s) ? group(t('Summer'), internPanel(s)) : ''}${lettersPanel(s) ? group(t('Letters'), lettersPanel(s)) : ''}${group(t('Agenda'), readinessWidget(s) + agenda(s))}${group(`${t('Advisor requests')} ${s.requests.some(r => r.status === 'open') ? tag(String(s.requests.filter(r => r.status === 'open').length), 'warn') : ''}`, requestList(s))}</div>

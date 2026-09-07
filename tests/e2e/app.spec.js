@@ -181,8 +181,10 @@ test('a saved run in play shows the manager, resolves a month, and reports', asy
   await closeDialogs(page);
   await resolveScenes(page);
   await expect(page.getByRole('heading', { name: /September 2028/ })).toBeVisible();
-  await page.locator('[data-action="plan"][data-id="research"]').click();
+  // Research needs something to research: it is disabled, with a reason, when every project is
+  // finished — which used to be a silent no-op month. So the project comes first now.
   await page.locator('[data-action="start-project"]:not([data-guide])').click();
+  await page.locator('[data-action="plan"][data-id="research"]').click();
   await page.locator('[data-action="continue"]:not([data-guide])').click();
   await resolveScenes(page);
   await expect(page.getByRole('heading', { name: /October 2028/ })).toBeVisible();

@@ -1,8 +1,9 @@
 import { esc, btn, hotkey, effectPills, money, voiced } from './helpers.js';
 import { icon } from './icons.js';
-import { avatar } from './avatars.js';
+import { avatar, crest } from './avatars.js';
 import { memeFor, memeCard } from '../data/memes.js';
 import { dateLabel } from '../data/calendar.js';
+import { schools } from '../data/catalog.js';
 import { templateById, eventText } from '../engine/events.js';
 import { fill, lastName, labmateById, activeProject } from '../engine/state.js';
 import { prelimChance, proposalChance, defenseChance } from '../engine/game.js';
@@ -229,6 +230,32 @@ export function vivaDialog(s) {
 // The whiteboard, as a thing on the wall by your desk rather than a page in the operating system.
 export function boardDialog(s) {
   return `<div class="modal"><section class="dialog board" role="dialog" aria-modal="true" aria-labelledby="wb-title"><div class="titlebar"><span class="tb-title">${icon('research', 16)}<span id="wb-title">${t('Whiteboard')}</span></span>${btn('✕', 'board-close', { cls: 'tb-x' })}</div><div class="body">${whiteboardApp(s)}</div></section></div>`;
+}
+
+// The applicant portal, on the day. Deliberately ugly: a header bar in the school's colour, a
+// table nobody designed, a reference number, and the letter in a serif face because somebody in
+// 2009 thought that made it official. The decision was made weeks ago; this is the moment you
+// learn it, and it is the only part of the whole phase the player will remember.
+export function decisionDialog(s, ui) {
+  const app = s.applications.find(a => a.schoolId === ui.decision);
+  if (!app || !app.letter) return '';
+  const sc = schools.find(x => x.id === app.schoolId);
+  const L = app.letter;
+  const sub = txt => Object.entries(L.vars).reduce((out, [k, v]) => out.split(`{${k}}`).join(v), t(txt));
+  const tone = L.kind === 'accept' || L.kind === 'waitlistYes' ? 'yes' : L.kind === 'waitlist' ? 'hold' : 'no';
+  return `<div class="modal"><section class="dialog portal ${tone}" role="dialog" aria-modal="true" aria-labelledby="dc-title">
+    <div class="titlebar"><span class="tb-title">${icon('portal', 16)}<span>${esc(t('{school} — Applicant Portal', { school: sc.name }))}</span></span>${btn('✕', 'decision-close', { cls: 'tb-x' })}</div>
+    <div class="body">
+      <div class="pt-head" style="--c1:${sc.palette?.c1 || '#3a4a6b'}">
+        <span class="pt-crest">${crest(sc, 40)}</span>
+        <div><b>${esc(sc.name)}</b><small>${esc(t('Graduate Admissions · Department of Computer Science'))}</small></div>
+        <span class="pt-ref">${esc(t('Ref'))} ${String(2028000 + (app.schoolId.length * 371 + sc.prestige * 13) % 9000)}</span>
+      </div>
+      <div class="pt-meta"><span>${esc(t('Applicant'))}<b>${esc(s.player.name)}</b></span><span>${esc(t('Term'))}<b>${esc(t('Fall 2028'))}</b></span><span>${esc(t('Decision'))}<b class="pt-verdict">${esc(t(L.head))}</b></span></div>
+      <div class="pt-letter"><p class="pt-h">${esc(sub(L.head))}</p>${sub(L.body).split('\n\n').map(par => `<p>${esc(par)}</p>`).join('')}<p class="pt-sign">${esc(sub(L.signed))}</p></div>
+      <p class="pt-after">${voiced(t(L.after))}</p>
+      <div class="choices">${btn(t('Close'), 'decision-close', { cls: 'primary' })}</div>
+    </div></section></div>`;
 }
 
 // The photograph. Four people who have done this forty times, and one who has not.

@@ -177,8 +177,8 @@ test('the monthly loop enters play, resolves a month, and shows a report', () =>
   assert.equal(s.tempo, 'month');
   assert.ok(s.labmates.length >= 2 && s.peers.length === 3);
   assert.equal(s.mutators.length, 2);
+  s = act(s, { type: 'START_PROJECT' });          // Research needs something to research
   s = act(s, { type: 'PLAN', id: 'research' });
-  s = act(s, { type: 'START_PROJECT' });
   assert.throws(() => dispatch(s, { type: 'START_PROJECT' }), /still alive/);
   s = act(s, { type: 'CONTINUE' });
   assert.equal(s.stage, 'report');
@@ -191,8 +191,8 @@ test('the monthly loop enters play, resolves a month, and shows a report', () =>
 
 test('deadline months switch to weekly tempo and back after submission', () => {
   let s = enterProgram(1);
+  s = act(s, { type: 'START_PROJECT' });          // Research needs something to research
   s = act(s, { type: 'PLAN', id: 'research' });
-  s = act(s, { type: 'START_PROJECT' });
   const p = s.projects[0];
   const venue = venues.find(v => v.topics.includes(p.topic) && !v.rolling);
   const at = nextDeadline(venue, 1, monthOf);
@@ -218,6 +218,7 @@ test('advisor requests can be done, pushed back on, or declined, and expire othe
   const declined = dispatch(s, { type: 'REQUEST_DECLINE', id: 'req-test' });
   assert.equal(declined.requests.find(r => r.id === 'req-test').status, 'declined');
   assert.ok(declined.relationship.satisfaction < s.relationship.satisfaction);
+  if (!s.projects.some(p => !['Accepted', 'Abandoned'].includes(p.status))) s = act(s, { type: 'START_PROJECT' });   // research needs something to research
   s = act(s, { type: 'PLAN', id: 'research' });
   s.requests[0].dueWeek = -1;
   s = act(s, { type: 'CONTINUE' });
@@ -248,8 +249,8 @@ test('content catalogs are large, well-formed, and every scene has a meme card',
 
 test('typing changes draft progress without directly changing quality', () => {
   let s = enterProgram(1);
+  s = act(s, { type: 'START_PROJECT' });          // Write needs something to write
   s = act(s, { type: 'PLAN', id: 'write' });
-  s = act(s, { type: 'START_PROJECT' });
   s.projects[0].progress = 45;
   s.projects[0].status = 'Experiments';
   const quality = s.projects[0].writingQuality;
@@ -2055,4 +2056,83 @@ test('touching a decorative object on cooldown does not move the run RNG', async
   const said = useFixture(s, 'plant');
   assert.ok(said.line && said.line.length > 10);
   assert.equal(said.again, false);
+});
+
+test('a month spent on Research always does something, or says why it cannot', async () => {
+  // An Accepted paper stays in s.projects forever, so `!s.projects.length` — the condition the
+  // whole "start a project" prompt was keyed on — is only ever true before the FIRST one. After
+  // the best moment in the game, a player who does not guess that they must start another spends
+  // months on a plan that advertises "▲ Progress +++" and silently yields nothing.
+  const { focusOptions } = await import('../src/engine/time.js');
+  const s = enterProgram(9);
+  s.month = 20;
+  if (!s.projects.length) Object.assign(s, dispatch(s, { type: 'START_PROJECT' }));
+  for (const p of s.projects) { p.status = 'Accepted'; p.progress = 100; }
+  for (const id of ['research', 'write']) {
+    const f = focusOptions(s).find(x => x.id === id);
+    assert.ok(f.disabled, `${id} is offered with nothing to work on, and does nothing`);
+  }
+  // And it comes back the moment there is something to work on.
+  const live = dispatch(s, { type: 'START_PROJECT' });
+  for (const id of ['research', 'write']) {
+    assert.equal(focusOptions(live).find(x => x.id === id).disabled, null, `${id} stays disabled with a live project`);
+  }
+});
+
+test('the odds column can say all five of its words, and a portfolio exists', async () => {
+  // The phase tells the player to "aim across the odds range". Measured before this: 31 of 32
+  // programs read "Long shot", the best achievable chance was ~26%, and two of the five bands
+  // were mathematically unreachable. The player was asked to build a portfolio out of one option.
+  const { admissionChance } = await import('../src/engine/apply.js');
+  const band = p => (p < .10 ? 0 : p < .20 ? 1 : p < .32 ? 2 : p < .50 ? 3 : 4);
+  let s = createRun(2091779276, { background: 'undergrad', topic: 'ml', international: false });
+  s = act(s, { type: 'PREP', id: 'sop_draft' });
+  s = act(s, { type: 'PREP', id: 'letter_ask', target: 'rec-0' });
+  s = act(s, { type: 'PREP', id: 'proceed' });
+  const seen = new Set();
+  for (const sc of schools) {
+    const poi = s.advisors.find(a => a.schoolId === sc.id);
+    seen.add(band(admissionChance(s, sc, { effort: 'generic', contact: false, poiId: poi?.id })));
+  }
+  assert.ok(seen.size >= 3, `only ${seen.size} of 5 odds bands are reachable; there is no range to aim across`);
+  // A safety has to exist, and the top of the ladder has to stay a gamble.
+  const easiest = [...schools].sort((a, b) => a.prestige - b.prestige)[0];
+  const hardest = [...schools].sort((a, b) => b.prestige - a.prestige)[0];
+  const poiE = s.advisors.find(a => a.schoolId === easiest.id), poiH = s.advisors.find(a => a.schoolId === hardest.id);
+  assert.ok(admissionChance(s, easiest, { effort: 'tailored', contact: false, poiId: poiE?.id }) > .30, 'nothing on the board is a safety');
+  assert.ok(admissionChance(s, hardest, { effort: 'tailored', contact: false, poiId: poiH?.id }) < .25, 'the top of the ladder stopped being a gamble');
+});
+
+test('a cycle that produces nothing costs a year, not the save file', async () => {
+  // Following the game's own advice ended the run outright about twenty minutes in, on the phase
+  // with the least gameplay in it, with the only way forward being the setup wizard.
+  let s = createRun(4, { background: 'undergrad', topic: 'ml', international: false });
+  s = act(s, { type: 'PREP', id: 'sop_draft' });
+  s = act(s, { type: 'PREP', id: 'letter_ask', target: 'rec-0' });
+  s = act(s, { type: 'PREP', id: 'proceed' });
+  // Apply nowhere winnable at all, then take the decisions.
+  for (const sc of schools.slice(0, 3)) {
+    try { s = act(s, { type: 'APPLY', schoolId: sc.id, effort: 'generic', contact: false, poiId: s.advisors.find(a => a.schoolId === sc.id).id }); } catch { /* funds */ }
+  }
+  s = act(s, { type: 'ADMISSIONS' });
+  for (let i = 0; i < 40; i++) {
+    const app = s.applications.find(a => a.interview && !a.interview.done);
+    if (!app) break;
+    const { interviewStep } = await import('../src/engine/apply.js');
+    const q = interviewStep(app);
+    if (!q) break;
+    s = act(s, { type: 'INTERVIEW', schoolId: app.schoolId, id: q.options[0].id });
+  }
+  s = act(s, { type: 'DECISIONS' });
+  if (s.offers.length || s.applications.some(a => a.waitlisted)) return;   // got in; nothing to test
+  assert.equal(s.phase, 'prep', 'a first failed cycle ended the run instead of costing a year');
+  assert.equal(s.flags.secondCycle, true);
+  assert.equal(s.applications.length, 0, 'the second cycle starts from a clean list');
+  assert.ok(s.prep.letters.some(l => l.asked), 'the letters you already have are kept');
+  // The second failure is the ending.
+  s = act(s, { type: 'PREP', id: 'proceed' });
+  s.applications = [];
+  s = act(s, { type: 'DECISIONS' });
+  assert.equal(s.phase, 'ending');
+  assert.equal(s.ending.id, 'no_offer');
 });

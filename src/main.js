@@ -33,17 +33,18 @@ let balloonId = 0;
 setSound(meta.settings.sound);
 // Text size is a scale now, not a switch. Old saves carry a boolean; read it once and forget it.
 if (meta.settings.textSize === undefined) meta.settings.textSize = meta.settings.largeText ? 2 : 1;   // 1 is Normal, not the floor
+// The rungs the A−/A+ control moves between. Every font size in the stylesheet is a ratio of this,
+// so a step here moves every word on screen — which is what the control always looked like it did.
 export const TEXT_SIZES = [
   { id: 0, label: 'Small', px: 13 },
-  { id: 1, label: 'Normal', px: 14 },
-  { id: 2, label: 'Large', px: 16 },
-  { id: 3, label: 'Larger', px: 18 },
-  { id: 4, label: 'Largest', px: 21 },
+  { id: 1, label: 'Normal', px: 15 },
+  { id: 2, label: 'Large', px: 17 },
+  { id: 3, label: 'Larger', px: 19 },
+  { id: 4, label: 'Largest', px: 22 },
 ];
 function applyTextSize() {
   const step = TEXT_SIZES.find(x => x.id === meta.settings.textSize) || TEXT_SIZES[1];
   document.documentElement.style.setProperty('--base-font', `${step.px}px`);
-  document.body.classList.toggle('large-text', step.px >= 16);
 }
 applyTextSize();
 const initialLanguage = meta.settings.lang || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
@@ -435,6 +436,15 @@ root.addEventListener('click', event => {
       return;
     }
     case 'read-all-mail': perform({ type: 'READ_MAIL_ALL' }, { preserveScroll: true }); return;
+    case 'decision-open': {
+      // The letter opens in front of you, one at a time. Reading six of these in one screen is a
+      // list; reading them one at a time is the week it actually was.
+      perform({ type: 'OPEN_DECISION', id }, { preserveScroll: false });
+      if (run?.applications?.find(a => a.schoolId === id)?.letter) { ui.decision = id; play('chime'); render({ preserveScroll: false }); }
+      return;
+    }
+    case 'decision-close': { ui.decision = null; render({ preserveScroll: false }); return; }
+    case 'offer-answer': { const [school, yes] = String(id).split('|'); perform({ type: 'ANSWER_OFFER', id: school, yes: yes === 'yes' }, { preserveScroll: false }); return; }
     case 'board-close': { ui.board = false; render({ preserveScroll: false }); return; }
     case 'photo-close': { if (run) { run.photo = null; persist(); render({ preserveScroll: false }); } return; }
     case 'crisis': perform({ type: 'CRISIS', id }, { preserveScroll: false }); return;

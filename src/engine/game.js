@@ -597,6 +597,10 @@ export function dispatch(state, action) {
     else throw new Error(t('Decisions arrive in March. Refresh the portal until then.'));
     return s;
   }
+  // Opening a decision and answering an offer happen in March and April, before the PhD starts,
+  // so they sit above the "this run is complete" guard rather than with the gameplay actions.
+  if (a.type === 'OPEN_DECISION') { applyEngine.openDecision(s, a.id); return s; }
+  if (a.type === 'ANSWER_OFFER') { applyEngine.answerOffer(s, a.id, a.yes); return s; }
   if (s.phase === 'admissions') {
     if (a.type === 'ENROLL') enroll(s, a.id);
     else if (a.type === 'ASK_STUDENT') applyEngine.askStudentVisit(s, a.id);

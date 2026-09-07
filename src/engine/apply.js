@@ -1,11 +1,12 @@
 import { schools } from '../data/catalog.js';
+import { UPDATE_SUBJECT, UPDATE_BODY, letters, volumeFor, seatsFor, acceptedNote, declinedNote, declinedMail } from '../data/decisions.js';
 import { t, t as tr } from '../i18n/index.js';
 import { emailOpeners, emailFollowUps, studentOpeners, studentFlavor, interviewQuestions, visitQuestions, INTERVIEW_QUESTIONS } from '../data/threads.js';
 import { recommenderPools, LETTERS_EXPECTED } from '../data/recommenders.js';
 import { insiderNotes, poolsFor, NOTE_SOURCES } from '../data/insider.js';
 import { firstNames, surnames } from '../data/names.js';
 import { random, roll, clamp, pick, pickWeighted, jitter } from './probability.js';
-import { effects, log, message, finish, lastName, firstName } from './state.js';
+import { effects, log, message, finish, lastName, firstName, fill } from './state.js';
 import { openNext } from './events.js';
 
 // ---- Preparation (fall 2027) ----
@@ -316,6 +317,26 @@ export function interviewAnswer(s, schoolId, optionId) {
   if (app.interview.step >= (app.interview.qs?.length ?? interviewQuestions.length)) { app.interview.done = true; app.status = 'under review'; app.chance = clamp(app.chance * (1 + app.interview.delta), .03, .92); log(s, t('Interview with {name} finished. {how}', { name: lastName(poi.name), how: app.interview.delta > .05 ? t('It went well.') : app.interview.delta < 0 ? t('It went.') : t('It was fine, in the way of dentists.') })); }
   return app;
 }
+// A cycle that produces nothing costs you a year, not the save file.
+//
+// Following the game's own advice ended the run outright in 40–79% of seeds, about twenty minutes
+// in, with the only way forward being the setup wizard. That is the single most likely way a
+// session ends, and it ends it on the phase with the least gameplay in it. So: the first failure
+// is a year — you keep the statement, the letters, the people you emailed and everything you
+// learned about what a long shot looks like — and only the second one is an ending.
+function anotherCycle(s) {
+  s.cycles = (s.cycles || 1) + 1;
+  s.phase = 'prep';
+  s.applications = [];
+  s.offers = [];
+  s.flags.secondCycle = true;
+  if (s.prep) { s.prep.proceeded = false; s.prep.gre = s.prep.gre; }
+  effects(s, { energy: 30, hope: -12, confidence: -6, money: 1200 });
+  log(s, t('A year passes. You have the statement, the letters, and now you know what a long shot looks like.'));
+  message(s, t('You, a year ago'), t('Notes for next time'), t('Things that were true and that you could not see in December:\n\n— The list was the problem, not the file. Nine long shots is not a list, it is a wish.\n— The professor you emailed in October replied. That was not luck; that was October.\n— One programme where the odds were on your side would have changed the entire year.\n\nYou are a year older and a great deal more accurate.'), null, 'inbox');
+  return s;
+}
+
 export function decisions(s) {
   if (s.applications.some(a => a.interview && !a.interview.done)) throw new Error(t('Finish your interviews first. They are on the calendar; the calendar is on your wall.'));
   for (const app of s.applications) {
@@ -325,23 +346,87 @@ export function decisions(s) {
     app.waitlisted = !app.accepted && r < app.chance + .12;
     app.status = app.accepted ? 'admitted' : app.waitlisted ? 'waitlisted' : 'rejected';
     if (app.accepted) { s.offers.push(school.id); const poi = s.advisors.find(x => x.id === app.poiId); app.funding = poi.fellowship ? 'fellowship' : poi.funding > 55 ? 'RA' : 'TA'; }
-    message(s, t('{school} Admissions', { school: school.name }), app.accepted ? t('An offer of admission — {school}', { school: school.name }) : app.waitlisted ? t('Waitlist — {school}', { school: school.name }) : t('Your application — {school}', { school: school.name }), app.accepted ? t('We would be delighted to welcome you. Funding: {funding}. Visit days are in April; please respond by April 15.', { funding: app.funding === 'fellowship' ? t('a first-year fellowship') : app.funding === 'RA' ? t('a research assistantship') : t('a teaching assistantship') }) : app.waitlisted ? t('You have been placed on the waitlist. This is neither a yes nor a no; it is a chair in a hallway. We will update you by April 15.') : t('We regret to inform you. This decision is not a measurement of your worth, says the template.'));
+    // The letter is not in the email. The email says there is an update, in a subject line drained
+    // of every trace of what it is, and the decision is behind a login — which is how it actually
+    // arrives and where the whole feeling of the phase lives. `opened` gates the reveal.
+    app.opened = false;
+    message(s, t('{school} Admissions', { school: school.name }), t(UPDATE_SUBJECT),
+      fill(s, t(UPDATE_BODY, { school: school.name })), 'gradapply-status', 'inbox', 'decision');
   }
   s.phase = 'admissions';
   effects(s, { energy: 18 });
   log(s, t('March. {offers} offer(s), {waitlists} waitlist(s), from {n} applications.', { offers: s.offers.length, waitlists: s.applications.filter(a => a.waitlisted).length, n: s.applications.length }));
-  if (!s.offers.length && !s.applications.some(a => a.waitlisted)) finish(s, 'no_offer', t('Not This Cycle'), t('There were more qualified applicants than places. Your story can take another route. Or another seed.'));
+  if (!s.offers.length && !s.applications.some(a => a.waitlisted)) {
+    if (!s.flags.secondCycle) return anotherCycle(s);
+    finish(s, 'no_offer', t('Not This Cycle'), t('Two cycles. There were more qualified applicants than places, twice, and that is a fact about the arithmetic and not about you. Your story can take another route.'));
+  }
 }
+// Opening the portal on one application. The decision was made in decisions(); this is the moment
+// the player learns it, which is a different moment and the one that matters.
+export function openDecision(s, schoolId) {
+  const app = s.applications.find(a => a.schoolId === schoolId);
+  if (!app || !app.status || app.status === 'submitted') throw new Error(t('There is no update on that one yet.'));
+  if (app.opened) throw new Error(t('You have read that one.'));
+  app.opened = true;
+  const school = schools.find(x => x.id === schoolId);
+  const poi = s.advisors.find(x => x.id === app.poiId);
+  const kind = app.status === 'admitted' ? (app.fromWaitlist ? 'waitlistYes' : 'accept')
+    : app.status === 'waitlisted' ? 'waitlist' : (app.wasWaitlisted ? 'waitlistNo' : 'reject');
+  const L = letters[kind];
+  const vars = {
+    school: school.name, year: '2028–29', poi: poi ? t('Prof. {name}', { name: lastName(poi.name) }) : t('Graduate Admissions'),
+    funding: app.funding === 'fellowship' ? t('first-year fellowship') : app.funding === 'RA' ? t('research assistantship') : t('teaching assistantship'),
+    stipend: String(school.stipend), volume: String(volumeFor(school)), seats: String(seatsFor(school)),
+  };
+  const after = pick(s, L.after);
+  app.letter = { kind, head: L.head, body: L.body, signed: L.signed, after, vars };
+  // The first one you open is the one you remember opening.
+  if (!s.flags.firstDecision) { s.flags.firstDecision = true; effects(s, { stress: 6 }); }
+  effects(s, app.status === 'admitted' ? { hope: 9, confidence: 5, stress: -6 } : app.status === 'waitlisted' ? { hope: -1, stress: 3 } : { hope: -4, confidence: -3, stress: 4 });
+  log(s, t(after));
+  return app;
+}
+
+export const unopenedDecisions = s => s.applications.filter(a => a.status && a.status !== 'submitted' && a.status !== 'under review' && !a.opened);
+
+// Saying yes, or saying no, in the place you actually say it: a form with a text box marked
+// "Reason (optional)" that everybody leaves empty.
+export function answerOffer(s, schoolId, yes) {
+  const school = schools.find(x => x.id === schoolId);
+  if (!school || !s.offers.includes(schoolId)) throw new Error(t('That one did not make you an offer.'));
+  if (!yes) {
+    s.offers = s.offers.filter(id => id !== schoolId);
+    const app = s.applications.find(a => a.schoolId === schoolId);
+    if (app) { app.status = 'declined'; app.declined = true; }
+    message(s, t('{school} Admissions', { school: school.name }), t('Re: your decision — {school}', { school: school.name }), t(declinedMail), null, 'inbox');
+    log(s, t(declinedNote));
+    return null;
+  }
+  log(s, t(acceptedNote));
+  return school;
+}
+
 export function waitForApril(s) {
   const wl = s.applications.filter(a => a.waitlisted && !a.resolved);
   if (!wl.length) throw new Error(t('Nothing is pending on a waitlist.'));
   for (const app of wl) {
     app.resolved = true;
     const school = schools.find(x => x.id === app.schoolId);
-    if (roll(s, .35)) { app.accepted = true; app.waitlisted = false; app.status = 'admitted'; s.offers.push(school.id); app.funding = 'TA'; message(s, t('{school} Admissions', { school: school.name }), t('Offer from the waitlist — {school}', { school: school.name }), t('A spot has opened. Funding is a teaching assistantship. Please respond within 72 hours, which is how long the offer lasts and how long you will think about it.')); log(s, t('{school} came through from the waitlist. Someone else said no; you say thank you to a stranger.', { school: school.name })); }
-    else { app.status = 'rejected'; message(s, t('{school} Admissions', { school: school.name }), t('Waitlist update — {school}', { school: school.name }), t('We are unable to offer admission this year. We wish you the best in your endeavors, a phrase we have never once meant unkindly.')); log(s, t('{school}: the waitlist did not move.', { school: school.name })); }
+    // April resolves the same way March did: a notification, and the answer behind a login.
+    if (roll(s, .35)) {
+      app.accepted = true; app.waitlisted = false; app.status = 'admitted'; app.fromWaitlist = true; app.opened = false;
+      s.offers.push(school.id); app.funding = 'TA';
+      message(s, t('{school} Admissions', { school: school.name }), t(UPDATE_SUBJECT), fill(s, t(UPDATE_BODY, { school: school.name })), 'gradapply-status', 'inbox', 'decision');
+    }
+    else {
+      app.status = 'rejected'; app.wasWaitlisted = true; app.opened = false;
+      message(s, t('{school} Admissions', { school: school.name }), t(UPDATE_SUBJECT), fill(s, t(UPDATE_BODY, { school: school.name })), 'gradapply-status', 'inbox', 'decision');
+    }
   }
-  if (!s.offers.length) finish(s, 'no_offer', t('Not This Cycle'), t('The waitlists did not move. Your story can take another route. Or another seed.'));
+  if (!s.offers.length) {
+    if (!s.flags.secondCycle) return anotherCycle(s);
+    finish(s, 'no_offer', t('Not This Cycle'), t('The waitlists did not move, in either year. Your story can take another route.'));
+  }
 }
 export function visit(s, advisorId, questionId) {
   const a = s.advisors.find(x => x.id === advisorId);

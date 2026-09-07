@@ -97,11 +97,16 @@ export const rows = (items, cls = '') => `<div class="listview ${cls}">${items.j
 
 // Admission odds as a word plus a graded shade. Dark text on every shade keeps it readable.
 export function oddsTag(chance) {
-  const level = chance < .18 ? 0 : chance < .3 ? 1 : chance < .45 ? 2 : chance < .62 ? 3 : 4;
+  // Calibrated against what the model can actually produce. The old boundaries (18/30/45/62) were
+  // set for a 15–60% world that never occurs: measured across all 32 programs, 31 read "Long shot"
+  // and the best achievable was ~26% with generic effort, ~42% with a perfect file — so two of the
+  // five words could not be shown at all and the game's own advice to "aim across the odds range"
+  // described a range that did not exist.
+  const level = chance < .10 ? 0 : chance < .20 ? 1 : chance < .32 ? 2 : chance < .50 ? 3 : 4;
   const words = [t('Long shot'), t('Reach'), t('Competitive'), t('Reasonable'), t('Safer')];
   const shades = ['#f2c4c4', '#f6d9bf', '#f8ecc0', '#e3edc9', '#cfe8cf'];
   const border = ['#b45a5a', '#c08a52', '#c2ad4e', '#8fa860', '#5f9a5f'];
-  return `<span class="tag odds" style="background:${shades[level]};border-color:${border[level]};color:#1d1d1d" title="${esc(t('Rough odds from your profile, fit, effort, and the school’s selectivity'))}">${'●'.repeat(level + 1)}${'○'.repeat(4 - level)} ${words[level]}</span>`;
+  return `<span class="tag odds" style="background:${shades[level]};border-color:${border[level]};color:#1d1d1d" title="${esc(t('Rough odds from your profile, fit, effort, and the school’s selectivity'))}">${'●'.repeat(level + 1)}${'○'.repeat(4 - level)} ${words[level]}<b>${Math.round(chance * 100)}%</b></span>`;
 }
 
 const pillMeta = { progress: ['Progress', 1], draft: ['Draft', 1], evidence: ['Evidence', 1], writingQuality: ['Writing', 1], reproducibility: ['Rigor', 1], novelty: ['Novelty', 1], hope: ['Hope', 1], energy: ['Energy', 1], stress: ['Stress', -1], money: ['Money', 1], confidence: ['Confidence', 1], satisfaction: ['Advisor', 1], trust: ['Trust', 1], dependency: ['Dependency', -1], conflict: ['Conflict', -1], pressure: ['Pressure', -1], academicCapital: ['Capital', 1], readiness: ['Readiness', 1], coursework: ['Coursework', 1], career: ['Career', 1], scope: ['Scope', -1], hype: ['Hype', 0], rentDelta: ['Rent', -1], commute: ['Commute', -1], bond: ['Bond', 1], labBond: ['Lab bond', 1], peerBond: ['Cohort', 1] };
@@ -114,7 +119,12 @@ export function effectPills(effects = {}, extra = {}, limit = 5) {
   // $2,200 read identically, so the scale follows the unit.
   const cash = { money: 1, rentDelta: 1 };
   const items = order.filter(k => all[k]).map(k => { const [label, sign] = pillMeta[k]; const v = all[k]; const good = sign === 0 ? null : (v > 0) === (sign > 0); const unit = v > 0 ? '+' : '−'; const [big, mid] = cash[k] ? [900, 200] : [15, 6]; const mag = unit.repeat(Math.abs(v) >= big ? 3 : Math.abs(v) >= mid ? 2 : 1); return `<span class="pill ${good === null ? 'neutral' : good ? 'up' : 'down'}">${v > 0 ? '▲' : '▼'} ${t(label)} ${mag}</span>`; });
-  const pills = items.slice(0, limit).join('');
+  // Costs first. `order` puts gains before costs, so anything truncated was always the price —
+  // which is the one thing this game must never hide. Wrapping made the clip rare; ordering makes
+  // it harmless.
+  const cost = [], gain = [];
+  for (const it of items) (it.includes('class="pill down"') ? cost : gain).push(it);
+  const pills = [...cost, ...gain].slice(0, limit).join('');
   const check = extra.check ? `<span class="pill neutral" title="${esc(t('Rolls against this'))}">🎲 ${esc(t(extra.check.skill || extra.check.stat || extra.check.advisor || 'bond'))}</span>` : '';
   const more = extra.leave ? `<span class="pill up">▲ ${t('Leave')}</span>` : '';
   const flagsPill = extra.ending ? `<span class="pill down">■ ${t('Ends the run')}</span>` : '';

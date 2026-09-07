@@ -2,6 +2,7 @@ import { focuses, internshipFocus } from '../data/catalog.js';
 import { dayBlocks } from './../data/life.js';
 import { focusAvailability } from '../data/calendar.js';
 import { venueById } from '../data/venues.js';
+import { t } from '../i18n/index.js';
 import { TOTAL_MONTHS } from './state.js';
 
 export const sprintSets = {
@@ -89,7 +90,13 @@ export function focusOptions(s) {
   const crunch = s.crunch || null;
   if (crunch) return sprintSets[crunch.type === 'defense' ? 'prelim' : crunch.type === 'zoom' ? 'deadline' : crunch.type].map(f => ({ ...f }));
   const availability = focusAvailability(s.month);
-  return focuses.map(f => ({ ...f, disabled: availability[f.id] || null }));
+  // Research and Write need something to work on. An Accepted paper stays in s.projects forever,
+  // so once the first one landed these two stayed enabled, still advertising "▲ Progress +++",
+  // and silently produced nothing — for as long as the player failed to guess that the fix was to
+  // start another project. Measured at 44% of a naive player's turns.
+  const editable = (s.projects || []).some(p => !['Accepted', 'Abandoned'].includes(p.status));
+  const noProject = editable ? null : t('No project you can work on. Start one in the Projects box.');
+  return focuses.map(f => ({ ...f, disabled: availability[f.id] || (['research', 'write'].includes(f.id) ? noProject : null) }));
 }
 export const focusById = (s, id) => focusOptions(s).find(f => f.id === id) || null;
 
