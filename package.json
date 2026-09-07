@@ -20,6 +20,7 @@
     "test": "node --test tests/*.test.js",
     "test:e2e": "playwright test",
     "balance": "node scripts/balance.mjs",
+    "reach": "node scripts/reach.mjs",
     "i18n": "node scripts/i18n-audit.mjs"
   },
   "devDependencies": {

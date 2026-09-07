@@ -93,10 +93,11 @@ npm run dev
 
 | | |
 |---|---|
-| `npm test` | 109 engine tests |
+| `npm test` | 118 engine tests |
 | `npm run test:e2e` | 45 Playwright tests |
 | `npm run i18n` | plays real runs in Chinese; must print zero |
 | `npm run balance` | 40 seeds × 3 playstyles |
+| `npm run reach` | which written content anybody actually reaches |
 
 Vanilla ES modules and Vite. No framework, no backend, no dependencies at runtime. Data in `src/data/`, rules in `src/engine/`, rendering in `src/ui/`.
 

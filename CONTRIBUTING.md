@@ -33,10 +33,19 @@ Run all three before opening a PR. They are not redundant; each catches somethin
 cannot see.
 
 ```bash
-npm test          # 109 engine tests, ~10s. Rules, catalogs, endings, saves.
+npm test          # 118 engine tests, ~12s. Rules, catalogs, endings, saves.
 npm run test:e2e  # 45 browser tests. Needs Google Chrome; starts its own dev server on :4173.
 npm run i18n      # translation audit. Both counts it prints must be 0.
 ```
+
+**`npm run reach`** is the one that catches the failure this project keeps having. A unit test asks
+whether a function works; this plays whole runs and asks whether a player will ever call it. It
+reports every event, achievement and ending that nobody reached, and the state of the systems that
+are meant to be rare but real. A name on the "never reached" list is not automatically a bug — some
+content is gated on a choice the scripted styles never make — but it is always a question, and the
+answer should be a sentence you can say out loud. It is how we found that the whole visa storyline
+fired zero times across twelve international runs, and that the patent process could never reach a
+decision because it outlasts a PhD.
 
 **`npm test`** is `node --test` over `tests/game.test.js`. It runs the engine headlessly — no DOM,
 no rendering — and asserts on outcomes: that a diligent player can graduate, that the twelve
