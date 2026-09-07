@@ -2205,3 +2205,39 @@ test('scenes about a first happen the first time, and the twelve endings are rea
     assert.ok(e.title && e.text && e.text.length > 200, `${id} is not a real ending`);
   }
 });
+
+test('saved runs: three slots beside the autosave, and deleting one never touches achievements', async () => {
+  // One autosave was the whole save system, so starting anything new destroyed the run you had and
+  // the only control was a button that wiped six years of achievements along with it.
+  const { listSlots, writeSlot, readSlot, deleteSlot, saveRun, loadSave, emptyMeta, SLOTS } = await import('../src/engine/save.js');
+  const mem = { d: {}, getItem(k) { return this.d[k] ?? null; }, setItem(k, v) { this.d[k] = v; }, removeItem(k) { delete this.d[k]; } };
+
+  const a = enterProgram(1);
+  const b = enterProgram(2);
+  a.achievements = ['prelim', 'accepted'];
+  saveRun(mem, a, emptyMeta());
+  assert.equal(listSlots(mem).length, SLOTS);
+  assert.deepEqual(listSlots(mem).map(x => !!x.run), [false, false, false]);
+
+  assert.equal(writeSlot(mem, 2, b), null);
+  assert.equal(listSlots(mem)[1].summary.name, b.player.name);
+  assert.ok(listSlots(mem)[1].summary.savedAt > 0, 'a slot records when it was written');
+
+  // The autosave fires on nearly every action and must not wipe the manual slots.
+  saveRun(mem, a, loadSave(mem).meta);
+  assert.equal(listSlots(mem)[1].summary.name, b.player.name, 'an autosave destroyed the manual slots');
+
+  // Loading a slot returns a playable run, not a reference to the live one.
+  const back = readSlot(mem, 2);
+  assert.ok(back && back.player.name === b.player.name);
+  back.player.stats.hope = 3;
+  assert.notEqual(readSlot(mem, 2).player.stats.hope, 3, 'the slot handed out a live reference');
+
+  // Deleting a slot leaves the collection alone — which is the thing people are afraid of.
+  const before = loadSave(mem).meta.achievements.length;
+  assert.ok(before >= 2, 'the run contributed its achievements to meta');
+  assert.equal(deleteSlot(mem, 2), null);
+  assert.equal(listSlots(mem)[1].run, null);
+  assert.equal(loadSave(mem).meta.achievements.length, before, 'deleting a run deleted achievements');
+  assert.ok(loadSave(mem).run, 'deleting a slot ended the run that was open');
+});

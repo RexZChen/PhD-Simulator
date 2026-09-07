@@ -3,14 +3,18 @@ dist/
 test-results/
 playwright-report/
 .DS_Store
+*.log
 
 # Local tooling and editor state — kept on disk, out of the repo.
 .claude/
 .codex/
 .idea/
+.vscode/
 .mcp.json
 
 # Working notes and scratch harnesses, superseded by scripts/balance.mjs.
+# Anything named _*.mjs is a throwaway probe: it drives a real browser or a real run to look at
+# one thing, and it is never the thing to read to understand the game.
 spec.md
 dep_sim.mjs
-tests/_sim_probe.mjs
+_*.mjs

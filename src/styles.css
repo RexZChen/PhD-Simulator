@@ -1595,3 +1595,31 @@ table.mini th { background: var(--face); }
 .roll-tick { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
 @keyframes roll-land { 0% { transform: scaleY(2.1); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .roll-toast.landed .roll-pin { animation: none; } }
+
+/* Saved runs. A file list with a date and a delete key, in the idiom of the operating system this
+   is pretending to be — and one line making it clear that achievements are not what you are
+   deleting, because that is the thing people are actually afraid of. */
+.dialog.saves { max-width: 560px; }
+.slot-list { display: grid; gap: 4px; margin: 8px 0 10px; }
+.slot { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 7px 9px; background: var(--paper); border: 1px solid; border-color: var(--shadow) var(--hi) var(--hi) var(--shadow); }
+.slot.live { background: var(--face); border-color: var(--hi) var(--shadow) var(--shadow) var(--hi); }
+.slot.empty .slot-body b { color: var(--disabled); }
+.slot-icon { display: grid; place-items: center; opacity: .8; }
+.slot.empty .slot-icon { opacity: .4; }
+.slot-body { display: grid; gap: 1px; min-width: 0; }
+.slot-body b { font-size: var(--fs-sm); }
+.slot-line { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-sub { font-size: var(--fs-xs); color: var(--disabled); }
+.slot-acts { display: flex; gap: 4px; }
+.slot-acts .btn { white-space: nowrap; }
+.note-line { background: var(--paper); border-left: 3px solid var(--accent); padding: 6px 9px; margin: 0 0 8px; font-size: var(--fs-sm); }
+.btn.danger { border-color: #b45a5a; color: #8a2b2b; }
+
+/* Where it lives. In About, in the wizard's sidebar, and at the end — the three places a player is
+   either deciding whether to trust it or has just finished and might want to say something. */
+.about-repo { margin: 9px 0 0; padding-top: 8px; border-top: 1px solid var(--shadow); font-size: var(--fs-sm); }
+.about-repo a { color: var(--link, #2a4d8f); }
+.wiz-repo { margin-top: 6px; opacity: .7; font-size: var(--fs-xs); }
+.wiz-repo a { color: inherit; text-decoration: underline; }
+.end-repo { margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--shadow); font-size: var(--fs-sm); }

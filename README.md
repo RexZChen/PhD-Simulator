@@ -1,16 +1,106 @@
-# US CS PhD Simulator — Academic OS
+<div align="center">
 
-A satirical life-and-research simulation about doing a computer science PhD in the United States,
-presented as a deliberately dated desktop operating system. It runs entirely in your browser: no
-backend, no account, no telemetry. A full run starts with graduate applications, continues through
-prelims, the proposal, papers, conferences, the dissertation, the defense and the job market, and
-then keeps going — because a PhD does not end at graduation, and neither does your advisor.
+# Academic OS
 
-The tone it is aiming for: **miserable and enjoyable at once.** A PhD is not for everyone, it is
-genuinely hard, you go through a lot — and over a long enough horizon it is worth it. You start as
-a first-year who knows nothing and end, if you get there, as someone who knows what they are doing.
+### A satirical simulator of a US computer-science PhD, as a desktop from 1998.
+
+**[▶ Play it in your browser](https://rexzchen.github.io/PhD-Simulator/)** · no install · no account · nothing leaves your machine
+
+<img src="docs/screens/desktop.png" width="820" alt="The PhD Manager desktop: a monthly plan, an advisor card, a Stuck? panel, and a plant on the desk.">
+
+</div>
 
 ---
+
+<table>
+<tr><td width="50%" valign="top">
+
+### Six years. One decision a month.
+
+You apply, you pick an advisor with incomplete information, you run projects, you publish or you don't, you sit three exams, and you find out what you become.
+
+Then it keeps going, because a PhD does not end at graduation and neither does your advisor.
+
+</td><td width="50%" valign="top">
+
+|  |  |
+|---|---|
+| **357** written scenes | **116** achievements |
+| **32** programs | **12** career endings |
+| **2** languages | **0** microtransactions |
+
+</td></tr>
+</table>
+
+---
+
+<div align="center">
+
+### The decision arrives the way it actually arrives
+
+<img src="docs/screens/portal.png" width="760" alt="An applicant portal showing an offer of admission, opened from an email that only said there was an update.">
+
+*The email says there is an update. It does not say what it is. The answer is behind a login.*
+
+</div>
+
+---
+
+<div align="center">
+
+### Room 214 is an hour, not a dice roll
+
+<img src="docs/screens/room214.png" width="760" alt="The preliminary examination: a slide deck with a clock, a committee, and a composure meter.">
+
+*Forty minutes of talking while four people decide what to ask you. Then fifteen minutes of being asked it. Then five minutes in a corridor with one chair while they decide, out loud, without you.*
+
+</div>
+
+---
+
+## What it is actually about
+
+> “Four minutes at a whiteboard and the problem is a different, smaller problem. You have been carrying it for three weeks and they put it down in four minutes and you are not sure how to feel about that.”
+
+> “*No action is required on your part*” is the cruellest sentence in academic correspondence, because it is true and because it means you will spend six weeks doing nothing about something.
+
+Miserable and enjoyable at once. A PhD is genuinely hard, you go through a lot, and over a long enough horizon it is worth it — you start as a first-year who knows nothing and end, if you get there, as someone who knows what they are doing.
+
+<details>
+<summary><b>Some of what is in there</b></summary>
+
+<br>
+
+| | |
+|---|---|
+| **The application** | A statement nobody reads twice, letters you have to ask for, and thirty-two programs whose odds you can finally see. A cycle that produces nothing costs you a year, not the save file. |
+| **The advisor** | Traits you cannot see from a website. Ask their students; the answers are biased, tired, or both. |
+| **Being stuck** | Six doors — advisor, labmate, collaborator, search, ChatPHD, go home. None is strictly best. The game never tells you which. |
+| **Publishing** | Real conference cycles, rebuttals, Reviewer 2, arXiv timestamps, and Anywhere on Earth. |
+| **The visa** | A second game running underneath the first one, for the players who need it. |
+| **Money** | A stipend, a city, a reimbursement that takes four months, and a summer nobody funded. |
+| **The body** | It sends letters. The deadline does not move, and that is the part nobody warns you about. |
+| **The desk** | A plant that is not real. A chair somebody keeps lowering. A yogurt in the fridge with a name on it. |
+
+</details>
+
+## Run it locally
+
+```bash
+npm install
+npm run dev
+```
+
+| | |
+|---|---|
+| `npm test` | 109 engine tests |
+| `npm run test:e2e` | 45 Playwright tests |
+| `npm run i18n` | plays real runs in Chinese; must print zero |
+| `npm run balance` | 40 seeds × 3 playstyles |
+
+Vanilla ES modules and Vite. No framework, no backend, no dependencies at runtime. Data in `src/data/`, rules in `src/engine/`, rendering in `src/ui/`.
+
+**[Contributing →](CONTRIBUTING.md)** · [Report a bug](https://github.com/RexZChen/PhD-Simulator/issues/new?template=bug.yml) · [Suggest a scene](https://github.com/RexZChen/PhD-Simulator/issues/new?template=content.yml) · [Argue with a number](https://github.com/RexZChen/PhD-Simulator/issues/new?template=balance.yml)
 
 ## Disclaimer
 
@@ -31,222 +121,3 @@ settings, and nothing said about them is a claim about any real business or orga
 The satire is pointed at *systems and situations* — funding gaps, review lotteries, immigration
 paperwork, the job market — and not at individuals. If any of it lands close to home, that is
 because these situations are widely shared, not because anyone in particular was in mind.
-
----
-
-## Run it
-
-**Play it now: [rexzchen.github.io/PhD-Simulator](https://rexzchen.github.io/PhD-Simulator/)** — no install, no account, nothing saved anywhere but your own browser.
-
-Or run it locally:
-
-```bash
-npm install
-npm run dev
-```
-
-Open the address Vite prints. The game autosaves to browser LocalStorage. Sound is synthesized in
-the browser and can be muted from the system tray. English and 简体中文 are both complete and can be
-switched at any point mid-run, including for mail and chat you have already received.
-
-```bash
-npm test          # 96 deterministic engine tests (node --test)
-npm run test:e2e  # 41 Playwright browser flows (uses installed Google Chrome)
-npm run build     # production build
-npm run balance   # 40 seeds x 3 playstyles; prints outcome and economy distributions
-npm run i18n      # plays real runs in Chinese and lists anything still in English
-```
-
-## What is in it
-
-**Applications.** A preparation budget, three recommenders with hidden reliability, an "optional"
-GRE, fee waivers, email threads with prospective advisors and their current students, 32 parody
-programs with generated crests, waitlists that move in April, and visit days where people tell you
-true things about advisors if you ask well.
-
-**Every school is a different place.** Not a prestige number and a tagline — a mascot, a yell,
-campus lore, a town, the thing people there actually complain about, and what six years there will
-have made you. The tiny institute with the honour code, the land-grant school where football
-outspends your college, the campus behind a badge reader, the one nine time zones from your
-co-authors. Two programs with the same ranking are not the same six years.
-
-**Interviews are a different conversation every time.** Four questions drawn per advisor from a pool
-of fifteen, because who is asking is the entire content of an interview. The sweaty ones are gated on
-who would ask them: the gap in your record, the candidate who already has a paper, how you feel about
-weekends — and the questions that are not supposed to be asked and are asked anyway, every cycle, by
-someone.
-
-**Variable time.** Calm months resolve in one step. Deadline weeks and rebuttal windows drop to
-week-by-week. When a deadline is genuinely close, the game drops again to **day by day** — five
-working days a week, with coffee (temporary energy, a later mental-health bill, and dizziness past
-a threshold), skipped lunches, pop-in advisor meetings, and labmate conversations that change how
-the week goes.
-
-**Papers.** 24 fictional venues whose month-level timing follows representative real cycles.
-Every paper carries an absolute quality of **1–5 diamonds**, and quality tilts the odds without
-deciding them: a bad paper can get in and a good paper can get rejected, which is the point.
-Targets, desk rejections, rebuttal windows, decisions, preprints, and persistent submission
-histories across recycles.
-
-**Advisor.** Meeting cadence derived from availability, ambition and lab size. A monthly mode —
-attentive, deadline mode, grant season, travelling, gone quiet — that changes ping frequency,
-cancellations, reply odds and review latency. Requests with due dates you can do, push back on, or
-decline. Timed pushback exchanges where they have the last word and you have to answer it.
-
-**Health and money.** A health bar with visible consequences, chronic conditions that accumulate,
-and a clinic that puts a hole in your bank account *after* insurance — deductible, coinsurance and
-all. An itemised monthly ledger: stipend, rent, food, premium, term fees, visa fees, remittances,
-interest. Debt that compounds quietly and gets paid down when there is slack.
-
-**International students** carry it differently and the model says so: higher loneliness, visa fees,
-CPT paperwork, remittances home, employers that will not sponsor, national labs that are closed to
-them outright, and travel that needs a visa which usually comes through and sometimes does not.
-
-**The art carries state.** The scene behind each event knows what time it is — the sky runs morning
-to night from the day index, winter frosts the sill, autumn drops the saturation. The coffee cups on
-the desk are the ones you drank. The lab whiteboard fills with your project's progress, so a 20%
-project and a 95% project are visibly different rooms. And the whole scene desaturates as your stress
-rises, which is the same thing the desktop does, so the game tells you how you are twice without
-using a number either time.
-
-**The calendar is not yours.** Unscheduled meetings arrive *after* you have chosen what the month
-goes to, and take a piece of that choice — 42% of what you planned, 62% in a crunch week. You see
-the cost before you read the reason: your day in nine blocks with the meeting dropped into the middle
-and the hours it eats shaded red. Saying you are four days from a deadline recovers most of it when
-it is heard, and is heard as a complaint when it is not.
-
-**The questionnaire has an optional half.** Five fields, collapsed, every one answerable with
-"rather not say": why you are actually doing this, who else is in your life, whether you are the
-first in your family, what you are most afraid of, and what would genuinely make you leave. They do
-not make the run easier or harder. They decide which conversations you end up in — the question you
-came here with and have never once worked on, the nursery that closes at six, the call from home,
-the two a.m. certainty that you have been faking it for three years.
-
-**Storylines that run for years.** The spinout: Technology Transfer emails about your paper, your
-advisor raises commercialising at the end of a meeting about something else, and then there is a cap
-table on a whiteboard with everybody smiling — the university's slice, because you assigned it on day
-one; your advisor's, roughly the size of yours, for a board seat and a day a month. And the patent
-behind it, which is a clock rather than an event: three meetings explaining your own diagram, a year
-to a filing that lands on your Google Scholar profile next to your papers, a first office action that
-rejects every claim because they all do, and months of argument. Two and a half years, 70/30.
-
-**The loop, closed.** Every acceptance brings congratulations in writing and out loud at group
-meeting — genuine, deserved, and simultaneously aimed at everyone else in the room. Then, a specific
-number of weeks later, "so what are you actually curious about for the next one?" An Empire Builder
-asks after a month. An Academic Parent after three. Nobody ever names a length of rest.
-
-**The second organisation chart.** The people you meet who are not in your lab: the person from the
-poster next to yours, the postdoc who answered at midnight, the professor whose citation came with an
-introduction attached. They have names and faces and an opinion of you, and it decays if you never
-write — below a certain point they simply stop replying, with no falling-out and no explanation. You
-can talk to them, ask for a letter, ask for an introduction, or take on a collaboration. That last
-one costs energy and progress *on your own project*, one at a time, so the middle years turn into a
-question nobody warns you about: whose work are you doing instead of yours?
-
-**Room 214.** The prelim, the proposal and the defense are not a dice roll. Four examiners, six
-questions, eleven seconds each. You can answer, you can take it somewhere you can stand, or you can
-say what you do not know — and which of those is right depends on what is being asked. Conceding is
-safe on the literature and the method and fatal on your own chapter, because not knowing your own
-work is the one thing the room cannot forgive. Answering is the only move that can go badly, and the
-only one that can go brilliantly. Composure carries between questions.
-
-**04:12.** The job died after eleven hours. Four logs, one reservation, and one line in each that is
-actually the problem — not the traceback, not the last line, not the red one. Clicking the error
-message costs you five seconds of the reservation, which is roughly what it costs in life.
-
-**Conferences.** 46 real cities that actually host these venues. Flights are red-eye and hotels are
-poor unless your advisor has funding or you pay to upgrade. A real-time presentation minigame, then
-senior professors asking the questions senior professors ask. Coffee breaks and social events, or
-skip them and see the city — and risk running into your advisor at the museum. Connections turn
-into citations, collaborations and side projects.
-
-**Google Scholar.** Live, not a fixed number. Citations arrive as email — *"someone at somewhere
-cited your work"* — driven by paper quality, your connections and your advisor's. Bar charts for
-you, your advisor and your labmates, so you can do the thing everyone does.
-
-**Internships.** Applications open every August. Landing one is the easy half: whether you go is
-decided by your advisor, whose objections are drawn from your actual calendar — *"and what about
-the deadline in July?"*, *"what about the rebuttal for that paper?"* You can bring a written plan,
-say the salary out loud, name the mentor, ask a labmate who went whether the objection is real, go
-anyway, or decline. Going anyway always works and is never free. The job title moves your research
-skill — an SDE summer takes some of it away, and it comes back around February.
-
-**Finishing.** From year four you have to ask, yourself, whether you can graduate next year — and
-be told you are not ready, sometimes fairly and sometimes not. Getting out on time with a strong
-record depends on your record *and* on communication and their willingness. Most people take six
-years. After the defense your advisor keeps after you about revisions, because defending is not
-finishing; the degree is conferred on deposit, and the margins have opinions. Defend after May and
-you will be asked whether you want to come back for hooding.
-
-**Letters.** Four minimum, for faculty jobs and postdocs only; industry asks for referees it never
-calls. You ask people the run actually produced — your advisor, the committee, a collaborator from a
-conference, the manager from a summer. A letter from outside the lab is worth more than one from
-inside it. And one writer may quietly write a lukewarm one: a big name who barely knows you is the
-classic way to acquire it, three good letters do not average it away, and you never, ever see it.
-
-**The market.** Three seasonal job boards — LinkedOut all year, CRAB for the short faculty season,
-The Pipeline for postdocs — over 48 fictional employers across 12 tracks named after the paperwork
-that governs them. Applications freeze their odds *and the committee's mood* at submit, so volume
-cannot average away a bad draw; you find out in March what you did in October. Silence is a normal
-outcome and never resolves. **Most people do not land the thing they wanted**, and the game does not
-treat that as a verdict on them.
-
-**The checkbox.** *Will you now or in the future require sponsorship for employment visa status?*
-Answer honestly and roughly half the industry board closes, inside the hour, by something that did
-not read the rest of the file. The rejection is the fastest mail you will ever receive.
-
-**Applying quietly.** You do not have to tell your advisor. It accrues, and it comes out — through a
-recruiter who cc'd them, a seminar compliment, three cancelled Thursdays — and there are four
-different advisors waiting on the other side of that. Two of them remember it when the letters are
-written. Telling them yourself costs a bad ten minutes and buys all of it back. And if an offer
-lands while your graduation date is still unsettled, you can put it on the table: one move, once per
-run, that works more often than anything else and casts a shadow you are never shown.
-
-**After.** It does not end at graduation. Your advisor stays in touch: work you left behind gets
-finished by someone newer and accepted, and you are invited to the venue at your own expense; life
-updates; coffee when you are back on campus as alumni. That relationship is the long-run return on
-the whole thing.
-
-**When it is not your call.** Some runs end in a way you did not choose. A body you kept
-overdrawing takes the decision away from you; a mind nobody checked on gets a higher level of care;
-a firm at home needs a name on the door; a checkpoint on a road you take every day turns into thirty
-days. And your advisor can leave before you do — tenure denied, emeritus, an offer from a company
-you have heard of, or an email that goes out at 7:40 in the morning — and you have to find somebody
-else, or race their clock, or inherit the lab.
-
-**Endings and achievements.** 24 endings and 104 achievements, in a register that refuses to call
-you a failure for any of them.
-
-## How it is built
-
-Vanilla ES modules and Vite. No framework. About 16k lines.
-
-- `src/data/` — content: schools, venues, calendar, 298 event templates, 21 meeting scenes, employers, tracks, cities, internships, names. Placeholders live here so they can be swapped without touching the engine.
-- `src/engine/` — simulation: state, time, events, advisor, papers, life, scholar, trips, internships, letters, the job search, the graduation negotiation, thesis, market, epilogue, saves.
-- `src/ui/` — the desktop shell, its apps (PhD Manager, Mail, LabChat, Netscope, Portal, Calendar, Scholar, About Me, GradApply), scenes, real-time minigames, icons and synthesized sound.
-- `src/i18n/` — English source strings plus 3,739 Chinese entries, with provenance tracking so stored text re-translates on a language switch.
-- `tests/`, `scripts/balance.mjs` — engine tests, browser flows, and the multi-seed balance harness.
-
-Every random draw goes through a seeded generator, so a run is reproducible from its seed and the
-balance harness measures real distributions rather than vibes.
-
-## Contributing
-
-**Contributions are welcome, including small ones** — and the most valuable ones are usually not
-code. If you did a PhD and something in here rings false, or something real is missing, that is
-worth an issue. Content, translations and balance reports are all genuinely useful.
-
-- [**Open an issue**](https://github.com/RexZChen/PhD-Simulator/issues/new/choose) — bug, something
-  that rings false, or a balance report
-- [**CONTRIBUTING.md**](CONTRIBUTING.md) — how to get set up, how to write an event, how to add a
-  language, and the five rules that matter (chiefly: nothing real, and no `Math.random()`)
-- [**CHANGELOG.md**](CHANGELOG.md) — what changed and when
-
-## License
-
-MIT — see [LICENSE](LICENSE). Use it, fork it, rewrite the jokes.
-
-The licence covers the code and the writing in this repository. It is not a licence to present the
-game, or anything generated from it, as being about a real person or institution — see the
-disclaimer above, which is the part that actually matters.
-

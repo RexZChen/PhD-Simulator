@@ -1,7 +1,7 @@
 import './styles.css';
 import { createRun, chatBody, mailSubject, mailSender, requestText, noticeText, entryText } from './engine/state.js';
 import { dispatch, prepareRun } from './engine/game.js';
-import { loadSave, saveRun, resetSave, emptyMeta } from './engine/save.js';
+import { loadSave, saveRun, resetSave, emptyMeta, listSlots, readSlot, writeSlot, deleteSlot } from './engine/save.js';
 import { shell } from './ui/shell.js';
 import { play, setSound } from './ui/sound.js';
 import { setAppLanguage } from './i18n/apply.js';
@@ -104,6 +104,7 @@ function syncViva() {
 // screen for four seconds. Tracked here rather than in the run, because it is about this session's
 // attention, not about the save.
 let seenAwards = null;
+let armTimer = null;          // the arming window on a destructive save action
 function flashAwards() {
   if (!run) { seenAwards = null; return; }
   const now = run.achievements || [];
@@ -481,6 +482,67 @@ root.addEventListener('click', event => {
         || run?.advisors?.find(a => a.schoolId === id);
       ui.offer = null; ui.gaTab = null;
       if (adv) perform({ type: 'ENROLL', id: adv.id }, { preserveScroll: false });
+      return;
+    }
+    case 'saves': { ui.saves = { slots: listSlots(localStorage) }; ui.saveNote = null; ui.startMenu = false; ui.menu = null; render({ preserveScroll: false }); return; }
+    case 'saves-close': { clearTimeout(armTimer); ui.saves = null; ui.saveNote = null; ui.saveArmed = null; render({ preserveScroll: false }); return; }
+    case 'slot-save': {
+      // Copying the live run into a slot. The autosave keeps writing to its own key, so this is a
+      // snapshot rather than a move: you can put the run down and pick it up later.
+      clearTimeout(armTimer); ui.saveArmed = null;
+      const err = writeSlot(localStorage, Number(id), run);
+      ui.saveNote = err || t('Saved to slot {n}.', { n: id });
+      ui.saves = { slots: listSlots(localStorage) };
+      render({ preserveScroll: false });
+      return;
+    }
+    case 'slot-delete': {
+      // Arm, then fire. The second click inside a few seconds is the confirm.
+      if (ui.saveArmed !== Number(id)) {
+        ui.saveArmed = Number(id);
+        ui.saveNote = t('Click Sure? to delete slot {n}. Nothing else is affected.', { n: id });
+        render({ preserveScroll: false });
+        clearTimeout(armTimer);
+        armTimer = setTimeout(() => { if (ui.saveArmed !== null) { ui.saveArmed = null; render({ preserveScroll: false }); } }, 5000);
+        return;
+      }
+      clearTimeout(armTimer);
+      ui.saveArmed = null;
+      const err = deleteSlot(localStorage, Number(id));
+      ui.saveNote = err || t('Slot {n} deleted. Your achievements are untouched.', { n: id });
+      ui.saves = { slots: listSlots(localStorage) };
+      render({ preserveScroll: false });
+      return;
+    }
+    case 'slot-abandon': {
+      // Ending the run that is open. Two clicks, and it goes back to the setup wizard rather than
+      // leaving the player on a desktop belonging to a student who no longer exists.
+      if (ui.saveArmed !== 'live') {
+        ui.saveArmed = 'live';
+        ui.saveNote = t('This ends the run that is open. Save it to a slot first if you want it back.');
+        render({ preserveScroll: false });
+        clearTimeout(armTimer);
+        armTimer = setTimeout(() => { if (ui.saveArmed !== null) { ui.saveArmed = null; render({ preserveScroll: false }); } }, 5000);
+        return;
+      }
+      clearTimeout(armTimer);
+      ui.saveArmed = null;
+      run = null;
+      saveRun(localStorage, null, meta);
+      ui.saves = null; ui.saveNote = null;
+      ui.screen = 'home'; ui.wizardStep = 0; ui.wizardChoice = 'new'; ui.app = 'dashboard';
+      render({ preserveScroll: false });
+      return;
+    }
+    case 'slot-load': {
+      const loadedRun = readSlot(localStorage, Number(id));
+      if (!loadedRun) { ui.saveNote = t('That slot could not be read.'); render({ preserveScroll: false }); return; }
+      run = loadedRun;
+      persist();
+      ui.saves = null; ui.saveNote = null; ui.screen = 'game'; ui.app = 'dashboard'; ui.minimized = false;
+      ui.gaTab = null; ui.decision = null; ui.offer = null; ui.board = false; ui.thread = null;
+      seenAwards = null;
+      render({ preserveScroll: false });
       return;
     }
     case 'decision-close': { ui.decision = null; render({ preserveScroll: false }); return; }

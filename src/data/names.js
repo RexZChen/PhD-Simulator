@@ -22,3 +22,8 @@ export const labmateTraits = [
   { id: 'burned', label: 'quietly burned out', effect: 'has a plant. The plant is not doing well either' },
   { id: 'startup', label: 'startup-curious', effect: 'has a pitch deck in the shared drive' },
 ];
+
+// Where it lives. Shown in About, in the wizard, and on the ending screen — the three places a
+// player is either deciding whether to trust it, or has just finished and might want to say so.
+export const REPO_URL = 'https://github.com/RexZChen/PhD-Simulator';
+export const REPO_LABEL = 'github.com/RexZChen/PhD-Simulator';

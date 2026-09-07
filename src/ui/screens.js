@@ -2,6 +2,7 @@ import { esc, btn, bar, group, tag, money, note, dots, band } from './helpers.js
 import { icon } from './icons.js';
 import { schools, backgrounds, topics, skillNames, achievements, advisorArchetypes, mutators } from '../data/catalog.js';
 import { DISCLAIMER } from '../data/names.js';
+import { REPO_URL, REPO_LABEL } from '../data/names.js';
 import { dateLabel } from '../data/calendar.js';
 import { personality, lastName, entryDate, entryText } from '../engine/state.js';
 import { t, languages, getLanguage } from '../i18n/index.js';
@@ -11,7 +12,7 @@ const select = (label, name, options, value) => `<label class="field"><span>${la
 export function setupWizard(ui, meta, saved, notices) {
   const step = ui.wizardStep || 0;
   const choice = ui.wizardChoice || (saved && saved.phase !== 'ending' ? 'continue' : 'new');
-  const banner = `<div class="wizard-banner">${icon('wizard', 40)}<h2>Academic OS<br>${t('Setup')}</h2><small>US CS PhD Simulator<br>${t('Build 1.3 · offline · no account')}</small><small style="margin-top:auto">${t('{e} endings · {a} achievements found on this computer', { e: meta.endings.length, a: meta.achievements.length })}</small></div>`;
+  const banner = `<div class="wizard-banner">${icon('wizard', 40)}<h2>Academic OS<br>${t('Setup')}</h2><small>US CS PhD Simulator<br>${t('Build 1.3 · offline · no account')}</small><small style="margin-top:auto">${t('{e} endings · {a} achievements found on this computer', { e: meta.endings.length, a: meta.achievements.length })}</small><small class="wiz-repo"><a href="${REPO_URL}" target="_blank" rel="noopener noreferrer">${esc(REPO_LABEL)}</a></small></div>`;
   const langRow = `<div class="row" style="margin-top:10px"><span class="small muted">${t('Language')} / 语言:</span>${languages.map(([id, label]) => btn(label, 'language', { id, cls: `small ${getLanguage() === id ? 'primary' : ''}` })).join('')}</div>`;
   let page = '', buttons = '';
   if (step === 0) {
@@ -77,7 +78,9 @@ export function collectionApp(meta, s = null) {
   return `<div class="row between" style="margin-bottom:8px">${back}<span class="tiny muted">${t('Nothing here is lost when a run ends.')}</span></div><h1>${t('Things you’ve survived')}</h1><p class="small muted">${t('Discoveries persist between runs on this computer.')}</p><div class="cols two">${group(t('Achievements'), Object.entries(achievements).map(([id, a]) => `<div class="achv ${meta.achievements.includes(id) ? '' : 'locked'}">${icon(meta.achievements.includes(id) ? 'star' : 'x', 18)}<div><b>${esc(a.name)}</b><div class="small muted">${esc(a.desc)}</div></div></div>`).join(''))}<div>${group(t('Advisor archetypes discovered'), advisorArchetypes.map(a => tag(meta.archetypes.includes(a.id) ? a.name : '???', meta.archetypes.includes(a.id) ? 'ok' : '')).join(' '))}${group(t('Endings'), `<p>${t('{n} distinct ending(s)', { n: meta.endings.length })}: ${meta.endings.map(e => esc(t(e))).join(', ') || '—'}</p>`)}${group(t('Situations encountered'), `<p>${t('{n} of ~200 situations. New ones are weighted higher in future runs.', { n: meta.seenEvents.length })}</p>`)}</div></div>`;
 }
 
-export const aboutDialog = () => `<div class="modal"><section class="dialog narrow" role="dialog" aria-modal="true"><div class="titlebar"><span class="tb-title">${icon('info', 16)}<span>${t('About Academic OS')}</span></span></div><div class="body"><div class="row"><span>${icon('wizard', 40)}</span><div><b>Academic OS 1.2</b><br><span class="small muted">${t('US CS PhD Simulator · runs entirely in this browser')}</span></div></div><p class="small" style="margin-top:8px">${esc(t(DISCLAIMER))}</p><p class="tiny muted">${t('Venue timing uses representative official cycles from 2025–2027 and is projected by month into later fictional years. It is not a live deadline calendar; check each venue’s official site before a real submission.')}</p></div><div class="buttons">${btn(t('OK'), 'close-dialog', { cls: 'primary', attrs: 'data-default="1"' })}</div></section></div>`;
+export const aboutDialog = () => `<div class="modal"><section class="dialog narrow" role="dialog" aria-modal="true"><div class="titlebar"><span class="tb-title">${icon('info', 16)}<span>${t('About Academic OS')}</span></span></div><div class="body"><div class="row"><span>${icon('wizard', 40)}</span><div><b>Academic OS 1.11</b><br><span class="small muted">${t('US CS PhD Simulator · runs entirely in this browser')}</span></div></div><p class="small" style="margin-top:8px">${esc(t(DISCLAIMER))}</p><p class="tiny muted">${t('Venue timing uses representative official cycles from 2025–2027 and is projected by month into later fictional years. It is not a live deadline calendar; check each venue’s official site before a real submission.')}</p>
+  <p class="about-repo">${icon('browser', 14)} <a href="${REPO_URL}" target="_blank" rel="noopener noreferrer">${esc(REPO_LABEL)}</a><br><span class="tiny muted">${t('Source, issues, and the seed of every bug you have ever hit.')}</span></p>
+  </div><div class="buttons">${btn(t('OK'), 'close-dialog', { cls: 'primary', attrs: 'data-default="1"' })}</div></section></div>`;
 export const tipsDialog = (s = null) => {
   // A new player starts in the application phase, so the tips about plans and LabChat are about
   // a screen they have not reached yet. Show them what is actually in front of them.
@@ -100,6 +103,59 @@ export const tipsDialog = (s = null) => {
   ];
   return `<div class="modal"><section class="dialog narrow" role="dialog" aria-modal="true"><div class="titlebar"><span class="tb-title">${icon('info', 16)}<span>${t('Welcome to Academic OS')}</span></span></div><div class="body"><h2>${applying ? t('How this starts') : t('Did you know…')}</h2><ul class="small">${tips.map(x => `<li>${x}</li>`).join('')}</ul><label class="check"><input type="checkbox" id="tips-toggle" checked> ${t('Show tips at startup')}</label></div><div class="buttons">${btn(t('Close'), 'close-dialog', { cls: 'primary', attrs: 'data-default="1"' })}</div></section></div>`;
 };
+
+// Saved runs.
+//
+// One autosave was the whole system: starting anything new destroyed the run you had, and the only
+// control was a button that also wiped six years of achievements. Three slots beside the autosave,
+// in the idiom of the operating system it is pretending to be — a file list with a size, a date and
+// a delete key — and one line making it clear that achievements are not part of what you are
+// deleting, because that is the thing people are actually afraid of.
+const savePhase = run => run.phase === 'ending' ? (run.ending?.title || t('Finished'))
+  : run.phase === 'playing' ? t('{month} · Year {year}', { month: dateLabel(run.month), year: Math.floor(run.month / 12) + 1 })
+  : { prep: t('Applying'), application: t('Applying'), interviews: t('Interviews'), admissions: t('Offers'), epilogue: t('After') }[run.phase] || t('In progress');
+
+const whenLabel = ms => {
+  if (!ms) return '';
+  const mins = Math.round((Date.now() - ms) / 60000);
+  if (mins < 1) return t('just now');
+  if (mins < 60) return t('{n} min ago', { n: mins });
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return t('{n} hr ago', { n: hrs });
+  return t('{n} day(s) ago', { n: Math.round(hrs / 24) });
+};
+
+export function savesDialog(slots, live, ui) {
+  const armed = ui.saveArmed ?? null;
+  const row = (id, run, extra = {}) => {
+    const has = !!run;
+    return `<div class="slot ${has ? '' : 'empty'} ${extra.live ? 'live' : ''}">
+      <span class="slot-icon">${icon(extra.live ? 'computer' : has ? 'doc' : 'folder', 22)}</span>
+      <div class="slot-body">
+        <b>${extra.live ? t('This machine (autosaves)') : t('Slot {n}', { n: id })}</b>
+        ${has
+          ? `<span class="slot-line">${esc(run.player.name)}${run.program ? ` · ${esc(run.program.name)}` : ''}</span>
+             <span class="slot-sub">${esc(savePhase(run))}${run.savedAt ? ` · ${esc(whenLabel(run.savedAt))}` : ''} · ${t('seed {n}', { n: run.seed })}</span>`
+          : `<span class="slot-sub">${t('Empty')}</span>`}
+      </div>
+      <div class="slot-acts">
+        ${has && !extra.live ? btn(t('Load'), 'slot-load', { id, cls: 'small primary' }) : ''}
+        ${!extra.live ? btn(has ? t('Overwrite') : t('Save here'), 'slot-save', { id, cls: 'small', disabled: !live, title: live ? '' : t('There is no run open.') }) : ''}
+        ${has ? (extra.live
+          ? btn(armed === 'live' ? t('Really abandon it?') : t('Abandon run'), 'slot-abandon', { cls: `small${armed === 'live' ? ' danger' : ''}` })
+          : btn(armed === id ? t('Sure?') : t('Delete'), 'slot-delete', { id, cls: `small${armed === id ? ' danger' : ''}` })) : ''}
+      </div>
+    </div>`;
+  };
+  return `<div class="modal"><section class="dialog saves" role="dialog" aria-modal="true" aria-labelledby="sv-title">
+    <div class="titlebar"><span class="tb-title">${icon('folder', 16)}<span id="sv-title">${t('Saved runs')}</span></span>${btn('✕', 'saves-close', { cls: 'tb-x' })}</div>
+    <div class="body">
+      ${ui.saveNote ? `<p class="note-line">${esc(ui.saveNote)}</p>` : ''}
+      <div class="slot-list">${row(0, live, { live: true })}${slots.map(x => row(x.id, x.run)).join('')}</div>
+      <p class="tiny muted">${t('Achievements, endings and everything the machine has seen are kept across all runs and are never deleted here.')}</p>
+      <div class="choices">${btn(t('Close'), 'saves-close', { cls: 'primary' })}${btn(t('Reset this game entirely…'), 'reset', { cls: 'small danger' })}</div>
+    </div></section></div>`;
+}
 
 export const confirmDialog = ui => `<div class="modal"><section class="dialog narrow" role="dialog" aria-modal="true"><div class="titlebar"><span class="tb-title">${icon('warn', 16)}<span>Academic OS</span></span></div><div class="body"><h2>${ui.confirm === 'reset' ? t('Reset all saved progress?') : t('Start a new academic fate?')}</h2><p class="small">${ui.confirm === 'reset' ? t('This removes this game’s current run, achievements, discoveries, and settings from this browser.') : t('Your current run will be replaced. Achievements and discoveries remain.')}</p></div><div class="buttons">${btn(t('Cancel'), 'cancel-confirm')}${btn(ui.confirm === 'reset' ? t('Reset Save') : t('New Run'), 'confirm', { cls: 'primary', attrs: 'data-default="1"' })}</div></section></div>`;
 export const shutdownDialog = () => `<div class="modal"><section class="dialog narrow" role="dialog" aria-modal="true"><div class="titlebar"><span class="tb-title">${icon('computer', 16)}<span>${t('Shut Down Academic OS')}</span></span></div><div class="body"><p>${t('You cannot shut down. You have a PhD to finish.')}</p><p class="small muted">${t('Closing the tab is allowed. Progress is saved. The deadline is not.')}</p></div><div class="buttons">${btn(t('Fine'), 'close-dialog', { cls: 'primary', attrs: 'data-default="1"' })}</div></section></div>`;
