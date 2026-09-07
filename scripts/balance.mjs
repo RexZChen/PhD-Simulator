@@ -255,7 +255,7 @@ export async function run(seed, style) {
     const after = s.stage + ':' + s.month + ':' + s.week + ':' + (s.dayIndex || 0) + ':' + (s.epilogue?.index ?? '');
     if (after === before && !['plan', 'report', 'milestone'].includes(s.stage)) break;
   }
-  return { seen: Object.keys(s.seen || {}), flags: { ...(s.flags || {}) }, patentStage: s.patent?.stage || null,
+  return { seen: Object.keys(s.seen || {}), flags: { ...(s.flags || {}) }, hardTaYears: s.counts?.hardTaYears || 0, patentStage: s.patent?.stage || null,
     venture: s.venture ? { stage: s.venture.stage || null, equity: s.venture.equity ?? null } : null,
     achievements: [...(s.achievements || [])], cvDist: (() => { try { const cv = buildCV(s); const by = {}; for (const l of cv.lines) by[l.section] = (by[l.section]||0)+l.points; return { ...by, score: cv.score }; } catch { return null; } })(), diag: s.ending?.id === 'abd' ? {
     grad: s.grad ? `${s.grad.stance}/${s.grad.settled ? 'settled y' + s.grad.targetYear : 'open'}/r${s.grad.rounds}` : 'never asked',

@@ -11,7 +11,7 @@ import { meetings } from '../src/data/meetings.js';
 import { requests } from '../src/data/requests.js';
 import { asks } from '../src/data/asks.js';
 import { crisisMoveList } from '../src/engine/life.js';
-import { templateById, eligible, freshness } from '../src/engine/events.js';
+import { templateById, eligible, freshness, aboutYou } from '../src/engine/events.js';
 import { createProject, acceptanceChance, setTarget, decide } from '../src/engine/paper.js';
 import { loadSave, saveRun, validRun, emptyMeta } from '../src/engine/save.js';
 import { memeFor, memeArt } from '../src/data/memes.js';
@@ -388,7 +388,9 @@ test('a student who ignores every request and every meeting is eventually remove
       s.relationship.satisfaction = Math.max(0, s.relationship.satisfaction - 6);
       s.relationship.conflict = Math.min(100, s.relationship.conflict + 4);
       for (const r of s.requests.filter(r => r.status === 'open')) { try { s = act(s, { type: 'REQUEST_DECLINE', id: r.id }); } catch { /* ignore */ } }
-      if (!s.focus) s = act(s, { type: 'PLAN', id: 'rest' });
+      // Rest is not always on the board — a crunch or a milestone month can take it away — and the
+      // point of this test is a student who does nothing, not a student who rests specifically.
+      if (!s.focus) { const opts = focusOptions(s).filter(f => !f.disabled); const o = opts.find(f => f.id === 'rest') || opts[0]; if (o) s = act(s, { type: 'PLAN', id: o.id }); }
       s = act(s, { type: 'CONTINUE' });
     }
     if (s.stage === 'report') s = act(s, { type: 'DISMISS_REPORT' });
@@ -711,6 +713,64 @@ test('coming back into the country you live in is a question the trip actually a
   const early = enterProgramWith(3, { international: true });
   early.month = 12;
   assert.equal(stampRisk(early), 0, 'not in year one, when the stamp is still good');
+});
+
+test('a scene written for who you said you were outweighs one written for anybody', () => {
+  // A player who answered every optional question and played seventy months saw the scenes those
+  // answers unlock twice. The draw weighted by how MANY conditions an event had, and "the nursery
+  // closes at six" is gated on two things — a month and a household — so it lost to the count.
+  // What matters is not how many gates a scene has but what kind: the calendar, or you.
+  const s = enterProgram(12);
+  const byId = id => events.find(e => e.id === id);
+  // Everything gated on the person gets the reserved draw. Only the ones whose whole job is to pay
+  // off the questionnaire have to outweigh filler as well: a federal interview is deliberately
+  // rare and is supposed to weigh less than a Tuesday in the lab.
+  const RESERVED = ['opt_small_child', 'opt_partner_far', 'opt_parent_care', 'opt_fraud', 'opt_prove_it',
+    'federal_visit', 'ice_stop', 'sevis_glitch', 'parents_visa', 'cs_ten_days'];
+  const PAYOFF = ['opt_small_child', 'opt_partner_far', 'opt_parent_care', 'opt_fraud', 'opt_prove_it', 'cs_ten_days'];
+  // Something with no gate on the person at all, drawn from the same pool.
+  const filler = events.filter(e => {
+    const c = e.conditions || {};
+    return Object.keys(c).length <= 2 && !['whyHere', 'household', 'firstGen', 'fear', 'dealbreaker',
+      'international', 'background', 'topicsIn', 'archetype', 'stage', 'mutator', 'climate', 'flag'].some(k => c[k] !== undefined);
+  });
+  assert.ok(filler.length >= 20, 'there is plenty of filler to lose to');
+  const weights = filler.map(e => freshness(s, e)).sort((a, b) => a - b);
+  const typical = weights[Math.floor(weights.length / 2)];
+  for (const id of RESERVED) {
+    const e = byId(id);
+    assert.ok(e, `${id} still exists`);
+    assert.ok(aboutYou(e), `${id} counts as a scene about the player, so it gets the reserved draw`);
+  }
+  for (const id of PAYOFF) {
+    assert.ok(freshness(s, byId(id)) > typical, `${id} outweighs the typical event written for nobody in particular`);
+  }
+  // And the reverse: filler must not sneak into the reserved pool, or reserving it means nothing.
+  assert.ok(filler.every(e => !aboutYou(e)), 'the reserved draw stays reserved');
+});
+
+test('a sealed letter opens while the interviews are still going', () => {
+  // The Status screen shows five "View update" buttons the moment a decision is sealed, and the
+  // phase is still `interviews` until the last interview is done. The handler sat one block below
+  // that phase guard, whose else-branch throws, so all five buttons produced "Decisions arrive in
+  // March" and changed nothing. Every run passes through this screen.
+  let s = createRun(77, { background: 'masters', topic: 'ml', international: false });
+  s = act(s, { type: 'PREP', id: 'sop_draft' });
+  s = act(s, { type: 'PREP', id: 'letter_ask', target: 'rec-0' });
+  s = act(s, { type: 'PREP', id: 'proceed' });
+  for (const school of schools.slice(8, 16)) {
+    if (s.player.stats.energy < 3 || s.player.stats.money < 75) break;
+    s = act(s, { type: 'APPLY', schoolId: school.id, effort: 'generic', contact: false, poiId: s.advisors.find(a => a.schoolId === school.id).id });
+  }
+  s = act(s, { type: 'ADMISSIONS' });
+  // A school that never interviewed you can post its answer while the others are still calling.
+  // That is the real shape of the screen the report is about: sealed letters during `interviews`.
+  assert.equal(s.phase, 'interviews');
+  const one = s.applications.find(a => !a.interview) || s.applications[0];
+  one.status = 'rejected'; one.opened = false;
+  s = dispatch(s, { type: 'OPEN_DECISION', id: one.schoolId });
+  const after = s.applications.find(a => a.schoolId === one.schoolId);
+  assert.ok(after.opened, 'the letter opens rather than throwing "decisions arrive in March"');
 });
 
 test('the offer letter was gross, and a cheaper state is a real reason to go there', () => {
@@ -2589,6 +2649,15 @@ test('the year the money went actually happens, and the scene never lies about i
   assert.ok(run.raLost, 'the scene did not start the year');
   assert.equal(run.ta, true);
   assert.equal(run.flags.hardTA, true);
+  // A durable record, because the flag is cleared the month the year ends and everything that
+  // reads it afterwards — a CV line, an epilogue beat, `npm run reach` — otherwise concludes the
+  // year never happened to anybody.
+  assert.equal(run.counts.hardTaYears, 1, 'the run remembers it happened');
+  // And the three scenes about what the year is actually like are scheduled, not entered in a
+  // lottery against eighty other eligible events during the ten months the flag is up.
+  for (const id of ['ta_hell_grading', 'ta_hell_research', 'ta_hell_seen']) {
+    assert.ok(run.scheduled.some(x => x.id === id), `${id} is promised, not drawn`);
+  }
   const started = run.raLost.until;
   assert.ok(started > run.month, 'the year has no end date');
 

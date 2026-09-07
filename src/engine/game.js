@@ -598,16 +598,22 @@ export function dispatch(state, action) {
     else throw new Error(t('Finish your applications first.'));
     return s;
   }
+  // Opening a decision and answering an offer happen in March and April, before the PhD starts, so
+  // they sit above every phase guard rather than with the gameplay actions.
+  //
+  // They used to sit one block lower, under the `interviews` guard, whose else-branch throws. So
+  // the Status screen showed five sealed letters and five "View update" buttons, and every one of
+  // them produced "Decisions arrive in March. Refresh the portal until then." and changed nothing.
+  // A player role-playing a second run clicked all five, got three error balloons, and concluded
+  // the screen was broken — which it was, on the one screen every run passes through.
+  if (a.type === 'OPEN_DECISION') { applyEngine.openDecision(s, a.id); return s; }
+  if (a.type === 'ANSWER_OFFER') { applyEngine.answerOffer(s, a.id, a.yes); return s; }
   if (s.phase === 'interviews') {
     if (a.type === 'INTERVIEW') applyEngine.interviewAnswer(s, a.schoolId, a.id);
     else if (a.type === 'DECISIONS') applyEngine.decisions(s);
     else throw new Error(t('Decisions arrive in March. Refresh the portal until then.'));
     return s;
   }
-  // Opening a decision and answering an offer happen in March and April, before the PhD starts,
-  // so they sit above the "this run is complete" guard rather than with the gameplay actions.
-  if (a.type === 'OPEN_DECISION') { applyEngine.openDecision(s, a.id); return s; }
-  if (a.type === 'ANSWER_OFFER') { applyEngine.answerOffer(s, a.id, a.yes); return s; }
   if (s.phase === 'admissions') {
     if (a.type === 'ENROLL') enroll(s, a.id);
     else if (a.type === 'ASK_STUDENT') applyEngine.askStudentVisit(s, a.id);

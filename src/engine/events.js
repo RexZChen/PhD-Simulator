@@ -132,14 +132,29 @@ export function chooseActor(s, e) {
 
 // Weight for random selection: base probability × novelty within the run × frequency
 // across all runs. Counts keep rare scenes favored even after every scene has appeared once.
-// How much work an event did to be here. An event gated on "international, year two or later,
-// working in systems" is about the specific person in front of you; an event with no conditions
-// fits anybody and is therefore filler. Around eighty events are eligible on a typical month and
-// exactly one is drawn, so under flat weighting the hand-written, circumstance-matched scenes —
-// the only ones that land — are the least likely to appear, because there are so many of them and
-// each is individually rare. Measured: the whole visa storyline fired zero times across twelve
-// international runs while generic lab filler repeated. Fit earns the slot.
-const specificity = e => 1 + .34 * Object.keys(e.conditions || {}).length;
+// Whether a scene is about this particular person.
+//
+// Around eighty events are eligible on a typical month and exactly one is drawn, so under flat
+// weighting the hand-written, circumstance-matched scenes — the only ones that land — are the
+// least likely to appear, because there are so many of them and each is individually rare.
+// Measured: the whole visa storyline fired zero times across twelve international runs while
+// generic lab filler repeated.
+//
+// The first attempt used the *number* of conditions as the proxy, which was wrong and measurably
+// so: a player who answered every optional question and played seventy months saw the scenes those
+// answers unlock twice, because "the nursery closes at six" is gated on two things — a month and a
+// household — and lost to the count. What matters is not how many gates an event has but what kind.
+// A gate on the calendar is about the calendar and nearly every event has one. A gate on who you
+// said you were, where you are from, what you are afraid of, or who your advisor turned out to be
+// is about you, and there is no point writing those at all if the player they were written for
+// never sees them.
+const ABOUT_YOU = ['whyHere', 'household', 'firstGen', 'fear', 'dealbreaker', 'international',
+  'background', 'topicsIn', 'archetype', 'stage', 'mutator', 'climate', 'flag'];
+export const aboutYou = e => {
+  const c = e.conditions || {};
+  return ABOUT_YOU.some(k => c[k] !== undefined) || Object.keys(c).length >= 3;
+};
+const specificity = e => (aboutYou(e) ? 1.7 : 1) * (1 + .18 * Object.keys(e.conditions || {}).length);
 
 export function freshness(s, e) {
   const inRun = s.seen[e.id] || 0;
@@ -199,12 +214,12 @@ export function scheduleTurnEvents(s, ctx) {
   if (queue.filter(id => !URGENT.includes(id)).length < cap && roll(s, randomChance)) {
     const pool = events.filter(e => !e.scheduledOnly && !URGENT.includes(e.id) && e.category !== 'holiday' && e.category !== 'meeting' && !queue.includes(e.id) && eligible(s, e, ctx)
       && (isMonth ? e.category !== 'crunch' : (e.category === 'crunch' || random(s) < (isDay ? .25 : .15))));
-    // Half the time, only the scenes written about this player are in the running. Weighting alone
-    // was not enough: an event gated on four conditions and marked once-only has a window of maybe
-    // twenty months, and against eighty competitors that is a coin flip on whether the player it
-    // was written for ever sees it. Nobody writes "the nursery closes at six" for a coin flip.
+    // A third of the time, only the scenes written about this player are in the running. Weighting
+    // alone was not enough: a once-only event gated on who you are has a window of maybe twenty
+    // months, and against eighty competitors that is a coin flip on whether the player it was
+    // written for ever sees it. Nobody writes "the nursery closes at six" for a coin flip.
     // This does not add events — the draw is still one — it changes which one you get.
-    const mine = pool.filter(e => Object.keys(e.conditions || {}).length >= 3);
+    const mine = pool.filter(aboutYou);
     const from = mine.length && roll(s, .34) ? mine : pool;
     const e = pickWeighted(s, from, x => freshness(s, x));
     if (e) queue.push(e.id);
@@ -347,6 +362,17 @@ export function resolveChoice(s, id) {
     s.raLost = { since: s.month, until: s.month + HARD_TA.semesters * 5, years: 1 };
     s.ta = true;
     s.flags.hardTA = true;
+    // A durable record that this happened. `flags.hardTA` is cleared the month the year ends, so
+    // anything reading it afterwards — an epilogue beat, a CV line, `npm run reach` — concluded
+    // the year had never happened to anybody.
+    s.counts.hardTaYears = (s.counts.hardTaYears || 0) + 1;
+    // And the three scenes about what the year is actually like are scheduled rather than left to
+    // the pool. Their window is the ten months the flag is up, against eighty other eligible
+    // events, which worked out to well under one run in a hundred ever seeing one. A year you
+    // were told about and then never shown is the same bug this scene was written to fix.
+    s.scheduled.push({ id: 'ta_hell_grading', week: absWeek(s) + 6 });
+    s.scheduled.push({ id: 'ta_hell_research', week: absWeek(s) + 13 });
+    s.scheduled.push({ id: 'ta_hell_seen', week: absWeek(s) + 21 });
   }
   if (c.watchFired && s.eventActor) {
     const who = labmateById(s, s.eventActor.id);

@@ -59,7 +59,7 @@ const bucket = (name, pick) => {
 console.log(`\n=== systems that are meant to be rare but real (${N} runs) ===`);
 bucket('patent', r => r.patentStage);
 bucket('spinout', r => (r.flags?.ipDisclosed ? (r.venture ? `venture:${r.venture.stage}` : 'disclosed only') : null));
-bucket('hard TA', r => (r.flags?.hardTA ? 'yes' : null));
+bucket('hard TA', r => (r.hardTaYears ? `${r.hardTaYears} year(s)` : null));   // a count, not a flag: the flag is cleared when the year ends
 bucket('found out', r => (r.found ? 'yes' : null));
 
 console.log(`\n${gaps} unreachable event(s) or achievement(s).`);
