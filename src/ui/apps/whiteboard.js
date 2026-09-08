@@ -82,7 +82,11 @@ export function markBoard(xPct, yPct) {
 export function paintBoard() {
   const host = document.querySelector('[data-wb-surface]');
   if (!host || !board) return;
-  host.innerHTML = board.marks.map((m, i) => `<span class="wb-mark ink-${m.ink}" style="left:${m.x}%;top:${m.y}%;--r:${m.rot}deg;font-size:${m.size}px;--i:${i}">${esc(t(m.text))}</span>`).join('');
+  // Twenty-six hand-written in-jokes lived behind an empty white rectangle with no affordance. A
+  // first-time player opened it, saw nothing, and closed it; they only found the content because a
+  // stray click produced one. The hint is there until the first mark and never again.
+  host.innerHTML = (board.marks.length ? '' : `<span class="wb-hint">${t('Click anywhere.')}</span>`)
+    + board.marks.map((m, i) => `<span class="wb-mark ink-${m.ink}" style="left:${m.x}%;top:${m.y}%;--r:${m.rot}deg;font-size:${m.size}px;--i:${i}">${esc(t(m.text))}</span>`).join('');
   const meter = document.querySelector('[data-wb-count]');
   if (meter) meter.textContent = t('{n} of {max}', { n: board.marks.length, max: BOARD.capacity });
   // Inline display rather than a class, because styles.css has no general hidden rule and an empty
@@ -103,7 +107,7 @@ export function whiteboardApp(s) {
       <span class="tiny muted" data-wb-count></span>
       ${btn(`${icon('trash', 14)} ${t('Erase')}`, 'wb-erase', { cls: 'small' })}
     </div>
-    <div class="wb-surface" data-wb-surface data-action="wb-mark" role="img" aria-label="${esc(t('A whiteboard. Click it.'))}"></div>
+    <div class="wb-surface" data-wb-surface data-action="wb-mark" role="img" aria-label="${esc(t('A whiteboard. Click it.'))}"><span class="wb-hint">${t('Click anywhere.')}</span></div>
     <p class="tiny wb-said" data-wb-said aria-live="polite" style="display:none"></p>
     <p class="tiny muted">${esc(t(boardNote))}</p>
   </div>`;

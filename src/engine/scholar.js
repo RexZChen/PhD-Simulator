@@ -4,7 +4,7 @@ import { meetContact } from './network.js';
 import { venueById } from '../data/venues.js';
 import { calendarOf } from '../data/calendar.js';
 import { random, roll, clamp, pick, exactly } from './probability.js';
-import { award, message, log, lastName, firstName } from './state.js';
+import { award, message, log, lastName, firstName, newName } from './state.js';
 import { firstNames, surnames } from '../data/names.js';
 import { schools } from '../data/catalog.js';
 import { paperQuality, diamonds } from './paper.js';
@@ -24,7 +24,7 @@ function citationSource(s) {
 
 // The email that makes an entire Tuesday better.
 export function citationMail(s, project, n) {
-  const who = `${pick(s, firstNames)} ${pick(s, surnames)}`;
+  const who = newName(s);
   const where = roll(s, .5) ? pick(s, schools).name : pick(s, FOREIGN());
   const src = citationSource(s);
   s.flags.citedBy = who;

@@ -11,6 +11,10 @@ function yearChart(byYear, startYear, endYear) {
   const years = [];
   for (let y = startYear; y <= endYear; y++) years.push(y);
   const max = Math.max(1, ...years.map(y => byYear[y] || 0));
+  // A chart of nothing is a large blank region with four year labels underlined along the bottom,
+  // which reads as a rendering failure rather than as "no citations yet". Say it instead.
+  const total = years.reduce((a, y) => a + (byYear[y] || 0), 0);
+  if (!total) return `<div class="cite-chart empty"><p class="tiny muted">${t('No citations yet. There is a first one and it is almost always your advisor.')}</p></div>`;
   return `<div class="cite-chart" role="img" aria-label="${esc(t('Citations per year'))}">
     <div class="cc-bars">${years.map(y => {
       const n = byYear[y] || 0;

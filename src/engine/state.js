@@ -34,19 +34,38 @@ export const yearOf = s => phdYear(s.month);
 // Unique on the FIRST name, not just the full name: the lab list, the DM rail and most dialogue
 // use first names only, so two people called Tobiah is two people you cannot tell apart.
 function personName(s, used) {
-  const takenFirst = new Set([...used].map(n => n.split(' ')[0]));
-  for (let i = 0; i < 30; i++) {
+  const name = newName(s);
+  used.add(name);
+  return name;
+}
+// One name pool, one register of who has already been given a name.
+//
+// Every system drew independently, so a player found "Nakashima-Roe" was their undergraduate REU
+// mentor, a professor at a school they applied to, AND the second advisor in their own lab — and
+// two people in the same cohort were both called Vasquez-Holt. With 48 surnames and a dozen
+// systems drawing, that is not bad luck, it is arithmetic. This keeps the register on the run so
+// it survives a save, and prefers an unused surname before it gives up and allows a repeat.
+export function newName(s, { surnameOnly = false } = {}) {
+  const used = (s.namesUsed = s.namesUsed || []);
+  const takenFirst = new Set(used.map(n => n.split(' ')[0]));
+  const takenLast = new Set(used.map(n => n.split(' ').at(-1)));
+  for (let i = 0; i < 40; i++) {
     const first = pick(s, firstNames);
-    if (takenFirst.has(first)) continue;
-    const name = `${first} ${pick(s, surnames)}`;
-    if (!used.has(name)) { used.add(name); return name; }
+    const last = pick(s, surnames);
+    if (takenLast.has(last)) continue;
+    if (!surnameOnly && takenFirst.has(first)) continue;
+    const name = `${first} ${last}`;
+    used.push(name);
+    return name;
   }
+  // Every surname is spoken for. Allow a repeat rather than loop, but not the same full name.
   for (let i = 0; i < 20; i++) {
     const name = `${pick(s, firstNames)} ${pick(s, surnames)}`;
-    if (!used.has(name)) { used.add(name); return name; }
+    if (!used.includes(name)) { used.push(name); return name; }
   }
   return `${pick(s, firstNames)} ${pick(s, surnames)}`;
 }
+
 export const lastName = name => name.split(' ').at(-1);
 export const firstName = name => name.split(' ')[0];
 
@@ -125,7 +144,10 @@ export function createRun(seed = Date.now() >>> 0, answers = {}) {
     dealbreaker: answers.dealbreaker && answers.dealbreaker !== 'skip' ? answers.dealbreaker : null,
   };
   s.player = {
-    name: String(answers.name || 'Alex Student').trim().slice(0, 40) || 'Alex Student',
+    // "Randomize My Academic Fate" generates the schools, the recommenders and the advisors and
+    // then called you Alex Student, which is the placeholder from the form you skipped. If nobody
+    // typed a name, draw one from the same pool everybody else in the building comes from.
+    name: String(answers.name || newName(s)).trim().slice(0, 40) || 'Alex Student',
     profile,
     stats: { hope: jitter(s, base.hope, 5), confidence: jitter(s, 60, 12), energy: base.energy, health: jitter(s, 84, 7), money: base.money + (answers.buffer === 'comfortable' ? 2000 : answers.buffer === 'tight' ? -1000 : 0), academicCapital: answers.publications === 'yes' ? 8 : 0 },
     hidden: { stress: 18, burnoutRisk: 0, loneliness: profile.international ? 34 : 22 },

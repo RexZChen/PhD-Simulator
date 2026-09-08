@@ -6,7 +6,7 @@ import { recommenderPools, LETTERS_EXPECTED } from '../data/recommenders.js';
 import { insiderNotes, poolsFor, NOTE_SOURCES } from '../data/insider.js';
 import { firstNames, surnames } from '../data/names.js';
 import { random, roll, clamp, pick, pickWeighted, jitter } from './probability.js';
-import { effects, log, message, finish, lastName, firstName, fill } from './state.js';
+import { effects, log, message, finish, lastName, firstName, fill, newName } from './state.js';
 import { openNext } from './events.js';
 
 // ---- Preparation (fall 2027) ----
@@ -14,7 +14,7 @@ export function initPrep(s) {
   const bg = s.player.profile.background;
   const pool = recommenderPools[bg] || recommenderPools.undergrad;
   const used = new Set();
-  const name = () => { let n; do { n = `${pick(s, firstNames)} ${pick(s, surnames)}`; } while (used.has(n)); used.add(n); return n; };
+  const name = () => { const n = newName(s); used.add(n); return n; };
   s.prep = {
     sop: bg === 'masters' ? 20 : 10, sopSteps: [], gre: null, waivers: false, waiverRolled: false, proceeded: false, researched: {},
     // Seven people you could ask, and Energy for perhaps four. The note is a true hint; the
@@ -174,7 +174,7 @@ export function email(s, advisorId, templateId) {
     let pool = tpl.outcomes;
     if (tpl.check) { const val = s.player.skills[tpl.check.skill]; const ok = roll(s, clamp(.5 + (val - tpl.check.difficulty) / 110, .1, .9)); pool = ok ? tpl.success : tpl.failure; }
     const o = pickWeighted(s, pool, x => x.w);
-    if (o.effect?.student) { t.student = `${pick(s, firstNames)} ${pick(s, surnames)}`; s.threads[`${advisorId}:student`] = { kind: 'student', advisorId, schoolId: a.schoolId, student: t.student, messages: [{ from: 'them', text: tr('Hi! {name} said you had questions. Ask away — I have twelve minutes and a strong opinion.', { name: lastName(a.name) }) }], asked: [], done: false }; }
+    if (o.effect?.student) { t.student = newName(s); s.threads[`${advisorId}:student`] = { kind: 'student', advisorId, schoolId: a.schoolId, student: t.student, messages: [{ from: 'them', text: tr('Hi! {name} said you had questions. Ask away — I have twelve minutes and a strong opinion.', { name: lastName(a.name) }) }], asked: [], done: false }; }
     if (o.reply === null) { t.messages.push({ from: 'them', text: tr('(no reply. Eleven days pass. Then twelve.)') }); t.done = true; log(s, tr('Emailed {name}. Silence, professionally delivered.', { name: lastName(a.name) })); }
     else { t.messages.push({ from: 'them', text: fill(tr(o.reply)) }); a.fitBonus = (a.fitBonus || 0) + (o.effect?.fit || 0); if (o.effect?.openings) a.openingsKnown = true; if (o.effect?.hint) hintFor(s, a); if (o.effect?.followUp) { t.followUp = o.effect.followUp; t.stage = 1; } else t.done = true; log(s, tr('Emailed {name}: {how}', { name: lastName(a.name), how: o.effect?.fit > 0 ? tr('a real reply.') : tr('a reply, technically.') })); }
     return t;

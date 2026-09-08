@@ -1003,6 +1003,8 @@ export const ui = {
   "{fee} per application unless waived. Waivers go to people who fill out the right form on the right site.": "每份申请 {fee}，除非获得减免。减免会给那些在对的网站上填了对的表的人。",
   "{old}, now {new}. This is what “I will deal with it after the deadline” buys.": "{old}，现在是{new}。这就是“等 deadline 过了再说”买来的东西。",
   "{name}: faded on its own, eventually, the way most things do.": "{name}：最后自己好了，像大多数事情那样。",
+  "Click anywhere.": "点哪儿都行。",
+  "No citations yet. There is a first one and it is almost always your advisor.": "还没有引用。第一次引用总会来的，而它八成来自你导师。",
   "I am unconvinced this problem needs to exist.": "我不认为这个问题有存在的必要。",
   "The authors should consider whether this is a paper.": "作者应当考虑一下这到底算不算一篇 paper。",
   "Why not just use a bigger model?": "为什么不直接换个更大的模型？",

@@ -6,7 +6,7 @@ import { firstNames, surnames } from '../data/names.js';
 import { monthOf, nextIndexFor, dateLabel } from '../data/calendar.js';
 import { venueById, venuesForTopic, nextDeadline } from '../data/venues.js';
 import { random, roll, clamp, pick, shuffle } from './probability.js';
-import { effects, log, message, chat, award, activeProject, lastName, firstName, fill, vars, joined } from './state.js';
+import { effects, log, message, chat, award, activeProject, lastName, firstName, fill, vars, joined, newName } from './state.js';
 import { milestoneOf } from './time.js';
 
 export const ensureIntern = s => (s.intern = s.intern || { season: null, offers: [], talk: null, history: [], applied: false });
@@ -56,7 +56,7 @@ export function applyInternships(s) {
     offers.push({
       id: `int-${s.month}-${ty.id}`, typeId: ty.id,
       employer: ty.onCampus ? s.program.name : pick(s, internEmployers[ty.id] || [s.company]),
-      mentor: `${pick(s, ['Dr.', 'Dr.', 'Prof.'])} ${pick(s, firstNames)} ${pick(s, surnames)}`,
+      mentor: `${pick(s, ['Dr.', 'Dr.', 'Prof.'])} ${newName(s)}`,
       salary: Math.round(ty.salary * (.9 + random(s) * .25)), start, end: Math.min(start + 2, 71),
     });
   }
