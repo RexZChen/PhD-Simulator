@@ -15,6 +15,8 @@ import { templateById, eligible, freshness, aboutYou } from '../src/engine/event
 import { createProject, acceptanceChance, setTarget, decide } from '../src/engine/paper.js';
 import { loadSave, saveRun, validRun, emptyMeta } from '../src/engine/save.js';
 import { memeFor, memeArt } from '../src/data/memes.js';
+import { gradApply } from '../src/ui/apps/gradapply.js';
+import { shell } from '../src/ui/shell.js';
 import { reentry, stampRisk } from '../src/engine/trip.js';
 import { setAppLanguage } from '../src/i18n/apply.js';
 import { t } from '../src/i18n/index.js';
@@ -713,6 +715,50 @@ test('coming back into the country you live in is a question the trip actually a
   const early = enterProgramWith(3, { international: true });
   early.month = 12;
   assert.equal(stampRisk(early), 0, 'not in year one, when the stamp is still good');
+});
+
+test('a pushback replaces its scene rather than stacking on top of it', () => {
+  // A first-time player screenshotted two "MeetMe — Prof. Holloway" dialogs overlapping, the back
+  // one's art bleeding out around the front, and two live countdowns reading nine seconds and
+  // eleven seconds at the same time. The pushback is the second beat of the same meeting, not a
+  // second meeting.
+  let s = enterProgram(16);
+  createProject(s);
+  s.advisor.ambition = 95; s.advisor.toxicity = 80; s.relationship.satisfaction = 20;
+  s.advisorMode = { id: 'pressed', until: 99, since: 0 };
+  let fired = 0;
+  for (let i = 0; i < 40 && !fired; i++) {
+    s.event = 'meet_progress'; s.stage = 'event'; s.eventVariant = 0; s.eventReturn = 'plan';
+    s = dispatch(s, { type: 'CHOICE', id: 'honest' });
+    if (s.pushback) fired = 1;
+  }
+  assert.equal(fired, 1, 'a pressed advisor pushes back sooner or later');
+  const html = shell(s, { screen: 'game', app: 'dashboard' }, emptyMeta(), null, []);
+  const timers = (html.match(/data-scene-timer=/g) || []).length;
+  assert.ok(timers <= 1, `at most one clock is running (${timers})`);
+  const dialogs = (html.match(/role="dialog"/g) || []).length;
+  assert.ok(dialogs <= 1, `and at most one dialog is open (${dialogs})`);
+});
+
+test('the application screen advertises the price it actually charges', () => {
+  // Every number on this panel was a hardcoded string and every one of them had drifted: the
+  // dropdown said 3 and 7 Energy against a real 4 and 6, the checkbox said +3 against a real +2,
+  // and the fee line said $75 against a real $90 — on the one screen where the game asks you to
+  // budget, and a first-time player measured the gap with a stopwatch and a screenshot.
+  let s = createRun(31, { background: 'masters', topic: 'ml', international: false });
+  s = act(s, { type: 'PREP', id: 'sop_draft' });
+  s = act(s, { type: 'PREP', id: 'letter_ask', target: 'rec-0' });
+  s = act(s, { type: 'PREP', id: 'proceed' });
+  const html = gradApply(s, { gaTab: 'application', effort: 'tailored', contact: true });
+  const generic = applicationCost(s, 'generic', false);
+  const tailored = applicationCost(s, 'tailored', false);
+  const withContact = applicationCost(s, 'tailored', true);
+  assert.match(html, new RegExp(`Generic application · ${generic.energy} Energy`), 'the generic price on screen is the generic price charged');
+  assert.match(html, new RegExp(`Tailored statement · ${tailored.energy} Energy`), 'and the tailored one');
+  assert.match(html, new RegExp(`\\+${withContact.energy - tailored.energy} Energy`), 'and what mentioning the email adds');
+  assert.match(html, new RegExp(`\\$${generic.money}`), 'and the fee');
+  // And the filter counts the schools that are actually there.
+  assert.match(html, new RegExp(`All ${schools.length}`), 'the filter names the real number of programs');
 });
 
 test('a scene written for who you said you were outweighs one written for anybody', () => {

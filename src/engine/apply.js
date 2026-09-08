@@ -370,7 +370,7 @@ export function decisions(s) {
 // the player learns it, which is a different moment and the one that matters.
 export function openDecision(s, schoolId) {
   const app = s.applications.find(a => a.schoolId === schoolId);
-  if (!app || !app.status || app.status === 'submitted') throw new Error(t('There is no update on that one yet.'));
+  if (!app || !app.status || DECIDED_NOT.includes(app.status)) throw new Error(t('There is no update on that one yet.'));
   if (app.opened) throw new Error(t('You have read that one.'));
   app.opened = true;
   const school = schools.find(x => x.id === schoolId);
@@ -392,7 +392,12 @@ export function openDecision(s, schoolId) {
   return app;
 }
 
-export const unopenedDecisions = s => s.applications.filter(a => a.status && a.status !== 'submitted' && a.status !== 'under review' && !a.opened);
+// A sealed decision. An interview invitation is not one: it excluded 'submitted' and 'under review'
+// but not 'interview', so the Status screen offered a "View update" button for every school that
+// had merely called you — and with the phase guard fixed those buttons would open an invitation as
+// a rejection. The gate and the strip that renders it now use the same definition.
+const DECIDED_NOT = ['submitted', 'under review', 'interview'];
+export const unopenedDecisions = s => s.applications.filter(a => a.status && !DECIDED_NOT.includes(a.status) && !a.opened);
 
 // Saying yes, or saying no, in the place you actually say it: a form with a text box marked
 // "Reason (optional)" that everybody leaves empty.

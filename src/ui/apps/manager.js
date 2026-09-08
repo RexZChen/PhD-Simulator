@@ -280,6 +280,16 @@ function managerNextStep(s) {
   if (open.length) return { title: t('Your advisor asked for something'), detail: t('{n} open request(s). Do them, push back, or decline — ignoring them is also a choice, with a cost.', { n: open.length }), cta: openApp(t('Open LabChat'), 'chat', 'advisor') };
   if (p?.status === 'Rebuttal') return { title: t('The rebuttal window is open'), detail: t('Reviews are in. The window closes at the end of this month.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
   if (p?.status === 'Ready' && p.kind !== 'thesis') return { title: t('A draft is approved'), detail: t('Submit it when a venue is open.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
+  // The draft is finished and nobody has read it. This had no branch at all, so the screen said
+  // "Plan set. Use the desktop if you want to" — and four measured runs sat on a project reading
+  // 100/100 for more than twenty months and ended All But Dissertation. The verb lives in another
+  // app, which is the whole reason this callout exists.
+  if (p && p.status === 'Drafting' && p.draft >= 60 && p.progress >= 40)
+    return { title: p.draft >= 99 ? t('The draft is finished and nobody has read it') : t('The draft is ready for a reader'),
+      detail: t('Nothing happens to a paper until your advisor has it. It will come back with comments; that is the point of sending it.'),
+      cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
+  if (p?.status === 'Rejected') return { title: t('It came back'), detail: t('A rejected paper is not a dead paper. Revise it, reframe it, or make it bigger, and send it somewhere else.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
+  if (p?.status === 'Advisor Review') return { title: t('It is on their desk'), detail: t('Your advisor has the draft. This takes as long as it takes, and the waiting is not idleness — start the next thing.'), cta: '' };
   if (p && ['Drafting', 'Experiments', 'Prototype', 'Idea'].includes(p.status) && !p.targetVenueId && p.progress >= 35)
     return { title: t('Choose a venue'), detail: t('Work without a deadline expands, and your advisor will keep asking which one it is.'), cta: openApp(t('Set a target'), 'browser', 'openregret') };
   if (!s.focus) return null;

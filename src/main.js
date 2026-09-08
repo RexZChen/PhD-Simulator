@@ -245,7 +245,9 @@ function afterDispatch(before, after) {
   const newChat = after.chatMessages.filter(m => !m.mine && !before.chatMessages.some(x => x.id === m.id));
   const newReq = after.requests.filter(r => r.status === 'open' && !before.requests.some(x => x.id === r.id));
   const newAch = after.achievements.filter(a => !before.achievements.includes(a));
-  if (newAch.length) balloon(t('Achievement unlocked'), newAch.join(', '), 'star', 'chime');
+  // The balloon printed the raw id — "Achievement unlocked — boundary" — next to a panel that had
+  // the real name in it. Look it up, the way the panel does.
+  if (newAch.length) balloon(t('Achievement unlocked'), newAch.map(id => t(achievements[id]?.name || id)).join(', '), 'star', 'chime');
   if (newReq.length) balloon(t('Request from Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), requestText(after, newReq[0]), 'chat', 'ring');
   else if (newChat.filter(m => m.channel === 'advisor').length) balloon(t('Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), chatBody(after, newChat.filter(m => m.channel === 'advisor')[0]), 'chat', 'notify');
   else if (newChat.length) balloon(`#${newChat[0].channel}`, `${newChat[0].sender}: ${chatBody(after, newChat[0])}`, 'chat', 'notify');
@@ -659,7 +661,17 @@ root.addEventListener('click', event => {
     case 'read-mail': closeCompose(); ui.selectedMail = id; perform({ type: 'READ_MAIL', id }); return;
     case 'apply': perform({ type: 'APPLY', schoolId: id, effort: ui.effort || 'generic', contact: !!ui.contact, poiId: target.dataset.target }); return;
     case 'ga-tab': ui.gaTab = id; render({ preserveScroll: false }); return;
-    case 'ga-school': ui.gaSchool = ui.gaSchool === id ? null : id; render(); return;
+    case 'ga-school': {
+      // The faculty panel renders below a grid of thirty-two school buttons, roughly five hundred
+      // pixels under the fold. A first-time player clicked MITT three times and reported that
+      // clicking a school did nothing — it is the gateway to researching a program and emailing a
+      // professor, which the tutorial tells you to do. Selecting a school now brings it into view.
+      const opening = ui.gaSchool !== id;
+      ui.gaSchool = opening ? id : null;
+      render();
+      if (opening) requestAnimationFrame(() => document.querySelector('.faculty-panel')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+      return;
+    }
     case 'ga-filter': ui.gaFilter = id; render(); return;
     case 'ga-poi': ui.poi = { ...(ui.poi || {}), [id]: target.dataset.target }; render(); return;
     case 'ga-thread': ui.thread = id; render(); return;

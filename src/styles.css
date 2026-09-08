@@ -89,6 +89,12 @@ button.lv-row { cursor: pointer; }
 .stack { display: flex; flex-direction: column; gap: 6px; }
 .cols { display: grid; gap: 10px; }
 .cols.two { grid-template-columns: 1fr 1fr; }
+/* Inside the faculty panel this sits in a sidebar about 340px wide, so two fixed columns clipped
+   the second professor's card at the right edge — the name, the lab size and half the rating dots
+   were simply cut off. It folds to one column when there is not room for two. */
+.faculty-panel .cols.two { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.faculty-panel .offer-card, .faculty-panel .advisor-card { min-width: 0; }
+.faculty-panel .advisor-card > div { min-width: 0; overflow-wrap: normal; word-break: keep-all; }
 .cols.three { grid-template-columns: 1fr 1fr 1fr; }
 .cols.main-side { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
 h1, h2, h3, h4 { margin: 0 0 6px; font-weight: 700; }
@@ -210,7 +216,12 @@ table.grid td.num, table.grid th.num { text-align: right; }
 .start-items button { width: 100%; display: flex; gap: 8px; align-items: center; padding: 6px 8px; border: 0; background: transparent; text-align: left; }
 .start-items button:hover { background: var(--sel); color: #fff; }
 .start-items hr { border: 0; border-top: 1px solid var(--shadow); border-bottom: 1px solid var(--hi); margin: 3px 0; }
-.balloons { position: absolute; right: 10px; bottom: 36px; z-index: 40; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+/* Balloons sit above the modal layer so they are visible during a scene — but they used to eat
+   the clicks under them, and the primary button on the monthly statement ("Continue to October →")
+   is bottom-right, which is exactly where they stack. A first-time player hit this every month.
+   The container passes clicks through; only the balloon body and its ✕ take them. */
+.balloons { position: absolute; right: 10px; bottom: 36px; z-index: 40; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; pointer-events: none; }
+.balloon { pointer-events: auto; }
 .balloon { max-width: 300px; background: var(--tip); border: 1px solid #000; padding: 7px 10px; box-shadow: 2px 2px 0 rgba(0,0,0,.35); font-size: var(--fs-sm); display: grid; grid-template-columns: 20px 1fr auto; gap: 6px; align-items: start; animation: rise .25s ease-out; }
 .balloon b { display: block; }
 .balloon .x { border: 0; background: transparent; padding: 0; font-weight: 700; }
@@ -265,7 +276,10 @@ table.grid td.num, table.grid th.num { text-align: right; }
 .portrait.small i::before { left: 14px; top: 20px; } .portrait.small i::after { right: 11px; top: 20px; }
 .portrait.p2 { right: 22%; --shirt: #7c4f4f; } .portrait.p3 { right: 54%; --shirt: #4f7c5b; }
 .committee .portrait { bottom: 20px; }
-.scene-caption { position: absolute; left: 8px; bottom: 6px; background: rgba(10,20,22,.85); color: #eef; padding: 3px 7px; font: 11px/1.3 "Courier New", monospace; letter-spacing: .04em; z-index: 3; }
+/* The caption carries the joke and it used to be white text on a scene that is often white, with
+   no plate behind it and no room to breathe. Dark plate, real padding, and it wraps rather than
+   stretching edge to edge. */
+.scene-caption { position: absolute; left: 8px; bottom: 6px; max-width: calc(100% - 16px); background: rgba(8,14,18,.92); color: #f2f6ff; padding: 4px 9px; border: 1px solid rgba(255,255,255,.18); font: 11px/1.35 "Courier New", monospace; letter-spacing: .04em; text-shadow: none; z-index: 3; }
 .call-bar { position: absolute; top: 6px; right: 8px; display: flex; gap: 6px; align-items: center; background: rgba(0,0,0,.55); color: #fff; padding: 2px 8px; font: 11px/1.6 inherit; z-index: 3; }
 .call-bar i { width: 8px; height: 8px; border-radius: 50%; background: #e74c3c; animation: blink 1.2s steps(2) infinite; }
 .scene-text { padding: 10px 12px; margin-bottom: 8px; font-size: var(--fs-md); line-height: 1.5; }
@@ -1129,9 +1143,15 @@ table.mini th { background: var(--face); }
 
 /* What a place is actually like, as opposed to what its ranking is. */
 .campus { border-left: 3px solid var(--accent); padding: 4px 10px; margin: 8px 0; background: var(--paper); }
-.campus dl { margin: 4px 0 0; display: grid; grid-template-columns: minmax(90px, auto) minmax(0, 1fr); gap: 2px 10px; }
-.campus dt { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--disabled); align-self: baseline; }
-.campus dd { margin: 0; font-size: var(--fs-sm); line-height: 1.45; }
+/* This was a two-column grid whose label column was `auto`, so in a narrow card the longest label
+   took the width and the prose column collapsed to a couple of words a line, breaking mid-word:
+   "A beaver, / chosen / because it / is / nature's / engineer / and / works / itself to / death."
+   That paragraph is the payoff for spending Energy on researching a program and it was unreadable.
+   Label above, prose beneath, full width, and no word ever breaks in half. */
+.campus dl { margin: 4px 0 0; display: block; }
+.campus dt { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--disabled); margin-top: 7px; }
+.campus dt:first-child { margin-top: 2px; }
+.campus dd { margin: 1px 0 0; font-size: var(--fs-sm); line-height: 1.5; overflow-wrap: normal; word-break: keep-all; hyphens: none; }
 
 /* Knocking on the door. The most-repeated five seconds of a deadline week. */
 .door-scene { position: relative; display: inline-block; margin: 6px 0 2px; border: 1px solid var(--shadow); box-shadow: inset 1px 1px var(--dark); animation: door-in .28s ease-out; }
@@ -1659,3 +1679,11 @@ table.mini th { background: var(--face); }
 .tl-beat { margin: 4px 0 0 34px; padding-left: 9px; border-left: 2px solid var(--shadow);
   font-size: var(--fs-sm); font-style: italic; color: var(--disabled); line-height: 1.45; }
 .tl-turn.open .tl-msg.them > div { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+
+/* Narrow columns were breaking inside words — "Researc / h", "Complica / ted", "Tokeniz / ation",
+   "Experimen / ts" — which reads as a rendering fault rather than as a wrap. Nothing in this UI
+   has a word long enough to need it, so no cell breaks mid-word; a long title ellipsises instead. */
+.lv-row, .proj-row, .stat-row, .stats-table td, .stats-table th, .proj-title, .card-title,
+.tag, .pill, .chip, .sd-name, .life-act b, .stuck-door b { overflow-wrap: normal; word-break: keep-all; }
+.proj-title, .card-title { min-width: 0; }

@@ -1,5 +1,6 @@
 import { icon } from './icons.js';
 import { t } from '../i18n/index.js';
+import { dateLabel } from '../data/calendar.js';
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // Speech is the message. Everything else is the camera.
@@ -106,7 +107,7 @@ export function oddsTag(chance) {
   const words = [t('Long shot'), t('Reach'), t('Competitive'), t('Reasonable'), t('Safer')];
   const shades = ['#f2c4c4', '#f6d9bf', '#f8ecc0', '#e3edc9', '#cfe8cf'];
   const border = ['#b45a5a', '#c08a52', '#c2ad4e', '#8fa860', '#5f9a5f'];
-  return `<span class="tag odds" style="background:${shades[level]};border-color:${border[level]};color:#1d1d1d" title="${esc(t('Rough odds from your profile, fit, effort, and the school’s selectivity'))}">${'●'.repeat(level + 1)}${'○'.repeat(4 - level)} ${words[level]}<b>${Math.round(chance * 100)}%</b></span>`;
+  return `<span class="tag odds" style="background:${shades[level]};border-color:${border[level]};color:#1d1d1d" title="${esc(t('Rough odds from your profile, fit, effort, and the school’s selectivity'))}">${'●'.repeat(level + 1)}${'○'.repeat(4 - level)} ${words[level]} <b>${Math.round(chance * 100)}%</b></span>`;
 }
 
 const pillMeta = { progress: ['Progress', 1], draft: ['Draft', 1], evidence: ['Evidence', 1], writingQuality: ['Writing', 1], reproducibility: ['Rigor', 1], novelty: ['Novelty', 1], hope: ['Hope', 1], energy: ['Energy', 1], stress: ['Stress', -1], money: ['Money', 1], confidence: ['Confidence', 1], satisfaction: ['Advisor', 1], trust: ['Trust', 1], dependency: ['Dependency', -1], conflict: ['Conflict', -1], pressure: ['Pressure', -1], academicCapital: ['Capital', 1], readiness: ['Readiness', 1], coursework: ['Coursework', 1], career: ['Career', 1], scope: ['Scope', -1], hype: ['Hype', 0], rentDelta: ['Rent', -1], commute: ['Commute', -1], bond: ['Bond', 1], labBond: ['Lab bond', 1], peerBond: ['Cohort', 1] };
@@ -177,3 +178,12 @@ export function deltaBar(label, before, after, { max = 100, fmt = null, invert =
     <b class="dbar-d">${d === 0 ? '—' : (d > 0 ? '+' : '−') + shown}</b>
   </div>`;
 }
+
+// The date the game is showing, wherever it shows it.
+//
+// `s.month` is 0 for the whole application phase, so anything reading it directly stamped
+// "September 2028" on scenes that fired in the autumn of 2027 — the game contradicting itself on
+// screen, in the first twenty minutes, on about a dozen dialogs. One function, so the title bar,
+// the taskbar and every modal say the same thing.
+const APPLYING = { prep: 'October 2027', application: 'December 2027', interviews: 'February 2028', admissions: 'April 2028' };
+export const stamp = s => (s && APPLYING[s.phase] ? t(APPLYING[s.phase]) : dateLabel(Math.min(71, s?.month ?? 0)));

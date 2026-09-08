@@ -69,10 +69,13 @@ export function ageConditions(s) {
         clearCondition(s, c.id);
         const worse = addCondition(s, def.worsens, { quiet: true });
         if (worse) {
-          log(s, t('The {old} became {new}. This is what “I will deal with it after the deadline” buys.', { old: t(def.name), new: t(conditionDefs[def.worsens].name) }));
+          // Condition names are noun phrases, capitalised, and some already carry their own article
+          // ("A tooth"). Plugging them into "The {old} became {new}" produced "The A tooth became
+          // Dental abscess." The names go in as written; the sentence is built around them.
+          log(s, t('{old}, now {new}. This is what “I will deal with it after the deadline” buys.', { old: t(def.name), new: t(conditionDefs[def.worsens].name).toLowerCase() }));
           effects(s, { health: -10, stress: 8 });
         }
-      } else if (!def.worsens) { clearCondition(s, c.id); log(s, t('The {name} faded on its own, eventually, the way most things do.', { name: t(def.name) })); }
+      } else if (!def.worsens) { clearCondition(s, c.id); log(s, t('{name}: faded on its own, eventually, the way most things do.', { name: t(def.name) })); }
     } else if (!def.worsens && c.ignored >= 3 && roll(s, .22)) {
       clearCondition(s, c.id);
       log(s, t('The {name} cleared up on its own, which is the outcome for most things, eventually.', { name: t(def.name) }));
