@@ -17,6 +17,9 @@ import { loadSave, saveRun, validRun, emptyMeta } from '../src/engine/save.js';
 import { memeFor, memeArt } from '../src/data/memes.js';
 import { gradApply } from '../src/ui/apps/gradapply.js';
 import { shell } from '../src/ui/shell.js';
+import { managerApp, managerNextStep } from '../src/ui/apps/manager.js';
+import { inTheMiddle, canDecideThesis } from '../src/engine/time.js';
+import { createThesis } from '../src/engine/paper.js';
 import { reentry, stampRisk } from '../src/engine/trip.js';
 import { setAppLanguage } from '../src/i18n/apply.js';
 import { t } from '../src/i18n/index.js';
@@ -717,6 +720,109 @@ test('coming back into the country you live in is a question the trip actually a
   const early = enterProgramWith(3, { international: true });
   early.month = 12;
   assert.equal(stampRisk(early), 0, 'not in year one, when the stamp is still good');
+});
+
+test('the middle years have no date on them, and the way out is not advertised', () => {
+  // From day one the strip said "Next: Prelim · 20 months", and the moment you passed it, "Next:
+  // Proposal · 24 months". There is always a named thing with a date, and the pace control makes
+  // the empty stretches pass three months a click — so the middle of a PhD was the fastest and
+  // best-signposted part of this game, which is the opposite of the thing it is about.
+  let s = enterProgram(12);
+  s.month = 30;
+  s.milestones.prelim = 'pass'; s.milestones.prelimMonth = 20;
+  assert.ok(inTheMiddle(s), 'after the prelim and before the proposal is the middle');
+  const mid = managerApp(s, { app: 'dashboard' });
+  assert.doesNotMatch(mid, /jb-next/, 'nothing is counted down to when nothing else is dated');
+  assert.match(mid, /jb-middle/, 'it says what it is instead');
+  // The proposal was named with a date in three separate boxes. Removing it from one would have
+  // moved the promise rather than dropped it.
+  const proposalMonth = dateLabel(s.milestones.proposalMonth);
+  assert.ok(!mid.includes(proposalMonth), `the proposal's date does not appear anywhere on the screen (found ${proposalMonth})`);
+  assert.doesNotMatch(mid, /month\(s\)\)/, 'and neither does a countdown to it');
+
+  // But a conference deadline is a real date somebody else set, and it stays. The thing that
+  // loses its date is the milestone nobody schedules for you.
+  let withDeadline = enterProgram(12);
+  withDeadline.month = 30; withDeadline.milestones.prelim = 'pass';
+  const proj = createProject(withDeadline);
+  proj.targetMonth = 33; proj.targetVenue = 'NeurIPSy'; proj.status = 'Drafting';
+  const html2 = managerApp(withDeadline, { app: 'dashboard' });
+  assert.match(html2, /jb-next/, 'a deadline you chose is still a date');
+  assert.ok(!html2.includes(dateLabel(withDeadline.milestones.proposalMonth)), 'and the proposal still has none');
+
+  // Before the prelim, and once the proposal is behind you, the dates come back — those parts of
+  // a PhD really are scheduled, and pretending otherwise would be a different lie.
+  let early = enterProgram(12);
+  early.month = 10;
+  assert.ok(!inTheMiddle(early));
+  assert.match(managerApp(early, { app: 'dashboard' }), /jb-next/, 'year one has a date on it');
+  let late = enterProgram(12);
+  late.month = 50; late.milestones.prelim = 'pass'; late.milestones.proposal = 'pass'; late.milestones.defenseMonth = 62;
+  assert.ok(!inTheMiddle(late));
+  assert.match(managerApp(late, { app: 'dashboard' }), /jb-next/, 'and so does the defense');
+});
+
+test('deciding what the thesis is has to be found, and then it is worth finding', () => {
+  // Nobody is ever told when to stop collecting results and start deciding what the story is.
+  // There is no form for it, so there is no prompt for it here: no callout, no next-step entry,
+  // no tag. A run that never presses it still finishes, later and worse.
+  let s = enterProgram(20);
+  s.month = 30; s.milestones.prelim = 'pass';
+  assert.ok(canDecideThesis(s), 'the afternoon is available in the middle years');
+  const html = managerApp(s, { app: 'dashboard' });
+  assert.match(html, /decide-thesis/, 'it is on the screen');
+  assert.doesNotMatch(html, /next-step[\s\S]{0,400}Decide what the thesis is/, 'and nothing points at it');
+  const step = managerNextStep(s);
+  assert.ok(!step || !/thesis is/i.test(step.title), 'it never becomes the objective');
+
+  // Taking it moves the proposal closer, because you can say in one sentence what you are proposing.
+  const before = s.milestones.proposalMonth;
+  let decided = dispatch(s, { type: 'DECIDE_THESIS' });
+  assert.equal(decided.event, 'thesis_decide', 'it opens a real scene rather than toggling a flag');
+  decided = dispatch(decided, { type: 'CHOICE', id: 'question' });
+  assert.ok(decided.thesisIdea, 'the run remembers what you decided');
+  assert.ok(decided.milestones.proposalMonth < before, `the proposal comes sooner (${decided.milestones.proposalMonth} vs ${before})`);
+  assert.ok(decided.milestones.proposalMonth >= 32, 'but not absurdly soon');
+  assert.equal(canDecideThesis(decided), false, 'and it is an afternoon you have once');
+
+  // Deciding late buys almost nothing, because by then the papers have decided for you.
+  let late = enterProgram(20);
+  late.month = 43; late.milestones.prelim = 'pass';
+  const lateBefore = late.milestones.proposalMonth;
+  late = dispatch(dispatch(late, { type: 'DECIDE_THESIS' }), { type: 'CHOICE', id: 'question' });
+  assert.ok(lateBefore - late.milestones.proposalMonth < 4, 'month 43 buys almost none of it');
+
+  // And a run that never decides is not punished for it — it simply never gets the bonus.
+  let never = enterProgram(20);
+  never.month = 30; never.milestones.prelim = 'pass';
+  assert.equal(never.milestones.proposalMonth, 44, 'the default is untouched');
+});
+
+test('a paper written for the thesis is a chapter; one written beside it is a paper', () => {
+  // The reward for deciding, and its cost. What you write afterwards on the thing you decided
+  // becomes a chapter; what you start beside it is one you will not chase as hard, because part
+  // of you has already stopped. That is what finishing on time actually costs.
+  const build = (aimed) => {
+    let s = enterProgram(28);
+    s.month = 40; s.milestones.prelim = 'pass'; s.milestones.proposal = 'pass';
+    for (let i = 0; i < 3; i++) {
+      const p = createProject(s);
+      p.status = 'Accepted'; p.aimed = aimed;
+    }
+    return createThesis(s);
+  };
+  const withAim = build(true), without = build(false);
+  assert.ok(withAim.progress > without.progress, `aimed papers start the dissertation further along (${withAim.progress} vs ${without.progress})`);
+  assert.ok(withAim.draft > without.draft, 'and further written');
+
+  // The cost: after deciding, a project off the thesis starts less ambitious.
+  let s = enterProgram(28);
+  s.month = 30;
+  const onTopic = createProject(s, { topic: s.player.profile.topic });
+  s.thesisIdea = { kind: 'question', month: 30 };
+  const offTopic = createProject(s, { topic: s.player.profile.topic === 'ml' ? 'theory' : 'ml' });
+  assert.ok(offTopic.novelty < onTopic.novelty, 'the one that does not fit is one you will not push as far');
+  assert.equal(offTopic.aimed, false);
 });
 
 test('two people in your life do not share a surname', () => {
@@ -1698,8 +1804,19 @@ test('every achievement the engine awards exists in the catalog, and every catal
     if (!f.endsWith('.js')) continue;
     for (const m of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/\baward\(\s*\w+\s*,\s*'([a-zA-Z_][\w]*)'/g)) awarded.add(m[1]);
   }
-  assert.ok(awarded.size > 30, `only found ${awarded.size} award sites — did the call shape change?`);
-  for (const id of awarded) assert.ok(achievements[id], `award('${id}') has no catalog entry — it would unlock a blank`);
+  // Scenes declare achievements too, with an `achievement:` field on a choice, and this test only
+  // ever read `src/engine/`. Thirty of them across `src/data/` had never been checked against the
+  // catalog, and one of them did not exist — it would have unlocked a blank row.
+  const dataDir = new URL('../src/data/', import.meta.url).pathname;
+  const walk = d => { for (const f of fs.readdirSync(d, { withFileTypes: true })) {
+    const full = path.join(d, f.name);
+    if (f.isDirectory()) { walk(full); continue; }
+    if (!f.name.endsWith('.js')) continue;
+    for (const m of fs.readFileSync(full, 'utf8').matchAll(/achievement:\s*'([a-zA-Z_][\w]*)'/g)) awarded.add(m[1]);
+  } };
+  walk(dataDir);
+  assert.ok(awarded.size > 60, `only found ${awarded.size} award sites — did the call shape change?`);
+  for (const id of awarded) assert.ok(achievements[id], `'${id}' is awarded but has no catalog entry — it would unlock a blank`);
   for (const [id, a] of Object.entries(achievements)) {
     assert.ok(a.name && a.desc, `${id} is not written`);
     assert.ok(a.desc.length > 20, `${id} needs a real description`);

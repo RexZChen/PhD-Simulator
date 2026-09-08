@@ -13,6 +13,34 @@ const c = (id, text, hint, effects = {}, extra = {}) => ({ id, text, hint, effec
 const MID = { minMonth: 18, maxMonth: 50 };
 export default [
 
+  // ── The decision nobody schedules ──────────────────────────────────────────────────────────
+  //
+  // Nothing in a PhD tells you when to stop collecting results and start deciding what the story
+  // is. The people who finish in five years are the ones who decided early and then defended the
+  // decision; the people who finish in eight are the ones who kept waiting to be told. There is no
+  // form for it, no committee meeting, no email. So there is no prompt for it here either: this
+  // scene is `scheduledOnly` and the only way to reach it is to notice a line in the Manager that
+  // nothing draws attention to. Finding it is the mechanic.
+  { id: 'thesis_decide', title: 'What the thesis is', category: 'research', scene: 'lab',
+    probability: 1, scheduledOnly: true, once: true, cooldown: 99,
+    text: ['You have papers, or the beginnings of them, and they are about adjacent things. Nobody has asked you what the dissertation is. Nobody is going to — the proposal will ask, in eighteen months, and by then the answer will be whatever the papers happen to have been.\n\nYou could decide now instead. Not what you have done. What it is for.',
+      'The whiteboard has three things on it and a line connecting two of them. The third one is the interesting one and it does not connect to anything yet.\n\nThere is no form for this. There is no meeting for it. There is a version of the next three years where you know what you are building, and a version where you find out afterwards, and the only difference between them is an afternoon.'],
+    choices: [
+      c('question', 'Name the question, and let the results be evidence for it', 'The version that finishes. Also the version that has to say no to things.', { hope: 8, readiness: 6, energy: -4, confidence: 5 },
+        { decidesThesis: 'question', personality: 'independent', achievement: 'decidedit',
+          result: 'You write one sentence and it takes four hours and it is not a good sentence yet. But everything after this is either evidence for it or is not, and that is a question you can now ask about a piece of work, which you could not this morning.\n\nNobody notices. There is no version of this where anybody notices.' }),
+      c('method', 'Name the method, and let the problems be applications of it', 'Safer, and it ages differently', { hope: 6, readiness: 5, energy: -4 },
+        { decidesThesis: 'method', personality: 'perfectionist', achievement: 'decidedit',
+          result: 'A thesis about a technique is easier to write and easier to examine and it dates faster, and you know all three of those things and you pick it anyway, because it is true about what you have actually been doing.\n\nIt turns out to be the right call. It also turns out to be the reason a search committee will ask, in four years, what you are interested in beyond it.' }),
+      c('artefact', 'Name the thing you are building, and let the papers describe it', 'The systems answer. The examiners will want it to be more than the thing.', { hope: 7, readiness: 4, energy: -5, progress: 5 },
+        { decidesThesis: 'artefact', personality: 'grinder', achievement: 'decidedit',
+          result: 'The dissertation is the system and the chapters are the parts of it, which is honest and which means that when it works you are done and when it does not you are also done, differently.\n\nYou put the architecture diagram on the second page. You will redraw it eleven times and the eleventh one will be the first page.' }),
+      c('later', 'Not yet — there is a result coming that might change it', 'The most reasonable sentence in this file', { stress: -3 },
+        { flags: { deferredThesis: true },
+          result: 'It is entirely reasonable. The result does come, in about five months, and it is good, and it does not change what the thesis is, because there was not one yet for it to change.\n\nYou will have this same afternoon again. Possibly several times.' }),
+    ] },
+
+
   // ── What the optional answers actually buy ─────────────────────────────────────────────────
   // Each of these exists only for a player who told the questionnaire something. Answering
   // "rather not say" costs nothing and removes nothing except these particular conversations.

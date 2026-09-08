@@ -143,3 +143,33 @@ export function setPace(s, id) {
   if (id === 'day') { s.dayOff = -1; s.dayMode = s.month; }
   return { season: 'Letting calm seasons pass in one step.', month: 'Taking it month by month.', week: 'Taking this month week by week.', day: 'Day by day: five working days, and every hour visible.' }[id];
 }
+
+// Whether the afternoon is available. After the prelim, before the proposal, and only once.
+// Deliberately not exposed anywhere that lists "things you could do this month".
+export const canDecideThesis = s => s.phase === 'playing' && !s.thesisIdea
+  && s.milestones?.prelim === 'pass' && s.milestones?.proposal !== 'pass'
+  && s.month >= 24 && s.month <= 52;
+
+// The middle: after the prelim is passed, before the proposal is. The stretch with no external
+// structure — year one has coursework and a cohort, year six has a deadline and a market, and
+// years three and four have a project, an advisor, and a very long corridor. The UI stops naming
+// an end date in here, because nobody names one in life either.
+export const inTheMiddle = s => s.phase === 'playing'
+  && s.milestones?.prelim === 'pass' && s.milestones?.proposal !== 'pass'
+  && !s.thesis && !s.milestones?.thesisStarted;
+
+// When the dissertation can start.
+//
+// This was a fixed calendar month, and it was fixed at two different values: the engine refused
+// before month 44 and the button was disabled until 54, so ten months of the engine's rule were
+// unreachable and nobody could tell. It is anchored to the proposal now instead of to the
+// calendar, which is both how it works and the thing that makes deciding early worth anything —
+// an early proposal is only an early finish if you are allowed to start writing.
+// The floor is 46 — September of year four — not 40. Measured at 40: runs that had decided early
+// started a dissertation in month 42 on one accepted paper, defended it thin, and finished the
+// year on a revisions list they could not clear. Defending is not finishing, and starting is not
+// either. An early proposal still buys six months against the old fixed month 54; it does not buy
+// permission to write a dissertation you do not have yet.
+export const thesisFloor = s => Math.max(46, (s.milestones?.proposalMonth ?? 44) + 8);
+export const canStartThesis = s => s.milestones?.proposal === 'pass'
+  && !s.milestones?.thesisStarted && s.month >= thesisFloor(s);

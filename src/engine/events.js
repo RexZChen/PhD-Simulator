@@ -3,7 +3,7 @@ import { exitEndings } from '../data/endings.js';
 import { pushbacks, hesitationLines } from '../data/minigames.js';
 import { t, provenanceOf } from '../i18n/index.js';
 import { meetings, meetingById } from '../data/meetings.js';
-import { monthOf, isTeachingTerm, isSummer } from '../data/calendar.js';
+import { monthOf, isTeachingTerm, isSummer, dateLabel } from '../data/calendar.js';
 import { random, roll, clamp, pickWeighted, pick } from './probability.js';
 import { meetContact } from './network.js';
 import { HARD_TA } from '../data/hardta.js';
@@ -358,6 +358,22 @@ export function resolveChoice(s, id) {
   // The year the money went. This scene had two entry points — a monthly check in life.js and its
   // own conditions here — and only the first of them set any state, so 27% of runs were told their
   // funding had gone and then taught nothing, lost nothing and finished on time.
+  // Deciding what the thesis is.
+  //
+  // Two things follow, and they are the two things that follow in life. The proposal can happen
+  // sooner, because you can now say in one sentence what you are proposing. And every project you
+  // start from here is either aimed at it or is not — the aimed ones become chapters and the rest
+  // become things you did, which is exactly the trade: you finish sooner, and you stop chasing the
+  // interesting thing that does not fit.
+  if (c.decidesThesis && !s.thesisIdea) {
+    s.thesisIdea = { kind: c.decidesThesis, month: s.month };
+    // How much earlier depends on how early. Deciding in month 26 buys most of it; deciding in
+    // month 40 buys almost nothing, because by then the papers have already decided for you.
+    const earned = clamp(Math.round((44 - s.month) * .7), 0, 10);
+    s.milestones.proposalMonth = Math.max(32, s.milestones.proposalMonth - earned);
+    for (const p of s.projects) if (!['Accepted', 'Abandoned'].includes(p.status)) p.aimed = p.topic === s.player.profile.topic;
+    log(s, t('The proposal is a sentence now rather than a folder. {month} instead of {was}.', { month: dateLabel(s.milestones.proposalMonth), was: dateLabel(s.milestones.proposalMonth + earned) }));
+  }
   if (c.hardTa && !s.raLost) {
     s.raLost = { since: s.month, until: s.month + HARD_TA.semesters * 5, years: 1 };
     s.ta = true;

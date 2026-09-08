@@ -9,7 +9,7 @@ import { asks } from '../../data/asks.js';
 import { activeProject, absWeek, lastName, firstName, editable, requestText, noticeText, say } from '../../engine/state.js';
 import { focusOptions, canStartMain, canStartSide, dayName, daysLeftInWeek, doorOptions, obstacleOf } from '../../engine/game.js';
 import { stuckNote } from '../../data/stuck.js';
-import { milestoneOf, dayEligible, paceOptions, DAYS_PER_WEEK } from '../../engine/time.js';
+import { milestoneOf, dayEligible, paceOptions, DAYS_PER_WEEK, canDecideThesis, inTheMiddle, thesisFloor } from '../../engine/time.js';
 import { diamonds, diamondBar, diamondWord } from '../../engine/paper.js';
 import { caffeineState, healthBand } from '../../engine/life.js';
 import { revisionsLeft, canDeposit } from '../../engine/thesis.js';
@@ -205,7 +205,7 @@ export function journeyBar(s) {
   const TOTAL = 72;
   const now = Math.min(TOTAL, s.month);
   const pct = m => (Math.max(0, Math.min(TOTAL, m)) / TOTAL) * 100;
-  const marks = [];
+  let marks = [];
   const add = (m, kind, label, note = '') => {
     if (m === null || m === undefined || m < 0 || m > TOTAL) return;
     marks.push({ m, kind, label, note, done: m < s.month });
@@ -232,8 +232,13 @@ export function journeyBar(s) {
   if (s.internship) add(s.internship.start, 'summer', t('Internship'), s.internship.company);
   if (s.grad?.settled) add(s.grad.targetYear === 5 ? 57 : 69, 'goal', t('Target'), t('year {n}', { n: s.grad.targetYear }));
 
-  marks.sort((a, b) => a.m - b.m);
-  const next = marks.find(x => x.m >= s.month);
+  // The proposal is not drawn on the track while you are in the middle of it either — a pin at the
+  // far end is the same promise the legend was making, in a different shape.
+  const middle = inTheMiddle(s);
+  const shown = middle ? marks.filter(x => !(x.kind === 'milestone' && x.m > s.month)) : marks;
+  shown.sort((a, b) => a.m - b.m);
+  const next = shown.find(x => x.m >= s.month);
+  marks = shown;
 
   // Year bands, so six years reads as six years rather than seventy-two of something.
   const years = [1, 2, 3, 4, 5, 6].map(y => `<span class="jb-year" style="left:${pct((y - 1) * 12)}%;width:${100 / 6}%">${t('Y{n}', { n: y })}</span>`).join('');
@@ -251,14 +256,35 @@ export function journeyBar(s) {
     <div class="jb-legend">
       <span><b>${esc(semester(s.month))}</b> · ${t('Year {n}', { n: phdYear(s.month) })}</span>
       ${holidays(s.month).length ? `<span class="jb-holiday">${esc(t(holidays(s.month)[0].name))}</span>` : ''}
-      ${next ? `<span class="jb-next">${t('Next')}: <b>${esc(next.label)}</b> · ${esc(dateLabel(next.m))}${next.m > s.month ? ` (${t('{n} month(s)', { n: next.m - s.month })})` : ` (${t('this month')})`}</span>` : `<span class="muted">${t('Nothing scheduled. That is its own kind of pressure.')}</span>`}
+      ${(() => {
+        // The middle years do not get a countdown.
+        //
+        // From day one this strip said "Next: Prelim · 20 months", and the moment you passed it,
+        // "Next: Proposal · 24 months". There is always a named thing with a date on it, and the
+        // pace control quietly makes the empty stretches pass three months at a time, so the
+        // middle of a PhD was the fastest and best-signposted part of this game. It is the
+        // opposite of that. Nobody tells you when year three ends. Nobody can.
+        //
+        // The months still pass quickly — that is a kindness to the player and the returning
+        // player was right that it works — but between the prelim and the proposal the strip
+        // stops promising an end date. Everything you have to do *this month* is still on screen,
+        // in the next-step box, which is the level guidance belongs at.
+        // A conference deadline is a real date that somebody else set, and hiding it would be
+        // unhelpful and untrue — the e2e suite was right to object. What loses its date is the
+        // milestone: the proposal, which nobody schedules for you. So the legend still names any
+        // real deadline you are working towards, and says the other thing only when there is none.
+        if (!next) return inTheMiddle(s)
+          ? `<span class="jb-middle">${t('No date on it. Year three does not announce itself and year four does not end.')}</span>`
+          : `<span class="muted">${t('Nothing scheduled. That is its own kind of pressure.')}</span>`;
+        return `<span class="jb-next">${t('Next')}: <b>${esc(next.label)}</b> · ${esc(dateLabel(next.m))}${next.m > s.month ? ` (${t('{n} month(s)', { n: next.m - s.month })})` : ` (${t('this month')})`}</span>`;
+      })()}
     </div>
   </div>`;
 }
 
 // The main screen is seen hundreds of times, and its guidance was one italic line while the paper
 // editor had a proper callout with a button. Same component, same clarity, here.
-function managerNextStep(s) {
+export function managerNextStep(s) {
   const p = activeProject(s);
   const open = s.requests.filter(r => r.status === 'open');
   const go = (label, action, opts = {}) => btn(label, action, { cls: 'primary small', attrs: 'data-guide="1"', ...opts });
@@ -368,7 +394,7 @@ export function readinessWidget(s) {
   const thesis = s.projects.find(p => p.kind === 'thesis');
   if (!ms) return '';
   const rows = ms.kind === 'defense' ? [[t('Dissertation'), thesis?.draft || 0, 'gold'], [t('Papers'), Math.min(100, s.counts.accepted * 34), 'green'], [t('Presentation'), s.readiness, '']] : [[t('Coursework'), s.coursework, ''], [t('Presentation'), s.readiness, 'gold'], [ms.kind === 'proposal' ? t('Papers') : t('Research'), ms.kind === 'proposal' ? Math.min(100, s.counts.accepted * 40 + best * .3) : best, 'green']];
-  return `<div class="readiness"><div class="row between"><b>${{ prelim: t('Prelim readiness'), proposal: t('Proposal readiness'), defense: t('Defense readiness') }[ms.kind]}</b><span class="tiny muted">${dateLabel(ms.month)}</span></div>${rows.map(([l, v, c]) => gaugeRow(l, v, c)).join('')}</div>`;
+  return `<div class="readiness"><div class="row between"><b>${{ prelim: t('Prelim readiness'), proposal: t('Proposal readiness'), defense: t('Defense readiness') }[ms.kind]}</b><span class="tiny muted">${inTheMiddle(s) ? t('when you are ready') : dateLabel(ms.month)}</span></div>${rows.map(([l, v, c]) => gaugeRow(l, v, c)).join('')}</div>`;
 }
 
 export function agenda(s) {
@@ -393,7 +419,11 @@ export function agenda(s) {
   else if (s.internship) items.push(`<li>${icon('case', 14)} ${t('Internship at {company} starts {month}', { company: s.internship.company, month: dateLabel(s.internship.start) })}</li>`);
   if (s.leaveWeeks) items.push(`<li>${icon('moon', 14)} ${t('{n} week(s) of approved leave banked', { n: s.leaveWeeks })}</li>`);
   const ms = milestoneOf(s);
-  if (ms) items.push(`<li>${icon('portal', 14)} ${{ prelim: t('Prelim'), proposal: t('Thesis proposal'), defense: t('Defense') }[ms.kind]}: ${dateLabel(ms.month)} (${monthsAway(ms.month - s.month)})${s.milestones?.prelim === 'conditional' && ms.kind === 'proposal' ? ` · ${t('conditional pass: needs an accepted paper by Aug 2031')}` : ''}</li>`);
+  // The proposal was named with a date in three separate boxes — the journey legend, the readiness
+  // header, and here. Removing it from one and leaving it in the others would just have moved the
+  // promise. In the middle years the agenda names the thing without naming a month for it.
+  if (ms && inTheMiddle(s)) items.push(`<li>${icon('portal', 14)} ${t('The proposal, eventually. Nobody has given you a date and nobody is going to.')}</li>`);
+  else if (ms) items.push(`<li>${icon('portal', 14)} ${{ prelim: t('Prelim'), proposal: t('Thesis proposal'), defense: t('Defense') }[ms.kind]}: ${dateLabel(ms.month)} (${monthsAway(ms.month - s.month)})${s.milestones?.prelim === 'conditional' && ms.kind === 'proposal' ? ` · ${t('conditional pass: needs an accepted paper by Aug 2031')}` : ''}</li>`);
   else if (s.milestones?.proposal === 'pass' && !s.milestones.thesisStarted) items.push(`<li>${icon('doc', 14)} ${t('Candidate. Start the dissertation from year five ({month}).', { month: dateLabel(54) })}</li>`);
   else if (s.milestones?.thesisStarted && !s.milestones.defenseMonth) items.push(`<li>${icon('doc', 14)} ${t('Dissertation in progress. Get it approved, then schedule the defense.')}</li>`);
   if (s.jobs?.track) items.push(`<li>${icon('case', 14)} ${t('Job market: {track} track', { track: t(s.jobs.track) })}${s.jobs.offers.length ? ` · ${t('offers')}: ${s.jobs.offers.map(o => esc(t(o))).join(', ')}` : ''}</li>`);
@@ -435,6 +465,18 @@ export function quickAsks(s, limit = 4) {
   return `<div class="asks">${list.map(a => btn(esc(a.name), 'ask', { id: a.id, cls: 'small', disabled: s.stage !== 'plan' || (s.askCooldowns[a.id] || 0) > now, title: a.desc + ((s.askCooldowns[a.id] || 0) > now ? ` (${t('asked recently ({n} wk)', { n: s.askCooldowns[a.id] - now })})` : '') })).join('')}${btn(t('More…'), 'open', { app: 'chat', cls: 'small link' })}</div>`;
 }
 
+// The one thing on this screen that nothing points at.
+//
+// Nobody in a PhD is ever told when to stop collecting results and start deciding what the story
+// is. There is no form, no meeting, no email — the proposal asks eighteen months later and by then
+// the papers have answered for you. So this gets no callout, no icon, no tag, no place in the
+// next-step box, and it never becomes the objective line. It is a sentence at the bottom of the
+// Projects group, in the muted colour, and a player who never presses it can still finish. Later.
+function quietDecision(s) {
+  if (!canDecideThesis(s)) return '';
+  return `<p class="quiet-decision"><button data-action="decide-thesis" ${s.stage !== 'plan' ? 'disabled' : ''}>${t('Decide what the thesis is')}</button></p>`;
+}
+
 export function managerApp(s, ui) {
   const tempo = s.tempo, crunch = s.crunch;
   const p = activeProject(s);
@@ -448,7 +490,7 @@ export function managerApp(s, ui) {
   <div class="grid-3">
     <div>${tempo === 'day' ? group(t('Today'), dayStrip(s)) : ''}${group(tempo === 'day' ? t('Today goes to') : tempo === 'week' ? t('This week goes to') : t('Plan for the month'), planList(s))}</div>
     <div>${s.thesis && !s.thesis.deposited ? group(t('Almost'), revisionPanel(s)) : timelinePanel(s) ? group(t('The timeline'), timelinePanel(s)) : ''}${internPanel(s) ? group(t('Summer'), internPanel(s)) : ''}${lettersPanel(s) ? group(t('Letters'), lettersPanel(s)) : ''}${group(t('Agenda'), readinessWidget(s) + agenda(s))}${group(`${t('Advisor requests')} ${s.requests.some(r => r.status === 'open') ? tag(String(s.requests.filter(r => r.status === 'open').length), 'warn') : ''}`, requestList(s))}</div>
-    <div>${group(t('Projects'), projectList(s) + `<div class="row" style="margin-top:6px">${btn(t('Start main project'), 'start-project', { cls: 'small', disabled: s.stage !== 'plan' || !canStartMain(s), title: canStartMain(s) ? t('A new main project') : t('The current main project is still alive') })}${btn(t('Start side project'), 'start-side', { cls: 'small', disabled: s.stage !== 'plan' || !canStartSide(s), title: t('Month 5+, main project past 40%, one at a time. −5 Energy.') })}${s.milestones?.proposal === 'pass' && !s.milestones.thesisStarted ? btn(t('Start the dissertation'), 'start-thesis', { cls: 'small accent', disabled: s.stage !== 'plan' || s.month < 54, title: t('From September of year five. Accepted papers become chapters.') }) : ''}${s.projects.some(x => x.kind === 'thesis' && x.status === 'Ready') && (s.milestones.defenseMonth === null || s.milestones.defenseMonth === undefined) ? btn(t('Schedule the defense'), 'schedule-defense', { cls: 'small accent', disabled: s.stage !== 'plan' }) : ''}${btn(t('Open Overgrief'), 'open', { app: 'browser', cls: 'small link' })}</div>`)}
+    <div>${group(t('Projects'), projectList(s) + `<div class="row" style="margin-top:6px">${btn(t('Start main project'), 'start-project', { cls: 'small', disabled: s.stage !== 'plan' || !canStartMain(s), title: canStartMain(s) ? t('A new main project') : t('The current main project is still alive') })}${btn(t('Start side project'), 'start-side', { cls: 'small', disabled: s.stage !== 'plan' || !canStartSide(s), title: t('Month 5+, main project past 40%, one at a time. −5 Energy.') })}${s.milestones?.proposal === 'pass' && !s.milestones.thesisStarted ? btn(t('Start the dissertation'), 'start-thesis', { cls: 'small accent', disabled: s.stage !== 'plan' || s.month < thesisFloor(s), title: t('From {month}, a decent interval after the proposal. Accepted papers become chapters, and the ones you aimed at it become better ones.', { month: dateLabel(thesisFloor(s)) }) }) : ''}${s.projects.some(x => x.kind === 'thesis' && x.status === 'Ready') && (s.milestones.defenseMonth === null || s.milestones.defenseMonth === undefined) ? btn(t('Schedule the defense'), 'schedule-defense', { cls: 'small accent', disabled: s.stage !== 'plan' }) : ''}${btn(t('Open Overgrief'), 'open', { app: 'browser', cls: 'small link' })}</div>${quietDecision(s)}`)}
     ${group(t('Stuck?'), stuckPanel(s))}
     ${group(t('Advisor'), advisorCard(s) + `<div style="margin-top:8px">${quickAsks(s, 3)}</div>`)}
     ${group(t('Field notes'), `<div class="notes-box">${voiced(noticeText(s))}</div>`)}</div>

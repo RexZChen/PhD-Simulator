@@ -1698,3 +1698,14 @@ table.mini th { background: var(--face); }
   font: var(--mono); font-size: var(--fs-sm); color: #9aa3ad; letter-spacing: .08em; pointer-events: none; }
 .cite-chart.empty { display: grid; place-items: center; min-height: 54px; border: 1px dashed var(--line); background: var(--paper); }
 .cite-chart.empty p { margin: 0; padding: 0 10px; text-align: center; }
+
+/* The middle years' legend, where the countdown used to be. Muted and italic: it is not an
+   instruction and it is not a warning, it is the absence of a date. */
+.jb-middle { font-style: italic; color: var(--disabled); }
+/* The one control on the Manager that nothing points at. No icon, no tag, no border, no callout:
+   it looks like the end of a sentence, because that is how you find it. */
+.quiet-decision { margin: 8px 0 0; }
+.quiet-decision button { background: none; border: 0; padding: 0; font: inherit; font-size: var(--fs-xs);
+  color: var(--disabled); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.quiet-decision button:hover:not(:disabled) { color: var(--ink); }
+.quiet-decision button:disabled { cursor: default; opacity: .6; }

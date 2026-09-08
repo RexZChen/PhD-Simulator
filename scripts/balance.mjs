@@ -25,6 +25,7 @@ import { questioners } from '../src/data/conference.js';
 import { currentBeat } from '../src/engine/epilogue.js';
 import { canAskTimeline } from '../src/engine/timeline.js';
 import { canApplyIntern } from '../src/engine/internship.js';
+import { canDecideThesis, canStartThesis } from '../src/engine/time.js';
 import { availableWriters, letterCount, packetStrength } from '../src/engine/letters.js';
 import { openPortals, listingsFor, funnel, heatBand } from '../src/engine/jobsearch.js';
 import { outputDrought, droughtBand } from '../src/engine/advisor.js';
@@ -125,6 +126,13 @@ export async function run(seed, style) {
         }
       }
       if (style === 'diligent') for (const r of s.requests.filter(r => r.status === 'open')) { try { s = act(s, { type: 'REQUEST_DO', id: r.id }); } catch {} }
+      // The afternoon nobody schedules. Diligent finds it and takes it early, which is the whole
+      // claim being tested: the people who finish in five years decided early and defended the
+      // decision. The grinder gets to it late; lazy never looks.
+      const decideAt = globalThis.__DECIDE_AT !== undefined ? globalThis.__DECIDE_AT : (style === 'diligent' ? 25 : 38);
+      if (style !== 'lazy' && decideAt !== null && canDecideThesis(s) && s.month >= decideAt) {
+        try { s = act(s, { type: 'DECIDE_THESIS' }); } catch {}
+      }
       // A person who is running out of money moves in with somebody. The harness never did, so it
       // played a strictly worse financial game than any real player and every conclusion drawn
       // from its debt figures was about a student who watched their balance fall for six years and
@@ -232,7 +240,7 @@ export async function run(seed, style) {
       // `!s.projects.length` is only ever true before the first one and the harness measured a
       // player who publishes once and then spends four years on nothing.
       if (canStartMain(s)) { try { s = act(s, { type: 'START_PROJECT' }); } catch {} }
-      if (s.milestones.proposal === 'pass' && !s.milestones.thesisStarted && s.month >= 44) { try { s = act(s, { type: 'START_THESIS' }); } catch {} }
+      if (canStartThesis(s)) { try { s = act(s, { type: 'START_THESIS' }); } catch {} }
       const p = s.projects.find(x => x.id === s.activeProjectId);
       if (p && p.status === 'Drafting' && p.draft >= 60 && p.progress >= 40) { try { s = act(s, { type: 'SEND_ADVISOR' }); } catch {} }
       if (p && p.status === 'Ready' && p.kind !== 'thesis') {

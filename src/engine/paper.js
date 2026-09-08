@@ -23,13 +23,20 @@ export function projectTitle(s, topic, kind) { return pick(s, kind === 'side' ? 
 
 export function createProject(s, { kind = 'main', collaborator = null, topic = null } = {}) {
   const projectTopic = topic || s.player.profile.topic;
+  // Having decided is not free. A project started afterwards that does not fit the thesis is one
+  // you will not chase as hard, because part of you has already stopped — which is exactly what
+  // finishing on time costs, and the reason the people who decide early miss things.
+  const offThesis = !!s.thesisIdea && projectTopic !== s.player.profile.topic;
   const p = {
     id: `project-${s.projects.length + 1}`, kind, title: projectTitle(s, projectTopic, kind), topic: projectTopic,
-    novelty: kind === 'side' ? 50 : 45, technicalDepth: Math.round((s.player.skills.coding + s.player.skills.math) / 2), evidence: 20, writingQuality: 30, hype: 10, reproducibility: 45, topicFit: 60,
+    novelty: (kind === 'side' ? 50 : 45) - (offThesis ? 8 : 0), technicalDepth: Math.round((s.player.skills.coding + s.player.skills.math) / 2), evidence: 20, writingQuality: 30, hype: 10, reproducibility: 45, topicFit: 60,
     progress: kind === 'side' ? 15 : 0, draft: 0, scope: kind === 'side' ? 20 : 35, status: 'Idea',
     collaborators: [s.advisor.name].concat(collaborator ? [collaborator] : []), originatingAdvisor: kind === 'main' ? s.advisor.id : null,
     submissionHistory: [], reviewDueWeek: null, reviewCycle: 0, reviewers: [], wizardStep: 0, venueId: null, targetVenueId: null, targetMonth: null, targetVenue: null,
     timeline: null, phaseOneDone: false, preprint: false, startedMonth: s.month, rebuttalDone: false, approvedWithout: false,
+    // Aimed at the thesis, or beside it. Only meaningful once you have decided what the thesis is;
+    // before that everything is beside it, which is the point of deciding.
+    aimed: !!s.thesisIdea && projectTopic === s.player.profile.topic,
   };
   s.projects.push(p);
   s.activeProjectId = p.id;
@@ -39,15 +46,22 @@ export function createProject(s, { kind = 'main', collaborator = null, topic = n
 export function createThesis(s) {
   const accepted = s.projects.filter(p => p.status === 'Accepted');
   const strong = s.projects.filter(p => p.status !== 'Accepted' && p.kind !== 'thesis' && p.progress >= 70);
+  // A paper written after you decided what the thesis was, on the thing you decided, is a chapter.
+  // A paper written before, or beside, is a paper. That difference is the whole reward for having
+  // made the decision at all, and it is why deciding in month 26 is worth so much more than
+  // deciding in month 40: by then almost everything you have is already written.
+  const aimed = accepted.filter(p => p.aimed).length;
   const p = {
     id: 'thesis', kind: 'thesis', title: `Towards ${TITLES[s.player.profile.topic][0].split(',')[0]}: A Dissertation`, topic: s.player.profile.topic,
     novelty: 55, technicalDepth: Math.round((s.player.skills.coding + s.player.skills.math) / 2), evidence: clamp(30 + accepted.length * 20), writingQuality: 40, hype: 10, reproducibility: 50, topicFit: 70,
-    progress: clamp(20 + accepted.length * 25 + strong.length * 10), draft: clamp(accepted.length * 12), scope: 30, status: 'Drafting',
+    progress: clamp(20 + accepted.length * 25 + aimed * 11 + strong.length * 10), draft: clamp(accepted.length * 12 + aimed * 6), scope: 30, status: 'Drafting',
     collaborators: [s.advisor.name], originatingAdvisor: s.advisor.id, submissionHistory: [], reviewDueWeek: null, reviewCycle: 0, reviewers: [], wizardStep: 0, venueId: null, targetVenueId: null, targetMonth: null, targetVenue: null,
     timeline: null, phaseOneDone: false, preprint: false, startedMonth: s.month, rebuttalDone: false, approvedWithout: false,
   };
   s.projects.push(p); s.activeProjectId = p.id; s.milestones.thesisStarted = true; s.flags.thesisStarted = true;
-  log(s, t('Started the dissertation. {n} chapter(s) already exist as papers; the introduction does not.', { n: accepted.length }));
+  log(s, aimed
+    ? t('Started the dissertation. {n} chapter(s) already exist as papers, {a} of them written for this; the introduction does not.', { n: accepted.length, a: aimed })
+    : t('Started the dissertation. {n} chapter(s) already exist as papers; the introduction does not.', { n: accepted.length }));
   return p;
 }
 // The day after the deadline you start the next paper, precisely because the last one is out of

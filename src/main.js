@@ -438,6 +438,7 @@ root.addEventListener('click', event => {
       else if (out === 'full') play('click');
       return;
     }
+    case 'decide-thesis': perform({ type: 'DECIDE_THESIS' }, { preserveScroll: false }); return;
     case 'stuck-ask': perform({ type: 'STUCK_ASK', id }); return;
     case 'wb-erase': { const line = eraseBoard(); if (line && run) perform({ type: 'BOARD_ERASE', line }); return; }
     case 'summons': perform({ type: 'SUMMONS', id }, { preserveScroll: false }); return;

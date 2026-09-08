@@ -30,7 +30,7 @@ import { trackById, ACADEMIC } from '../data/tracks.js';
 import { drawWeather, weatherLine, openBoard } from './market.js';
 import { beginRevisions, revise, deposit, canDeposit, revisionMonth, revisionsLeft } from './thesis.js';
 import { openTimeline, playTimelineMove, canAskTimeline, timelineDrift } from './timeline.js';
-import { crunchOf, tempoOf, focusOptions, focusById, crunchSnapshot, milestoneOf, seasonEligible, dayEligible, paceOptions, setPace, DAYS_PER_WEEK } from './time.js';
+import { crunchOf, tempoOf, focusOptions, focusById, crunchSnapshot, milestoneOf, seasonEligible, dayEligible, paceOptions, setPace, DAYS_PER_WEEK, canDecideThesis, thesisFloor } from './time.js';
 import { applyInternships, canApplyIntern, openInternTalk, playInternMove, endInternship, ensureIntern, internWindow } from './internship.js';
 import { addFunding } from './funding.js';
 import { fundingSources } from '../data/fundingSources.js';
@@ -735,7 +735,15 @@ export function dispatch(state, action) {
     }
     case 'ZOOM': if (s.week !== 0 || crunchOf(s)) throw new Error(t('You can only zoom in at the start of a calm month.')); s.flags.zoomMonth = s.flags.zoomMonth === s.month ? -1 : s.month; s.crunch = crunchSnapshot(s); s.tempo = tempoOf(s); s.focus = null; log(s, s.tempo === 'week' ? t('Taking this month week by week.') : t('Back to the monthly view.')); break;
     case 'PACE': s.pace = s.pace === 'month' ? 'auto' : 'month'; s.tempo = tempoOf(s); s.report.monthsCovered = s.tempo === 'season' ? 3 : 1; log(s, s.pace === 'month' ? t('Taking it month by month.') : t('Letting calm seasons pass in one step.')); break;
-    case 'START_THESIS': if (s.milestones.proposal !== 'pass') throw new Error(t('The dissertation starts after the proposal is accepted.')); if (s.month < 44) throw new Error(t('Too early. The committee expects a dissertation in year five or six; so does your advisor, for different reasons.')); if (s.projects.some(p => p.kind === 'thesis')) throw new Error(t('The dissertation already exists, in the sense that a file exists.')); createThesis(s); break;
+    // No cost, no gate, no prompt. The afternoon is the whole thing.
+    case 'DECIDE_THESIS': {
+      if (!canDecideThesis(s)) throw new Error(t('There is nothing to decide yet, or it is already decided.'));
+      pushEvent(s, 'thesis_decide');
+      s.eventReturn = 'plan';
+      openNext(s);
+      break;
+    }
+    case 'START_THESIS': if (s.milestones.proposal !== 'pass') throw new Error(t('The dissertation starts after the proposal is accepted.')); if (s.month < thesisFloor(s)) throw new Error(t('Too early. The committee expects a dissertation to follow the proposal by a decent interval; so does your advisor, for different reasons.')); if (s.projects.some(p => p.kind === 'thesis')) throw new Error(t('The dissertation already exists, in the sense that a file exists.')); createThesis(s); break;
     case 'SCHEDULE_DEFENSE': {
       const th = s.projects.find(p => p.kind === 'thesis');
       if (!th || th.status !== 'Ready') throw new Error(t('The committee needs an approved dissertation draft first.'));

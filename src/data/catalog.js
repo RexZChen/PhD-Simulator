@@ -231,6 +231,7 @@ export const achievements = {
   saidthename: { name: 'Said The Name', desc: 'Say the name of the person who was let go, out loud, in group meeting. Two people will thank you separately, in corridors, quietly.' },
   sentit: { name: 'Four Words, Fourteen Months', desc: 'Finally message the labmate who was pushed out. They reply in nine minutes. They are doing better than you are and they are not bitter about any of it.' },
   thestamp: { name: 'Administrative Processing', desc: 'Leave the country once and find out that coming back is a separate question with no answer date. Nothing you did caused it and nothing you could have done would have prevented it.' },
+  decidedit: { secret: true, name: 'An Afternoon In Year Three', desc: 'Decide what the dissertation is, before anybody asks you. Nobody tells you when to stop collecting results and start deciding what the story is, and that is the whole difference between five years and eight.' },
   waterit: { secret: true, name: 'Sam Waters It', desc: 'Water the plastic plant twelve times. Nobody mentions it, which is how you know it counts.' },
   plasticdevotion: { secret: true, name: 'It Will Still Be Here', desc: 'Water the plastic plant thirty times. It will outlast your candidacy, your advisor’s sabbatical and the building’s wifi.' },
   undertime: { name: 'Two Minutes In Hand', desc: 'Finish a talk having covered everything that mattered, with time left. Nobody has ever done this and the chair looks briefly disoriented.' },
