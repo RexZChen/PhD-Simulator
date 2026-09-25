@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-async function openManager(page, { width = 1440, height = 900, textSize = 1, patent = false, consecutiveScenes = false, paperStatus = null, request = false } = {}) {
+async function openManager(page, { width = 1440, height = 900, textSize = 1, patent = false, consecutiveScenes = false, paperStatus = null, request = false, extraDraft = false } = {}) {
   await page.setViewportSize({ width, height });
   await page.goto('/');
-  await page.evaluate(async ({ textSize, patent, consecutiveScenes, paperStatus, request }) => {
+  await page.evaluate(async ({ textSize, patent, consecutiveScenes, paperStatus, request, extraDraft }) => {
     const { createRun } = await import('/src/engine/state.js');
     const { dispatch } = await import('/src/engine/game.js');
     const { schools } = await import('/src/data/catalog.js');
@@ -17,6 +17,12 @@ async function openManager(page, { width = 1440, height = 900, textSize = 1, pat
     s = dispatch(s, { type: 'ENROLL', id: advisor.id });
     const paper = createProject(s);
     if (paperStatus) Object.assign(paper, { status: paperStatus, progress: 60, draft: 80 });
+    if (extraDraft) {
+      paper.targetMonth = s.month + 4;
+      const side = createProject(s, { kind: 'side' });
+      Object.assign(side, { status: 'Drafting', progress: 50, draft: 70 });
+      s.activeProjectId = paper.id;
+    }
     if (request) {
       const { requests } = await import('/src/data/requests.js');
       const tpl = requests[0];
@@ -35,7 +41,7 @@ async function openManager(page, { width = 1440, height = 900, textSize = 1, pat
     const meta = emptyMeta();
     meta.settings.tips = false; meta.settings.lang = 'en'; meta.settings.textSize = textSize;
     saveRun(localStorage, s, meta);
-  }, { textSize, patent, consecutiveScenes, paperStatus, request });
+  }, { textSize, patent, consecutiveScenes, paperStatus, request, extraDraft });
   await page.reload();
   await page.locator('.boot').click();
   await page.locator('[data-action="wiz-next"]').click();
@@ -175,7 +181,7 @@ test('an approved paper submits from the desk; a manuscript with the advisor doe
   await expect(page.locator('.desk-paper')).toContainText('Submitted');
   await expect(page.locator('[data-type="START_PROJECT"]')).toBeVisible();
   await openManager(page, { paperStatus: 'Advisor Review' });
-  await expect(page.locator('.desk-task')).toContainText('The draft is on another desk.');
+  await expect(page.locator('.desk-wait')).toContainText('The draft is on another desk.');
   await expect(page.locator('[data-action="play-turn"][data-id="work"]')).toHaveCount(0);
   await expect(page.locator('[data-action="play-turn"][data-id="recover"]')).toBeEnabled();
 });
@@ -184,4 +190,51 @@ test('the desk stays within a 320px viewport at the largest text setting', async
   await openManager(page, { width: 320, height: 740, textSize: 4 });
   expect(await page.locator('.client').evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
   await expect(page.locator('[data-action="play-turn"][data-id="recover"]')).toBeEnabled();
+});
+
+for (const pace of ['week', 'day']) test(`${pace} turns show a visible result on a phone and retain it after reloading`, async ({ page }, testInfo) => {
+  await openManager(page, { width: 390, height: 844 });
+  await page.locator('[data-action="desk-tab"][data-id="records"]').click();
+  await page.locator('[data-action="set-pace"][data-id="week"]').click();
+  if (pace === 'day') {
+    await expect(page.locator('[data-action="set-pace"][data-id="day"]')).toBeEnabled();
+    await page.locator('[data-action="set-pace"][data-id="day"]').click();
+  }
+  await page.locator('[data-action="desk-tab"][data-id="now"]').click();
+  const title = await page.locator('.desk-paper h2').textContent();
+  await expect(page.locator('[data-action="play-turn"][data-id="work"]')).toContainText(title);
+  await page.locator('[data-action="play-turn"][data-id="work"]').click();
+  await finishTurn(page);
+  const result = page.getByRole('status', { name: 'Last turn' });
+  await expect(result).toContainText('Research +');
+  await expect(result).toContainText('Week 1');
+  if (pace === 'day') await expect(result).toContainText('Monday');
+  await expect(result).toBeInViewport();
+  expect(await page.locator('.client').evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  const receipt = await result.textContent();
+  await page.screenshot({ path: testInfo.outputPath(`${pace}-result-mobile.png`) });
+  await page.reload();
+  await page.locator('.boot').click();
+  await page.locator('[data-action="wiz-next"]').click();
+  await expect(result).toHaveText(receipt);
+  await page.locator('[data-action="play-turn"][data-id="recover"]').click();
+  // A newly arrived advisor request queues this click until the player answers.
+  for (let i = 0; i < 5 && await page.locator('.desk-pending').count(); i++) {
+    await expect(page.getByRole('status', { name: 'Queued plan' })).toBeInViewport();
+    await expect(page.getByRole('status', { name: 'Queued plan' })).toContainText('Go home. Be a person.');
+    await page.locator('[data-action="req-decline"]').click();
+  }
+  await finishTurn(page);
+  await expect(result).not.toHaveText(receipt);
+  await expect(result.locator('div > b')).toContainText(pace === 'day' ? 'Actually rest' : 'Sleep and eat');
+});
+
+test('a side draft can be sent from Now while the main paper waits for a later deadline', async ({ page }) => {
+  await openManager(page, { paperStatus: 'Ready', extraDraft: true });
+  const task = page.getByRole('region', { name: 'On your desk', exact: true });
+  await expect(task).toContainText('Someone else needs to read this.');
+  await expect(task.locator('[data-type="SEND_ADVISOR"]')).toHaveAttribute('data-project', 'project-2');
+  await task.locator('[data-type="SEND_ADVISOR"]').click();
+  await expect(page.locator('.desk-paper')).toContainText('Advisor Review');
+  await expect(task).toContainText('The paper can leave your desk.');
 });

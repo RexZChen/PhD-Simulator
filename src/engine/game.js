@@ -9,7 +9,7 @@ import { effects, log, message, sentMail, chat, finish, award, populateLab, acti
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
 import { createProject, createThesis, benchSession, clusterSession, canStartMain, canStartSide, syncProject, write, writeBudget, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
-import { turnChoices } from './play.js';
+import { turnChoices, startTurnReceipt, finishTurnReceipt } from './play.js';
 import { patentMonth, openPatent, doPatentMeeting, answerOfficeAction, nextPatentMeeting } from './patent.js';
 import { networkMonth, netTalk, netCollab, doCollab, askNetLetter, netIntro, meetContact } from './network.js';
 import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, expireRequests, doRequest, pushbackRequest, declineRequest, ask, updatePressure, advisorPing, shiftCadence, revealHint, reviewLatencyWeeks, advisorResponds, newAdvisor } from './advisor.js';
@@ -237,6 +237,7 @@ function applyTurn(s) {
   const f = focusById(s, s.focus);
   if (!f || f.disabled) throw new Error(s.tempo === 'week' ? t('Choose what this week goes to.') : t('Choose a plan for the month first.'));
   if (s.tempo === 'season' && !seasonEligible(s)) { s.tempo = 'month'; s.report.monthsCovered = 1; }
+  if (s.pendingReceipt) s.pendingReceipt.tempo = s.tempo;
   if (f.id === 'rest') { s.counts.rested = (s.counts.rested || 0) + 1; if (s.counts.rested >= 9) award(s, 'ninerest'); }
   const tempo = s.tempo, crunch = s.crunch;
   const isDay = tempo === 'day';
@@ -306,6 +307,7 @@ function applyTurn(s) {
     if (s.dayIndex >= DAYS_PER_WEEK) { s.dayIndex = 0; s.week += 1; }
   } else s.week += tempo === 'season' ? 4 : weeks;
   const monthEnded = s.week >= 4;
+  if (s.pendingReceipt) s.pendingReceipt.applied = true;
   if (monthEnded) { s.week = 4; monthlyDrift(s); }
   generateRequests(s, weeks, ctx);
   syncProject(s);
@@ -559,6 +561,12 @@ function milestone(s, kind, strategy) {
 }
 
 export function dispatch(state, action) {
+  const s = reduceAction(state, action);
+  finishTurnReceipt(s);
+  return s;
+}
+
+function reduceAction(state, action) {
   const s = structuredClone(state), a = action;
   const always = ['READ_MAIL', 'READ_MAIL_ALL', 'READ_CHAT'];
   if (a.type === 'READ_MAIL') { const m = s.inbox.find(x => x.id === a.id); if (m) m.read = true; return s; }
@@ -730,6 +738,7 @@ export function dispatch(state, action) {
     if (choice.projectId) s.activeProjectId = choice.projectId;
     if (choice.id === 'work' && canStartMain(s) && !choice.projectId) createProject(s);
     s.focus = choice.focus;
+    startTurnReceipt(s);
     const project = activeProject(s);
     if (['write', 'writing'].includes(choice.focus) && project && ['Prototype', 'Experiments', 'Drafting'].includes(project.status)
       && project.progress >= 35 && project.draft < 100 && (s.typed || 0) < writeBudget(s)) write(s, writeBudget(s));
@@ -738,6 +747,7 @@ export function dispatch(state, action) {
   }
   if (a.type === 'PLAN') { const f = focusById(s, a.id); if (!f) throw new Error(t('That is not an option right now.')); if (f.disabled) throw new Error(f.disabled); s.focus = a.id; return s; }
   if (a.type === 'CONTINUE') {
+    startTurnReceipt(s);
     // The interrupt is raised after the plan is chosen and before the turn resolves, which is the
     // whole point of it: everything else happens around your decision, this happens to it.
     if (!s.summons && maybeSummons(s, { crunch: s.crunch })) { s.stage = 'summons'; return s; }

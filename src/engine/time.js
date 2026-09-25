@@ -2,7 +2,7 @@ import { focuses, internshipFocus } from '../data/catalog.js';
 import { dayBlocks } from './../data/life.js';
 import { focusAvailability } from '../data/calendar.js';
 import { venueById } from '../data/venues.js';
-import { t } from '../i18n/index.js';
+import { t, registerCatalog } from '../i18n/index.js';
 import { TOTAL_MONTHS, editable as projectEditable } from './state.js';
 
 export const sprintSets = {
@@ -28,6 +28,9 @@ export const sprintSets = {
     { id: 'sleep', name: 'Sleep', icon: 'moon', desc: 'You know the material. Let it settle.', effects: { energy: 12, stress: -8, confidence: 2 }, personality: 'boundarySetter' },
   ],
 };
+registerCatalog('focuses', focuses);
+registerCatalog('sprintSets', sprintSets);
+registerCatalog('internshipFocus', internshipFocus);
 
 // The next academic milestone, if any: { kind, month }.
 export function milestoneOf(s) {
@@ -85,18 +88,24 @@ export const tempoOf = s => crunchOf(s) ? (dayEligible(s) ? 'day' : 'week') : se
 export const crunchSnapshot = s => { const c = crunchOf(s); return c ? { type: c.type, kind: c.kind || null, venueName: c.venueName || null, projectId: c.project?.id || null, venueId: c.venue?.id || null } : null; };
 
 export function focusOptions(s) {
-  if (s.tempo === 'day') return dayBlocks.map(b => ({ ...b, desc: b.blurb, effects: { energy: b.energy, ...b.effects } }));
-  if (s.internship && s.month >= s.internship.start && s.month <= s.internship.end) return [{ ...internshipFocus, locked: true }];
+  const editable = (s.projects || []).some(p => projectEditable(p) && p.status !== 'Rejected');
+  const noProject = editable ? null : t('No project you can work on. Start one in the Projects box.');
+  if (s.tempo === 'day') return dayBlocks.map(b => ({ ...b, desc: b.blurb, effects: { energy: b.energy, ...b.effects },
+    i18nName: { s: b.name },
+    disabled: ['deep', 'writing', 'debug', 'figures'].includes(b.id) ? noProject : null }));
+  if (s.internship && s.month >= s.internship.start && s.month <= s.internship.end) return [{ ...internshipFocus, locked: true, i18nName: { p: 'internshipFocus.name' } }];
   const crunch = s.crunch || null;
-  if (crunch) return sprintSets[crunch.type === 'defense' ? 'prelim' : crunch.type === 'zoom' ? 'deadline' : crunch.type].map(f => ({ ...f }));
+  if (crunch) {
+    const set = crunch.type === 'defense' ? 'prelim' : crunch.type === 'zoom' ? 'deadline' : crunch.type;
+    return sprintSets[set].map((f, i) => ({ ...f, i18nName: { p: `sprintSets.${set}.${i}.name` },
+      disabled: ['experiments', 'writing', 'polish', 'coordinate'].includes(f.id) ? noProject : null }));
+  }
   const availability = focusAvailability(s.month);
   // Research and Write need something to work on. An Accepted paper stays in s.projects forever,
   // so once the first one landed these two stayed enabled, still advertising "▲ Progress +++",
   // and silently produced nothing — for as long as the player failed to guess that the fix was to
   // start another project. Measured at 44% of a naive player's turns.
-  const editable = (s.projects || []).some(p => projectEditable(p) && p.status !== 'Rejected');
-  const noProject = editable ? null : t('No project you can work on. Start one in the Projects box.');
-  return focuses.map(f => ({ ...f, disabled: availability[f.id] || (['research', 'write'].includes(f.id) ? noProject : null) }));
+  return focuses.map((f, i) => ({ ...f, i18nName: { p: `focuses.${i}.name` }, disabled: availability[f.id] || (['research', 'write'].includes(f.id) ? noProject : null) }));
 }
 export const focusById = (s, id) => focusOptions(s).find(f => f.id === id) || null;
 
@@ -121,7 +130,6 @@ export function paceOptions(s) {
     month: forced ? 'A deadline this month takes it week by week.' : null,
     week: forced || s.week === 0 ? null : 'The month is already under way.',
     day: !c ? 'Day pace is for deadline weeks.'
-      : s.dayOff === s.month ? 'You stepped back out of day pace this month.'
       : (c.type === 'deadline' || c.type === 'rebuttal') && s.week < 3 ? 'The last week of a deadline month.'
       : null,
   };

@@ -6,7 +6,7 @@
 
 **[▶ Play it in your browser](https://rexzchen.github.io/PhD-Simulator/)** · no install · no account · nothing leaves your machine
 
-<img src="docs/screens/desktop.png" width="820" alt="The PhD Manager desk: one immediate decision, clear turn choices, and the next academic milestone.">
+<img src="docs/screens/desktop.png" width="820" alt="The PhD Manager desk: clear turn choices, the last turn’s result, and the next academic milestone.">
 
 </div>
 
@@ -19,7 +19,7 @@
 
 You apply, you pick an advisor with incomplete information, you run projects, you publish or you don't, you sit three exams, and you find out what you become.
 
-The **Now** desk shows the next decision and two or three ways to spend your time. Clicking an activity plays the turn, including the writing session. Papers, advisor requests, health problems, and graduation steps arrive on your desk when they need attention. Results stay on the desk; conversations let you read at your own pace.
+The **Now** desk shows the next decision and two or three ways to spend your time. Clicking an activity plays the turn, including the writing session. Papers, advisor requests, health problems, and graduation steps arrive on your desk when they need attention. Every day, week, month, or season leaves a short result on the desk; conversations let you read at your own pace. Longer monthly statements live in Records.
 
 **Research**, **People**, and **Records** keep the detailed tools available. Applications start with a statement approach and three letters, then a shortlist with the actual programs, odds, and fees before you send it.
 

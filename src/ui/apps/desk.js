@@ -58,20 +58,42 @@ function nextTask(s) {
   if (canStartThesis(s)) return task(t('The dissertation can begin.'), t('Your papers become chapters. The introduction will insist this was the plan all along.'), taskButton(s, t('Start the dissertation'), 'START_THESIS'));
   const thesis = s.projects.find(p => p.kind === 'thesis');
   if (thesis?.status === 'Ready' && s.milestones.defenseMonth == null) return task(t('Book the room.'), t('The committee has a draft. Now it needs a date.'), taskButton(s, t('Schedule the defense'), 'SCHEDULE_DEFENSE', '', thesis.id));
-  const waiting = s.projects.find(p => p.status === 'Ready' && p.kind !== 'thesis' || p.status === 'Rejected');
-  if (waiting) return paperDecision(s, waiting);
   const ready = s.projects.find(p => p.status === 'Drafting' && p.draft >= (p.kind === 'thesis' ? 90 : 60) && (p.kind === 'thesis' || p.progress >= 40));
-  if (ready) return task(t('Someone else needs to read this.'), t('The draft is ready for your advisor. Sending it starts the wait; more polishing is your choice.'), taskButton(s, t('Send to advisor'), 'SEND_ADVISOR', '', ready.id));
+  if (ready) return task(t('Someone else needs to read this.'), t('The draft is ready for your advisor. Sending it starts the wait; more polishing is your choice.'), `<p class="small"><b>${esc(ready.title)}</b></p>` + taskButton(s, t('Send to advisor'), 'SEND_ADVISOR', '', ready.id));
+  const waiting = s.projects.filter(p => p.status === 'Ready' && p.kind !== 'thesis' || p.status === 'Rejected');
+  // A paper aimed at a future deadline must not pin every other paper underneath it.
+  const decision = waiting.find(p => p.status === 'Rejected' || !(p.targetMonth > s.month)) || waiting[0];
+  if (decision) return paperDecision(s, decision);
   if (canStartMain(s)) return task(t('One manageable idea.'), t('Start a project. It will remain manageable for approximately one meeting.'), taskButton(s, t('Start main project'), 'START_PROJECT'));
   const reviewing = s.projects.find(p => p.status === 'Advisor Review');
-  if (reviewing) return task(t('The draft is on another desk.'), t('Your advisor is reading it. Use the wait for coursework, people, or a life outside the document.'), `<p class="small muted">${t('Expected reply in about {n} week(s). Estimates are a genre.', { n: Math.max(0, reviewing.reviewDueWeek - absWeek(s)) })}</p>`);
+  if (reviewing) return `<p class="desk-wait"><b>${t('The draft is on another desk.')}</b> ${t('Expected reply in about {n} week(s). Estimates are a genre.', { n: Math.max(0, reviewing.reviewDueWeek - absWeek(s)) })}</p>`;
   return '';
 }
 
 function receipt(s) {
+  const r = s.turnReceipt;
+  if (!r) return '';
+  const changes = [
+    [r.energy, t('Energy {n}', { n: signed(r.energy) })],
+    [r.hope, t('Hope {n}', { n: signed(r.hope) })],
+    [r.health, t('Health {n}', { n: signed(r.health) })],
+    [r.coursework, t('Coursework {n}', { n: signed(r.coursework) })],
+    [r.readiness, t('Readiness {n}', { n: signed(r.readiness) })],
+    [r.career, t('Career preparation {n}', { n: signed(r.career) })],
+  ].filter(([value]) => value);
+  const when = [dateLabel(r.month), r.tempo === 'season' ? dateLabel(r.month + 2) : '',
+    ['week', 'day'].includes(r.tempo) ? t('Week {n}', { n: r.week + 1 }) : '',
+    r.tempo === 'day' ? dayName({ dayIndex: r.day }) : ''].filter(Boolean).join(' · ');
+  return `<section class="desk-receipt" role="status" aria-label="${esc(t('Last turn'))}"><div><b>${t('Last turn')} · ${esc(say(s, r.focus, r.i18nFocus))}</b><span class="small muted">${when}</span></div>
+    ${r.projects.map(p => `<p class="receipt-project"><b>${esc(p.title)}</b><span>${[p.progress ? t('Research {n}', { n: signed(p.progress) }) : '', p.draft ? t('Draft {n}', { n: signed(p.draft) }) : ''].filter(Boolean).join(' · ')}</span></p>`).join('')}
+    ${changes.length ? `<div class="receipt-changes">${changes.map(([, label]) => `<span>${esc(label)}</span>`).join('')}</div>` : ''}
+    ${!changes.length && !r.projects.length ? `<p class="small muted">${t('Some work does not fit in a progress bar.')}</p>` : ''}</section>`;
+}
+
+function monthlyStatement(s) {
   const r = s.lastTurn;
   if (!r) return '';
-  return `<section class="desk-receipt" aria-label="${esc(t('Last statement'))}"><div><b>${t('Last statement')} · ${esc(say(s, r.focus, r.i18nFocus))}</b><span class="small muted">${dateLabel(r.month)}</span></div>
+  return `<section class="desk-statement" aria-label="${esc(t('Last statement'))}"><div><b>${t('Last statement')} · ${esc(say(s, r.focus, r.i18nFocus))}</b><span class="small muted">${dateLabel(r.month)}</span></div>
     <p>${[t('Energy {n}', { n: signed(r.energy) }), t('Hope {n}', { n: signed(r.hope) }), t('Health {n}', { n: signed(r.health) })].join(' · ')}</p>
     ${r.projects.filter(p => p.progress || p.draft).map(p => `<p class="small">${esc(p.title)} · ${t('Research {n}', { n: signed(p.progress) })} · ${t('Draft {n}', { n: signed(p.draft) })}</p>`).join('')}
     ${r.events.slice(-2).map(e => `<p class="small muted">${esc(e.i18n ? say(s, '', e.i18n) : `${e.title} — ${e.result || e.choice}`)}</p>`).join('')}</section>`;
@@ -90,12 +112,12 @@ export function deskApp(s, ui) {
     <nav class="desk-tabs" aria-label="${esc(t('Your desk'))}">${[['now', t('Now')], ['research', t('Research')], ['people', t('People')], ['records', t('Records')]].map(([id, name]) => btn(name, 'desk-tab', { id, cls: tab === id ? 'active' : '', attrs: `aria-pressed="${tab === id}"` })).join('')}</nav>`;
   if (tab === 'research') return `<div class="desk">${top}${group(t('Projects'), projectList(s) + `<div class="row wrap">${canStartMain(s) ? taskButton(s, t('Start main project'), 'START_PROJECT') : ''}${canStartSide(s) ? taskButton(s, t('Start side project'), 'START_SIDE') : ''}${btn(t('Open Overgrief'), 'open', { app: 'browser', attrs: 'data-page="overgrief"' })}</div>`)}${group(t('Plan your own turn'), planList(s) + btn(t('Spend this turn →'), 'continue', { cls: 'primary continue', disabled: s.stage !== 'plan' || !focusOptions(s).some(f => f.id === s.focus && !f.disabled) }))}${group(t('Stuck?'), stuckPanel(s))}${s.tempo === 'day' ? dayStrip(s) : ''}</div>`;
   if (tab === 'people') return `<div class="desk">${top}${group(t('Advisor'), advisorCard(s) + quickAsks(s))}${group(t('Advisor requests'), requestList(s))}${timelinePanel(s)}${internPanel(s)}${lettersPanel(s)}</div>`;
-  if (tab === 'records') return `<div class="desk">${top}${journeyBar(s)}${readinessWidget(s)}${agenda(s)}${group(t('Field notes'), `<div class="notes-box">${voiced(noticeText(s))}</div>`)}<div class="desk-pace">${paceOptions(s).map(p => btn(t({ day: 'Day', week: 'Week', month: 'Month', season: 'Season' }[p.id]), 'set-pace', { id: p.id, disabled: !!p.disabled || s.stage !== 'plan', title: p.disabled ? t(p.disabled) : '', cls: p.active ? 'primary' : '' })).join('')}</div></div>`;
+  if (tab === 'records') return `<div class="desk">${top}${journeyBar(s)}${readinessWidget(s)}${agenda(s)}${monthlyStatement(s)}${group(t('Field notes'), `<div class="notes-box">${voiced(noticeText(s))}</div>`)}<div class="desk-pace">${paceOptions(s).map(p => btn(t({ day: 'Day', week: 'Week', month: 'Month', season: 'Season' }[p.id]), 'set-pace', { id: p.id, disabled: !!p.disabled || s.stage !== 'plan', title: p.disabled ? t(p.disabled) : '', cls: p.active ? 'primary' : '' })).join('')}</div></div>`;
   const onDesk = nextTask(s);
   const choices = turnChoices(s), suggested = /<button\b(?![^>]*\sdisabled\b)[^>]*>/.test(onDesk) ? null : suggestedTurn(s);
-  return `<div class="desk">${top}${standingBanner(s)}<div class="desk-layout"><div class="desk-main">${onDesk}
-    ${ui.pendingTurn ? `<div class="desk-pending" role="status">${t('Your plan is queued. Answer your advisor above, then the turn will run.')}${btn(t('Cancel this plan'), 'cancel-turn', { cls: 'small' })}</div>` : ''}
+  const pending = choices.find(c => c.id === ui.pendingTurn);
+  return `<div class="desk">${top}${standingBanner(s)}${pending ? `<section class="desk-pending" role="status" aria-label="${esc(t('Queued plan'))}"><b>${esc(t('Queued: {plan}', { plan: pending.name }))}</b><p>${t('Answer your advisor below. The turn will then run.')}</p>${btn(t('Cancel this plan'), 'cancel-turn', { cls: 'small' })}</section>` : receipt(s)}<div class="desk-layout"><div class="desk-main">${onDesk}
     <section class="desk-turn" aria-label="${esc(t('Spend your time'))}"><div class="desk-section-heading"><h2>${t('What gets your time?')}</h2><span>${period} ${t('passes when you click.')}</span></div>
     <div class="turn-choices">${choices.map(c => `<button class="turn-choice ${c.id === suggested?.id ? 'suggested' : ''}" data-action="play-turn" data-id="${c.id}" ${s.stage !== 'plan' ? 'disabled' : ''}><span class="turn-icon">${icon(c.icon, 25)}</span><span><span class="turn-label">${esc(c.name)}</span><span class="turn-detail">${esc(c.detail)}</span>${c.id === suggested?.id ? `<small>${t('A useful next step')}</small>` : ''}</span><span class="turn-arrow">→</span></button>`).join('')}</div></section>
-    ${receipt(s)}</div><aside class="desk-paper"><span class="desk-eyebrow">${t('The work so far')}</span>${current ? `<h2>${esc(current.title)}</h2>${tag(t(current.status))}${bar(t('Research'), current.progress)}${bar(t('Draft'), current.draft)}${current.targetVenue ? `<p>${t('Aiming for {venue}', { venue: esc(current.targetVenue) })}<br><b>${dateLabel(current.targetMonth)}</b></p>` : ''}` : `<p>${t('No project yet. Everything starts with one idea that seemed manageable.')}</p>`}<div class="desk-paper-foot"><b>${t('{n} paper(s) accepted', { n: s.counts.accepted })}</b><p>${t('A finished project is a contribution. A perfect project is a rumor.')}</p></div></aside></div></div>`;
+    </div><aside class="desk-paper"><span class="desk-eyebrow">${t('The work so far')}</span>${current ? `<h2>${esc(current.title)}</h2>${tag(t(current.status))}${bar(t('Research'), current.progress)}${bar(t('Draft'), current.draft)}${current.targetVenue ? `<p>${t('Aiming for {venue}', { venue: esc(current.targetVenue) })}<br><b>${dateLabel(current.targetMonth)}</b></p>` : ''}` : `<p>${t('No project yet. Everything starts with one idea that seemed manageable.')}</p>`}<div class="desk-paper-foot"><b>${t('{n} paper(s) accepted', { n: s.counts.accepted })}</b><p>${t('A finished project is a contribution. A perfect project is a rumor.')}</p></div></aside></div></div>`;
 }

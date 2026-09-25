@@ -291,6 +291,9 @@ function perform(action, options = {}) {
       ui.app = 'dashboard'; ui.deskTab = 'now';
       options = { ...options, preserveScroll: false };
     }
+    if (run.simplePlay && run.turnReceipt?.sequence !== before.turnReceipt?.sequence) {
+      options = { ...options, preserveScroll: false };
+    }
     if (before.phase !== run.phase) ui.gaTab = null;
     if (before.phase === 'playing' || run.phase === 'playing') afterDispatch(before, run);
     // Anything that arrived in the channel you are currently looking at has been seen. Without

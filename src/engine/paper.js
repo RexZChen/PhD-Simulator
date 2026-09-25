@@ -19,7 +19,18 @@ const TITLES = {
 };
 const SIDE_TITLES = ['A Small Note on a Large Problem', 'Preliminary Results, Permanent Caveats', 'What We Found While Looking for Something Else', 'A Negative Result, Positively Framed'];
 
-export function projectTitle(s, topic, kind) { return pick(s, kind === 'side' ? SIDE_TITLES : TITLES[topic] || TITLES.ml); }
+export function projectTitle(s, topic, kind) {
+  const titles = kind === 'side' ? SIDE_TITLES : TITLES[topic] || TITLES.ml;
+  const drawn = pick(s, titles);
+  const used = new Set(s.projects.map(p => p.title));
+  if (!used.has(drawn)) return drawn;
+  const fresh = titles.find(title => !used.has(title));
+  if (fresh) return fresh;
+  // Keep one random draw per project, even after the title pool is exhausted.
+  let number = 2;
+  while (used.has(`${drawn} (${number})`)) number++;
+  return `${drawn} (${number})`;
+}
 
 export function createProject(s, { kind = 'main', collaborator = null, topic = null } = {}) {
   const projectTopic = topic || s.player.profile.topic;

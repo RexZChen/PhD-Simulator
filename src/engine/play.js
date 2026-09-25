@@ -32,7 +32,7 @@ export function turnChoices(s) {
     name: s.crunch?.kind ? t('Prepare for the room') : available.length === 1 ? t(work.name)
       : writing ? t('Write the paper') : p?.kind === 'thesis' ? t('Work on the dissertation') : t('Move the research forward'),
     detail: s.crunch?.kind ? t('Practice before the committee gets its turn.') : available.length === 1 ? t(work.desc)
-      : writing ? t('Turn the results into a draft. There will be paragraphs. Some will survive your advisor.')
+      : p ? t('Working on “{title}”.', { title: p.title })
         : t('Move the active project forward. Ask better questions.'), icon: work.icon });
   if (prep && prep.id !== work?.id) choices.push({ id: 'prepare', focus: prep.id,
     name: ['coursework', 'reading', 'practice', 'slides', 'committee'].includes(prep.id) ? t('Get ready for the next milestone') : t('Build a life after the PhD'),
@@ -55,4 +55,37 @@ export function suggestedTurn(s) {
   if (ms && ms.month - s.month <= 6 && (s.coursework < 65 || s.readiness < 60))
     return choices.find(c => c.id === 'prepare') || choices[0];
   return choices[0];
+}
+
+// Keep the receipt with the run so saving in the middle of a scene does not lose the
+// result. The baseline precedes writing and summons; completion waits for the scenes.
+export function startTurnReceipt(s) {
+  if (s.pendingReceipt) return;
+  const focus = focusOptions(s).find(f => f.id === s.focus);
+  if (!focus || focus.disabled) return;
+  s.pendingReceipt = {
+    sequence: (s.turnReceipt?.sequence || 0) + 1,
+    month: s.month, week: s.week, day: s.dayIndex || 0, tempo: s.tempo,
+    focus: focus.name, i18nFocus: focus.i18nName,
+    before: {
+      energy: s.player.stats.energy, hope: s.player.stats.hope, health: s.player.stats.health,
+      coursework: s.coursework, readiness: s.readiness, career: s.career,
+      projects: Object.fromEntries(s.projects.map(p => [p.id, { progress: p.progress, draft: p.draft }])),
+    },
+  };
+}
+
+export function finishTurnReceipt(s) {
+  const pending = s.pendingReceipt;
+  if (!pending?.applied || s.event || !['plan', 'report', 'milestone', 'commencement', 'ending'].includes(s.stage) && s.phase !== 'ending') return;
+  const { before, applied, ...when } = pending;
+  s.turnReceipt = { ...when,
+    ...Object.fromEntries(['energy', 'hope', 'health'].map(k => [k, Math.round(s.player.stats[k] - before[k])])),
+    ...Object.fromEntries(['coursework', 'readiness', 'career'].map(k => [k, Math.round(s[k] - before[k])])),
+    projects: s.projects.map(p => ({ id: p.id, title: p.title,
+      progress: Math.round(p.progress - (before.projects[p.id]?.progress || 0)),
+      draft: Math.round(p.draft - (before.projects[p.id]?.draft || 0)),
+    })).filter(p => p.progress || p.draft),
+  };
+  delete s.pendingReceipt;
 }
