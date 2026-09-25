@@ -106,44 +106,49 @@ export function prepAction(s, id, target) {
 export function nextStep(s) {
   if (unopenedDecisions(s).length) {
     return { title: t('There are updates on your applications'),
-      detail: t('{n} of them, each behind its own login. Open them one at a time; that is how they arrive.', { n: unopenedDecisions(s).length }),
-      cta: null };
+      detail: t('{n} decision(s) ready. Open each update to read the result.', { n: unopenedDecisions(s).length }),
+      action: 'application-jump', id: 'updates', label: t('Read application updates') };
   }
   const p = s.prep;
   if (s.phase === 'prep') {
+    if (p.letters.some(l => l.asked) && s.player.stats.energy <= 12)
+      return { title: t('You are nearly out of Energy. Go to the programs.'), detail: t('Save the remaining Energy for applications. December restores 15 Energy.'), action: 'prep', id: 'proceed', label: t('Proceed to applications →') };
     if (!p.sopSteps.includes('draft'))
-      return { title: t('Start by drafting your statement of purpose'), detail: t('It is the one document every program reads. Everything else on this screen improves it or supports it.'), action: 'prep', id: 'sop_draft', label: t('Draft the statement (−6 Energy)') };
+      return { title: t('Start by drafting your statement of purpose'), detail: t('Start here, then ask for letters. You can improve the draft later.'), action: 'prep', id: 'sop_draft', label: t('Draft the statement (−6 Energy)') };
     if (!p.letters.some(l => l.asked))
-      return { title: t('Ask someone for a recommendation letter'), detail: t('Programs want three. Pick people who actually remember your work — the note under each name is a real hint.'), action: null, label: t('Use the “Ask for a letter” buttons on the right') };
+      return { title: t('Ask someone for a recommendation letter'), detail: t('Choose someone who knows your work. Read their note, then ask for a letter.'), action: 'application-jump', id: 'letters', label: t('Choose a recommender') };
     if (Object.keys(p.researched).length < 3)
-      return { title: t('Research a few programs before you write about them'), detail: t('One Energy each, and it tells you what people who are actually there say. It also makes your statement specific, which is worth more than anything else you can do to it.'), action: null, label: t('Pick a school on the right, then “Research this program”') };
+      return { title: t('Research a few programs before you write about them'), detail: t('Choose a school in Prospective advisors, then research it for 1 Energy. Read three to strengthen your statement.'), action: 'application-jump', id: 'programs-research', label: t('Explore prospective advisors') };
     if (!p.sopSteps.includes('specific'))
-      return { title: t('Name the actual research question in your statement'), detail: t('You have read enough programs to aim it now. This is the single largest improvement left.'), action: 'prep', id: 'sop_specific', label: t('Name the question (−5 Energy)') };
+      return { title: t('Name the actual research question in your statement'), detail: t('Use what you learned about the programs to make the draft specific.'), action: 'prep', id: 'sop_specific', label: t('Name the question (−5 Energy)') };
     if (p.letters.filter(l => l.asked).length < LETTERS_EXPECTED)
-      return { title: t('You are short of letters'), detail: t('Most programs want three. Two is a file with a hole in it.'), action: null, label: t('Ask another recommender on the right') };
+      return { title: t('You are short of letters'), detail: t('Most programs expect three letters. Choose another person who knows your work.'), action: 'application-jump', id: 'letters', label: t('Choose another recommender') };
     if (p.gre === null)
-      return { title: t('Decide about the GRE'), detail: t('“Optional” is a word with a range of meanings. Exam-style programs still peek at it; everyone else genuinely does not care.'), action: null, label: t('Take it or skip it, in the middle column') };
-    if (s.player.stats.energy > 12)
-      return { title: t('Keep improving the statement, or go to the programs'), detail: t('Every remaining Energy point is worth more in the statement than it is in December. But you can leave now if you would rather spread the applications wider.'), action: 'prep', id: 'proceed', label: t('Proceed to applications →') };
-    return { title: t('You are nearly out of Energy. Go to the programs.'), detail: t('Nothing left here is worth the last of it. December is where the money goes.'), action: 'prep', id: 'proceed', label: t('Proceed to applications →') };
+      return { title: t('Decide about the GRE'), detail: t('The test is optional. Review the cost in Tests & fees, then take it or skip it.'), action: 'application-jump', id: 'gre', label: t('Review tests & fees') };
+    return { title: t('Keep improving the statement, or go to the programs'), detail: t('Your preparation is ready. Continue to applications whenever you are ready.'), action: 'prep', id: 'proceed', label: t('Proceed to applications →') };
   }
   if (s.phase === 'application') {
     if (!s.applications.length)
-      return { title: t('Apply to your first program'), detail: t('Pick a professor of interest in the row, then press Apply. Aim for four to eight programs across the odds range — some you should get, some you probably will not.'), action: null, label: t('Choose a professor in a row below, then Apply') };
+      return { title: t('Apply to your first program'), detail: t('Choose a professor in a program row, then Apply. Aim for four to eight programs with a mix of odds.'), action: 'application-jump', id: 'programs', label: t('Choose a program') };
+    const cost = applicationCost(s, 'generic', false);
+    if (s.player.stats.energy < cost.energy || s.player.stats.money < cost.money)
+      return { title: t('Your saved applications are ready'), detail: t('There is not enough Money or Energy for another application. Submit the ones you have.'), action: 'admissions', label: t('Submit and wait →') };
     if (s.applications.length < 4)
-      return { title: t('Apply to a few more'), detail: t('{n} so far. One acceptance is all you need, and nobody can tell you in advance which one it will be.', { n: s.applications.length }), action: null, label: t('Keep applying, or submit what you have') };
-    return { title: t('Submit, and then wait'), detail: t('{n} applications is a reasonable spread. After this it is out of your hands until March, which is the hardest part.', { n: s.applications.length }), action: 'admissions', id: null, label: t('Submit and wait →') };
+      return { title: t('Apply to a few more'), detail: t('{n} application(s) saved. Add more programs, or use Submit when you are ready.', { n: s.applications.length }), action: 'application-jump', id: 'programs', label: t('Choose another program') };
+    return { title: t('Submit, and then wait'), detail: t('{n} applications ready. Submit to move on to interviews and decisions.', { n: s.applications.length }), action: 'admissions', label: t('Submit and wait →') };
   }
   if (s.phase === 'interviews') {
     const pending = s.applications.filter(a => a.interview && !a.interview.done);
     if (pending.length)
-      return { title: t('You have {n} interview(s) waiting', { n: pending.length }), detail: t('A short video call with your professor of interest: three questions. Answer honestly — they are better at spotting a rehearsed answer than you are at giving one.'), action: null, label: t('Press “Join the call” on a row below') };
+      return { title: t('You have {n} interview(s) waiting', { n: pending.length }), detail: t('Choose Join the call in Status. Finish each interview before requesting decisions.'), action: 'application-jump', id: 'interviews', label: t('Find your interviews') };
     return { title: t('Nothing to do but wait'), detail: t('Decisions arrive in March. Waitlists move in April. The portal has one button and it is Refresh.'), action: 'decisions', id: null, label: t('Refresh the portal →') };
   }
   if (s.phase === 'admissions') {
-    if (!s.offers.length)
-      return { title: t('No offers yet'), detail: t('If anything is waitlisted, April can still move. If not, this is a year that did not work, and that is a far more common story than the internet suggests.'), action: null, label: '' };
-    return { title: t('Visit, ask questions, then choose'), detail: t('An advisor matters more than a ranking, and you cannot tell which is which from a website. Ask the professor, and ask their students — the students are the ones who will tell you the truth, tiredly.'), action: null, label: t('Use “Talk to the professor” and “Ask a current student”') };
+    if (!s.offers.length) {
+      const waiting = s.applications.some(a => a.waitlisted && !a.resolved);
+      return { title: t('No offers yet'), detail: t('Waitlisted applications can still become offers in April.'), action: waiting ? 'wait-april' : null, label: waiting ? t('Wait for April') : '' };
+    }
+    return { title: t('Visit, ask questions, then choose'), detail: t('Compare advisors in Offers. Ask questions, then use Reply to this offer when you are ready.'), action: 'application-jump', id: 'offers', label: t('Compare your offers') };
   }
   return null;
 }

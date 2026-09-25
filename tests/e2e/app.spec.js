@@ -12,6 +12,11 @@ async function closeDialogs(page) {
     if (await b.count() && await b.isVisible()) await b.click(); else break;
   }
 }
+async function openManagerDetail(page, name) {
+  const detail = page.locator(`details[data-detail="manager-${name}"]`);
+  if (await detail.getAttribute('open') === null) await detail.locator('summary').click();
+  await expect(detail).toHaveJSProperty('open', true);
+}
 async function resolveScenes(page, max = 24) {
   // Scenes can stack (a choice can open a pushback, which can open a report), and the catalogue
   // is large enough now that a month can produce several. Clear whatever is modal until the
@@ -57,8 +62,9 @@ async function tryClick(locator, ms = 1500) {
   if (!(await one.isEnabled().catch(() => false))) return false;
   return one.click({ timeout: ms }).then(() => true, () => false);
 }
-// The room can close between the count() and the read, and a detached element throws.
-const examPhase = room => room.getAttribute('data-phase').catch(() => null);
+// The room can close after examOpen() and before this read. A locator waits for a missing node;
+// read the current matches without waiting so a finished exam returns to the state poll.
+const examPhase = room => room.evaluateAll(nodes => nodes[0]?.getAttribute('data-phase') ?? null);
 // And the room leaving the document is not the exam ending. A render replaces the whole desktop,
 // and anything on a timer can cause one mid-exam — an achievement balloon expiring is enough — so
 // for a frame there is no [data-vv] anywhere while Room 214 is very much still sitting. Reading
@@ -126,6 +132,7 @@ test('application phase: prepare, email a professor, apply, interview, decide', 
   await closeDialogs(page);
   await page.locator('[data-action="prep"]:not([data-guide])[data-id="sop_draft"]').click();
   await page.locator('[data-action="prep"]:not([data-guide])[data-id="letter_ask"]').first().click();
+  await page.locator('[data-detail="application-research"] > summary').click();
   await page.locator('[data-action="ga-school"]').first().click();
   const wrappedAdvisorRatings = await page.locator('.advisor-card .traits b').evaluateAll(nodes => nodes.filter(node => {
     const range = document.createRange();
@@ -184,7 +191,7 @@ test('a saved run in play shows the manager, resolves a month, and reports', asy
   // Research needs something to research: it is disabled, with a reason, when every project is
   // finished — which used to be a silent no-op month. So the project comes first now.
   await page.locator('[data-action="start-project"]:not([data-guide])').click();
-  await page.locator('[data-action="plan"][data-id="research"]').click();
+  await page.locator('[data-plan-suggestion][data-id="research"]').click();
   await page.locator('[data-action="continue"]:not([data-guide])').click();
   await resolveScenes(page);
   await expect(page.getByRole('heading', { name: /October 2028/ })).toBeVisible();
@@ -243,6 +250,7 @@ async function seedRun(page, mutate = '') {
   await page.locator('[data-action="wiz-next"]').click();
   await closeDialogs(page);
   await resolveScenes(page);
+  if (await page.locator('details[data-detail="manager-plans-choice"]').count() && !await page.locator('.modal').count()) await openManagerDetail(page, 'plans-choice');
 }
 
 test('mail: choosing a reply streams a draft, and sending files it under Sent', async ({ page }) => {
@@ -320,6 +328,7 @@ async function seedPlay(page, mutate = '', answers = { background: 'masters', to
   await page.locator('[data-action="wiz-next"]').click();
   await closeDialogs(page);
   if (!keepScene) { await resolveScenes(page); await closeDialogs(page); }
+  if (!keepScene && await page.locator('details[data-detail="manager-plans-choice"]').count() && !await page.locator('.modal').count()) await openManagerDetail(page, 'plans-choice');
 }
 
 test('a deadline week runs day by day, with coffee, a skipped lunch, and a door to knock on', async ({ page }) => {
@@ -596,6 +605,7 @@ test('mail, chat and the log follow the language, mid-run', async ({ page }) => 
     await page.locator('[data-action="chat-channel"][data-id="general"]').click();
     const chatLine = (await page.locator('.sl-msg .sl-body p').last().innerText()).trim().slice(0, 90);
     await page.locator('.desk-icon[data-app="dashboard"]').click();
+    await openManagerDetail(page, 'notes');
     const note = (await page.locator('.notes-box').innerText()).trim().slice(0, 80);
     return { mailRow, mailBody, chatLine, note };
   };
@@ -754,7 +764,10 @@ test('GradApply guides a new player, shows Energy as a meter, and marks what the
   await page.selectOption('select[name="background"]', 'undergrad');
   await page.getByRole('button', { name: /Create applicant/ }).click();
 
-  // The startup tips must be about the screen in front of them, not a phase they cannot reach.
+  // Help remains available without interrupting a new run; its tips describe the current phase.
+  await expect(page.locator('.modal')).toHaveCount(0);
+  await page.locator('[data-action="menu"][data-id="help"]').click();
+  await page.locator('.mb-drop [data-action="tips"]').click();
   await expect(page.getByText(/You are applying to graduate school/)).toBeVisible();
   await closeDialogs(page);
 
@@ -776,6 +789,7 @@ test('GradApply guides a new player, shows Energy as a meter, and marks what the
   await expect(recs.first().locator('.rec-note')).not.toBeEmpty();
 
   // Researching a school yields real insider notes, and the school is then visibly done.
+  await page.locator('[data-detail="application-research"] > summary').click();
   await page.locator('.school-pick button').first().click();
   await page.locator('[data-action="prep"]:not([data-guide])[data-id="research"]').first().click();
   await resolveScenes(page);
@@ -822,6 +836,7 @@ test('the journey bar shows where you are, what is done, and the next dated thin
   await seedPlay(page, `s.month = 30;
     s.milestones.prelim = 'pass'; s.milestones.proposal = null;
     p.targetMonth = 33; p.targetVenue = 'NeurIPSy'; p.status = 'Drafting';`);
+  await openManagerDetail(page, 'calendar');
   const bar = page.locator('.journey');
   await expect(bar).toBeVisible();
   // Six year bands, a position marker, and the terms shaded.
@@ -911,32 +926,43 @@ test('text size is adjustable from the tray and it sticks', async ({ page }) => 
   await expect(page.locator('.tray-text [data-id="down"]')).toBeDisabled();
 });
 
-test('the whole turn fits on screen: every plan option and the button that spends it', async ({ page }) => {
+test('a suggested plan fits on screen and every alternative remains available', async ({ page }) => {
   await seedPlay(page, `s.month = 30;`);
-  // The plan is the only mandatory input in the game, and it is re-made every month. If the list
-  // does not fit, Rest is the option below the fold — and Rest is the one the balance punishes you
-  // for never taking.
+  const choices = page.locator('details[data-detail="manager-plans-choice"]');
+  await choices.locator('summary').click();
+  await expect(choices).toHaveJSProperty('open', false);
+  // The default is one understandable suggestion; taking it still requires the player's click.
+  const suggestion = page.locator('[data-plan-suggestion]');
+  await expect(suggestion).toBeVisible();
+  await expect(suggestion).toBeEnabled();
+  await expect(page.locator('.manager-plan-summary p').first()).not.toBeEmpty();
   const m = await page.evaluate(() => {
     const sc = document.querySelector('.client');
-    const opts = [...document.querySelectorAll('.radio-list.plans .option')];
+    const suggestion = document.querySelector('[data-plan-suggestion]');
     const cont = document.querySelector('[data-action="continue"]:not([data-guide])');
     const sb = sc.getBoundingClientRect();
     return {
-      options: opts.length,
-      visible: opts.filter(o => o.getBoundingClientRect().bottom <= sb.bottom).length,
-      rowH: Math.round(opts[0].getBoundingClientRect().height),
+      suggestionVisible: suggestion.getBoundingClientRect().bottom <= sb.bottom,
       continueVisible: cont ? cont.getBoundingClientRect().bottom <= sb.bottom : false,
       bodyScrollsX: document.body.scrollWidth > document.body.clientWidth,
     };
   });
-  expect(m.options).toBeGreaterThan(5);
-  expect(m.visible).toBe(m.options);
-  expect(m.rowH).toBeLessThan(70);
+  expect(m.suggestionVisible).toBe(true);
   expect(m.continueVisible).toBe(true);
   expect(m.bodyScrollsX).toBe(false);
-  // The description is still there for the option you are actually weighing.
-  await page.locator('[data-action="plan"][data-id="rest"]').click();
-  await expect(page.locator('.option.selected .muted')).toBeVisible();
+  await suggestion.click();
+  await expect(page.locator('[data-action="continue"]:not([data-guide])')).toBeEnabled();
+  await expect(page.locator('.manager-plan-summary')).toContainText('Selected plan');
+  await expect(choices).toHaveJSProperty('open', false);
+  // The suggested activity is optional. Full trade-offs and Rest are still one click away.
+  await choices.locator('summary').click();
+  const options = choices.locator('.plans .option');
+  expect(await options.count()).toBeGreaterThan(5);
+  for (const option of await options.all()) await expect(option).toBeVisible();
+  await choices.locator('[data-action="plan"][data-id="rest"]').click();
+  await expect(page.locator('.manager-plan-summary')).toContainText('Rest');
+  await expect(page.locator('.manager-plan-summary')).toContainText('You are allowed to be a mammal.');
+  await expect(choices.locator('.option.selected .muted')).toBeVisible();
 });
 
 test('the vitals follow you when the sidebar is too narrow to exist', async ({ page }) => {
@@ -1199,8 +1225,10 @@ test('every school is a different place, and every interview is a different conv
   await closeDialogs(page);
 
   // Researching a program tells you what the place is like, not only what it ranks.
+  await page.locator('[data-detail="application-research"] > summary').click();
   await page.locator('[data-action="ga-school"]').first().click();
   await page.locator('[data-action="prep"][data-id="research"]').first().click();
+  await page.locator('.faculty-panel details > summary').click();
   const vibe = page.locator('.campus');
   await expect(vibe).toBeVisible();
   expect(await vibe.locator('dd').count()).toBeGreaterThanOrEqual(5);
@@ -1209,6 +1237,7 @@ test('every school is a different place, and every interview is a different conv
   // A different school is a different place.
   await page.locator('[data-action="ga-school"]').nth(3).click();
   await page.locator('[data-action="prep"][data-id="research"]').first().click();
+  await page.locator('.faculty-panel details > summary').click();
   await expect(page.locator('.campus')).toBeVisible();
   expect(await page.locator('.campus').innerText()).not.toBe(first);
 
@@ -1407,6 +1436,7 @@ test('an unscheduled meeting takes a piece of the turn you already chose', async
 test('the advisor’s mood is a face, not a sentence you have to parse', async ({ page }) => {
   await seedPlay(page, `s.month = 20; s.advisorMode = { id: 'checkedOut', until: s.month + 3, since: s.month };`);
   // On the manager card, next to their avatar.
+  await openManagerDetail(page, 'advisor');
   await expect(page.locator('.advisor-card .mode-face .face-svg')).toBeVisible();
   expect(await page.locator('.advisor-card .mode-face .face-svg').getAttribute('class')).toContain('awful');
 
@@ -1416,6 +1446,7 @@ test('the advisor’s mood is a face, not a sentence you have to parse', async (
 
   // A different mode is a different face.
   await seedPlay(page, `s.month = 20; s.advisorMode = { id: 'attentive', until: s.month + 3, since: s.month };`);
+  await openManagerDetail(page, 'advisor');
   expect(await page.locator('.advisor-card .mode-face .face-svg').getAttribute('class')).toContain('great');
 });
 
@@ -1425,6 +1456,7 @@ test('the advisor card is a card, not a column: the face is a badge and the text
   // broke one word per line and the card ran 565px tall inside a 318px box. Every existing test
   // still passed, because they all asserted the face EXISTS — none of them looked at the layout.
   await seedPlay(page, "s.month = 26;");
+  await openManagerDetail(page, 'advisor');
   const card = page.locator('.advisor-card').first();
   await expect(card).toBeVisible();
   const box = await card.boundingBox();

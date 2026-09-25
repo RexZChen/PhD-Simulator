@@ -284,42 +284,82 @@ export function journeyBar(s) {
 
 // The main screen is seen hundreds of times, and its guidance was one italic line while the paper
 // editor had a proper callout with a button. Same component, same clarity, here.
+function continueLabel(s) {
+  if (s.tempo === 'day') return daysLeftInWeek(s) <= 1 && s.week >= 3 ? t('Finish the month →') : t('End the day →');
+  if (s.tempo === 'week') return s.week >= 3 ? t('Finish the month →') : t('Continue → week {n}', { n: s.week + 2 });
+  if (s.tempo === 'season') return t('Continue → {month} (3 months)', { month: dateLabel(s.month + 3) });
+  return t('Continue → {month}', { month: dateLabel(s.month + 1) });
+}
+
+// A suggestion is a shortcut through the existing choices, not a new rule or an automatic turn.
+export function recommendedPlan(s) {
+  const available = focusOptions(s).filter(f => !f.disabled);
+  const find = (...ids) => ids.map(id => available.find(f => f.id === id)).find(Boolean);
+  const recovery = find('rest', 'sleep') || available.find(f => f.effects?.energy > 0);
+  if ((s.player.stats.energy < 35 || s.player.stats.health < 40) && recovery)
+    return { plan: recovery, reason: t('A little recovery now. The inbox can survive it.') };
+  const milestone = milestoneOf(s);
+  if (milestone && milestone.month - s.month <= 6 && milestone.month >= s.month) {
+    const prep = s.coursework < 65 ? find('coursework', 'reading', 'practice') : find('practice', 'reading');
+    if (prep) return { plan: prep, reason: t('The exam is getting closer. Give the basics some time.') };
+  }
+  const p = activeProject(s);
+  if (p && ['Idea', 'Prototype', 'Experiments', 'Drafting'].includes(p.status)) {
+    const writing = find('write', 'writing');
+    if (p.progress >= 40 && p.draft < 90 && writing)
+      return { plan: writing, reason: t('You have results. They need sentences.') };
+    const research = find('research', 'experiments', 'deep');
+    if (research) return { plan: research, reason: t('The project needs results before it needs adjectives.') };
+  }
+  const plan = find('coursework', 'practice', 'writing', 'life', 'rest', 'sleep') || available[0];
+  return plan ? { plan, reason: t('A useful place to start. You can change your mind.') } : null;
+}
+
 export function managerNextStep(s) {
   const p = activeProject(s);
+  const rebuttal = p?.status === 'Rebuttal' ? p : s.projects.find(project => project.status === 'Rebuttal');
   const open = s.requests.filter(r => r.status === 'open');
+  const due = open.filter(r => r.dueWeek <= absWeek(s));
+  const selected = focusOptions(s).find(f => f.id === s.focus && !f.disabled);
   const go = (label, action, opts = {}) => btn(label, action, { cls: 'primary small', attrs: 'data-guide="1"', ...opts });
+  const jump = (label, id) => go(label, 'manager-jump', { id });
   // A jump that names a page lands on that page. "Open OpenRegret" used to open Netscope on
   // whatever tab you happened to leave it on, which is not what the button says.
-  const openApp = (label, app, page = '') => btn(label, 'open', { app, cls: 'primary small', attrs: `data-guide="1"${page ? ` data-page="${page}"` : ''}` });
+  const openApp = (label, app, page = '', project = '') => btn(label, 'open', { app, cls: 'primary small', attrs: `data-guide="1"${page ? ` data-page="${page}"` : ''}${project ? ` data-project="${esc(project)}"` : ''}` });
+  const suggest = suggestion => ({ title: t('Suggested: {plan}', { plan: suggestion.plan.name }), detail: suggestion.reason, cta: go(t('Choose {plan}', { plan: suggestion.plan.name }), 'plan', { id: suggestion.plan.id }) });
 
   if (s.stage !== 'plan') return { title: t('Something is waiting for you'), detail: t('Answer what is on screen. Number keys 1–4 pick a choice.'), cta: '' };
   if (s.thesis && !s.thesis.deposited) return canDeposit(s)
     ? { title: t('Deposit the dissertation'), detail: t('Every revision is done. The degree is conferred on deposit, not on the defense.'), cta: go(t('Deposit it →'), 'deposit') }
-    : { title: t('Finish the committee’s revisions'), detail: t('{n} left. Defending was not finishing.', { n: revisionsLeft(s) }), cta: '' };
+    : { title: t('Finish the committee’s revisions'), detail: t('{n} left. Defending was not finishing.', { n: revisionsLeft(s) }), cta: jump(t('Review the revisions'), 'revisions') };
   // Running out of Energy outranks everything else, because at 0 Energy every other suggestion on
   // this screen is a button the player cannot afford to press — and the way out is in another app,
   // on a tab they have no reason to have opened.
-  if (s.player.stats.energy < 22) return { title: t('You are running on nothing'),
-    detail: t('Everything costs Energy and you are out. Life.exe → Body has the things that give it back; every one of them costs you something else.'),
-    cta: openApp(t('Open Life.exe'), 'life', 'body') };
-  if (canStartMain(s)) return { title: s.projects.length ? t('Start the next one') : t('Start a project'), detail: s.projects.length ? t('The last one is finished. Six years is three or four projects, not one, and Research does nothing while there is nothing to research.') : t('Nothing is running. A PhD is made of projects and you do not have one.'), cta: go(t('Start main project'), 'start-project', { disabled: !canStartMain(s) }) };
-  if (open.length) return { title: t('Your advisor asked for something'), detail: t('{n} open request(s). Do them, push back, or decline — ignoring them is also a choice, with a cost.', { n: open.length }), cta: openApp(t('Open LabChat'), 'chat', 'advisor') };
-  if (p?.status === 'Rebuttal') return { title: t('The rebuttal window is open'), detail: t('Reviews are in. The window closes at the end of this month.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
+  if (s.player.stats.energy < 22 && !(selected?.effects?.energy > 0)) {
+    const recovery = recommendedPlan(s);
+    if (recovery?.plan.effects?.energy > 0) return suggest(recovery);
+    return { title: t('You are running on nothing'), detail: t('Everything costs Energy and you are out. Life.exe → Body has the things that give it back; every one of them costs you something else.'), cta: openApp(t('Open Life.exe'), 'life', 'body') };
+  }
+  if (rebuttal) return { title: t('The rebuttal window is open'), detail: t('Rebuttal for “{title}” due this month — open OpenRegret', { title: rebuttal.title }), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret', rebuttal.id) };
+  if (due.length) return { title: t('An advisor request is due'), detail: t('Review it before continuing. You can do it, push back, or decline; leaving it unanswered has a cost.'), cta: jump(t('Review requests'), 'requests') };
+  if (canStartMain(s) && (!selected || ['research', 'write'].includes(s.focus))) return { title: s.projects.length ? t('Start the next one') : t('Start a project'), detail: t('Research and writing need a project. Start one, then choose what to spend this turn on.'), cta: go(t('Start main project'), 'start-project') };
   if (p?.status === 'Ready' && p.kind !== 'thesis') return { title: t('A draft is approved'), detail: t('Submit it when a venue is open.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
   // The draft is finished and nobody has read it. This had no branch at all, so the screen said
   // "Plan set. Use the desktop if you want to" — and four measured runs sat on a project reading
   // 100/100 for more than twenty months and ended All But Dissertation. The verb lives in another
   // app, which is the whole reason this callout exists.
-  if (p && p.status === 'Drafting' && p.draft >= 60 && p.progress >= 40)
+  if (p && p.status === 'Drafting' && p.draft >= (p.kind === 'thesis' ? 90 : 60) && p.progress >= 40)
     return { title: p.draft >= 99 ? t('The draft is finished and nobody has read it') : t('The draft is ready for a reader'),
       detail: t('Nothing happens to a paper until your advisor has it. It will come back with comments; that is the point of sending it.'),
-      cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
+      cta: openApp(t('Open Overgrief'), 'browser', 'overgrief') };
   if (p?.status === 'Rejected') return { title: t('It came back'), detail: t('A rejected paper is not a dead paper. Revise it, reframe it, or make it bigger, and send it somewhere else.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
-  if (p?.status === 'Advisor Review') return { title: t('It is on their desk'), detail: t('Your advisor has the draft. This takes as long as it takes, and the waiting is not idleness — start the next thing.'), cta: '' };
   if (p && ['Drafting', 'Experiments', 'Prototype', 'Idea'].includes(p.status) && !p.targetVenueId && p.progress >= 35)
     return { title: t('Choose a venue'), detail: t('Work without a deadline expands, and your advisor will keep asking which one it is.'), cta: openApp(t('Set a target'), 'browser', 'openregret') };
-  if (!s.focus) return null;
-  return { title: t('Plan set'), detail: t('Use the desktop if you want to, then continue. Everything else is optional.'), cta: go(t('Continue →'), 'continue') };
+  if (!selected) {
+    const suggestion = recommendedPlan(s);
+    return suggestion ? suggest(suggestion) : { title: t('Choose a plan'), detail: t('Pick one activity in the plan list. It sets what happens when you press Continue; selecting it does not advance time.'), cta: jump(t('Choose a plan'), 'plans') };
+  }
+  return { title: t('{plan} selected', { plan: selected.name }), detail: t('Continue spends this plan. You can change it or explore optional tools first.'), cta: go(continueLabel(s), 'continue') };
 }
 
 
@@ -385,7 +425,7 @@ function stuckPanel(s) {
 
 export function planList(s) {
   const opts = focusOptions(s);
-  return `<div class="radio-list plans">${opts.map(f => `<button class="option ${s.focus === f.id ? 'selected' : ''}" data-action="plan" data-id="${f.id}" ${f.disabled ? 'disabled' : ''} title="${esc(f.disabled || f.desc)}"><span class="radio"></span>${icon(f.icon, 22)}<span class="opt-name"><b>${esc(f.name)}</b><span class="muted">${esc(f.disabled || f.desc)}</span><span class="eff">${f.disabled ? '' : effectPills(f.effects, {}, 5)}</span></span></button>`).join('')}</div>`;
+  return `<div class="radio-list plans">${opts.map(f => `<button class="option ${s.focus === f.id ? 'selected' : ''}" data-action="plan" data-id="${f.id}" aria-pressed="${s.focus === f.id}" ${f.disabled ? 'disabled' : ''} title="${esc(f.disabled || f.desc)}"><span class="radio"></span>${icon(f.icon, 22)}<span class="opt-name"><b>${esc(f.name)}</b><span class="muted">${esc(f.disabled || f.desc)}</span><span class="eff">${f.disabled ? '' : effectPills(f.effects, {}, 5)}</span></span></button>`).join('')}</div>`;
 }
 
 export function readinessWidget(s) {
@@ -479,22 +519,38 @@ function quietDecision(s) {
 
 export function managerApp(s, ui) {
   const tempo = s.tempo, crunch = s.crunch;
-  const p = activeProject(s);
-  const nextLabel = tempo === 'day' ? (daysLeftInWeek(s) <= 1 && s.week >= 3 ? t('Finish the month →') : t('End the day →')) : tempo === 'week' ? (s.week >= 3 ? t('Finish the month →') : t('Continue → week {n}', { n: s.week + 2 })) : tempo === 'season' ? t('Continue → {month} (3 months)', { month: dateLabel(s.month + 3) }) : t('Continue → {month}', { month: dateLabel(s.month + 1) });
-  const objective = s.stage !== 'plan' ? t('Respond to what is on screen.') : s.thesis && !s.thesis.deposited ? (canDeposit(s) ? t('Every revision is done. Deposit it, and then the margins will have opinions.') : t('You passed. Now finish the revisions — the degree is conferred on deposit, not on the defense.')) : !s.focus ? (tempo === 'day' ? t('Give today to something, then end the day. Coffee is optional. It is not.') : tempo === 'week' ? t('Decide what this week goes to, then Continue.') : t('Pick a plan for the month, then Continue. Everything else is optional.')) : !s.projects.length ? t('Start a project in the Projects box, or just Continue and see what the month brings.') : s.requests.some(r => r.status === 'open') ? t('Your advisor asked for something. Answer it (or don’t), then Continue.') : p?.status === 'Ready' && p.kind !== 'thesis' ? t('A draft is approved. Submit it in Netscope → OpenRegret when a venue is open.') : p?.status === 'Rebuttal' ? t('Reviews are in. Write the rebuttal in OpenRegret this month.') : t('Plan set. Use the desktop if you want, then Continue.');
+  const selected = focusOptions(s).find(f => f.id === s.focus && !f.disabled);
+  const suggestion = selected ? null : recommendedPlan(s);
+  const displayedPlan = selected || suggestion?.plan;
+  const open = s.requests.filter(r => r.status === 'open');
+  const next = managerNextStep(s);
+  const timeline = timelinePanel(s), internship = internPanel(s), letters = lettersPanel(s);
+  const detail = (id, title, body) => `<details class="manager-detail" data-detail="manager-${id}"><summary>${title}</summary><div class="manager-detail-body">${body}</div></details>`;
   const tempoNote = tempo === 'day' ? t('Days pass one at a time now. Everything counts and nothing is enough.') : tempo === 'week' ? t('Deadline weeks pass one at a time.') : tempo === 'season' ? t('Calm seasons pass three months at a time.') : t('Calm months pass in one step.');
-  return `<div class="topstrip raised"><div><h1>${dateLabel(s.month)} ${tempo === 'day' ? `<span class="tag info">${esc(dayName(s))} · ${t('week {n}', { n: Math.min(4, s.week + 1) })}</span>` : tempo === 'week' ? `<span class="tag info">${t('Week {n} of 4', { n: Math.min(4, s.week + 1) })}</span>` : ''} ${crunch ? tag(crunchLabel(crunch), 'crunch') : ''}</h1><div class="sub">${esc(semester(s.month))} · ${t('Year {n}', { n: phdYear(s.month) })} · ${esc(seasonalFlavor(s.month, s.seed + s.month))}</div></div><div class="stack right">${btn(nextLabel, 'continue', { cls: 'continue primary', disabled: s.stage !== 'plan' || !s.focus, title: s.stage !== 'plan' ? t('Answer what is on screen first.') : !s.focus ? t('Pick a plan on the left first — that is what the turn spends.') : t('Enter') })}<span class="tiny muted">${tempoNote}</span>${paceControl(s)}</div></div>
-  ${journeyBar(s)}
+  const planStatus = s.stage !== 'plan' ? t('Respond to what is on screen.') : selected ? t('{plan} selected', { plan: selected.name }) : t('Choose a plan to enable Continue.');
+  return `<div class="manager">
+  <div class="topstrip raised manager-header"><div><h1>${dateLabel(s.month)} ${tempo === 'day' ? `<span class="tag info">${esc(dayName(s))} · ${t('week {n}', { n: Math.min(4, s.week + 1) })}</span>` : tempo === 'week' ? `<span class="tag info">${t('Week {n} of 4', { n: Math.min(4, s.week + 1) })}</span>` : ''} ${crunch ? tag(crunchLabel(crunch), 'crunch') : ''}</h1><div class="sub">${esc(semester(s.month))} · ${t('Year {n}', { n: phdYear(s.month) })}</div><p class="manager-plan-status" id="manager-plan-status">${esc(planStatus)}</p></div><div class="stack right">${btn(continueLabel(s), 'continue', { cls: 'continue primary', disabled: s.stage !== 'plan' || !selected, title: s.stage !== 'plan' ? t('Answer what is on screen first.') : !selected ? t('Choose a plan to enable Continue.') : t('Enter'), attrs: 'aria-describedby="manager-plan-status"' })}<span class="tiny muted">${tempoNote}</span>${paceControl(s)}</div></div>
+  ${next ? `<div class="next-step manager-next"><span class="ns-mark">${icon('arrow', 18)}</span><div><span class="manager-kicker">${t('Next action')}</span><b>${esc(next.title)}</b><span class="muted small">${esc(next.detail)}</span></div><span class="ns-cta">${next.cta}</span></div>` : ''}
   ${standingBanner(s)}
-  ${(() => { const n = managerNextStep(s); if (!n) return ''; return `<div class="next-step"><span class="ns-mark">${icon('arrow', 18)}</span><div><b>${esc(n.title)}</b><span class="muted small">${esc(n.detail)}</span></div><span class="ns-cta">${n.cta}</span></div>`; })()}
-  <div class="grid-3">
-    <div>${tempo === 'day' ? group(t('Today'), dayStrip(s)) : ''}${group(tempo === 'day' ? t('Today goes to') : tempo === 'week' ? t('This week goes to') : t('Plan for the month'), planList(s))}</div>
-    <div>${s.thesis && !s.thesis.deposited ? group(t('Almost'), revisionPanel(s)) : timelinePanel(s) ? group(t('The timeline'), timelinePanel(s)) : ''}${internPanel(s) ? group(t('Summer'), internPanel(s)) : ''}${lettersPanel(s) ? group(t('Letters'), lettersPanel(s)) : ''}${group(t('Agenda'), readinessWidget(s) + agenda(s))}${group(`${t('Advisor requests')} ${s.requests.some(r => r.status === 'open') ? tag(String(s.requests.filter(r => r.status === 'open').length), 'warn') : ''}`, requestList(s))}</div>
-    <div>${group(t('Projects'), projectList(s) + `<div class="row" style="margin-top:6px">${btn(t('Start main project'), 'start-project', { cls: 'small', disabled: s.stage !== 'plan' || !canStartMain(s), title: canStartMain(s) ? t('A new main project') : t('The current main project is still alive') })}${btn(t('Start side project'), 'start-side', { cls: 'small', disabled: s.stage !== 'plan' || !canStartSide(s), title: t('Month 5+, main project past 40%, one at a time. −5 Energy.') })}${s.milestones?.proposal === 'pass' && !s.milestones.thesisStarted ? btn(t('Start the dissertation'), 'start-thesis', { cls: 'small accent', disabled: s.stage !== 'plan' || s.month < thesisFloor(s), title: t('From {month}, a decent interval after the proposal. Accepted papers become chapters, and the ones you aimed at it become better ones.', { month: dateLabel(thesisFloor(s)) }) }) : ''}${s.projects.some(x => x.kind === 'thesis' && x.status === 'Ready') && (s.milestones.defenseMonth === null || s.milestones.defenseMonth === undefined) ? btn(t('Schedule the defense'), 'schedule-defense', { cls: 'small accent', disabled: s.stage !== 'plan' }) : ''}${btn(t('Open Overgrief'), 'open', { app: 'browser', cls: 'small link' })}</div>${quietDecision(s)}`)}
-    ${group(t('Stuck?'), stuckPanel(s))}
-    ${group(t('Advisor'), advisorCard(s) + `<div style="margin-top:8px">${quickAsks(s, 3)}</div>`)}
-    ${group(t('Field notes'), `<div class="notes-box">${voiced(noticeText(s))}</div>`)}</div>
-  </div>`;
+  <div class="manager-grid">
+    <section class="manager-planning" aria-label="${esc(t('Choose a plan'))}">
+      ${group(tempo === 'day' ? t('Today goes to') : tempo === 'week' ? t('This week goes to') : t('Plan for the month'), `${displayedPlan ? `<div class="manager-plan-summary"><span class="manager-kicker">${selected ? t('Selected plan') : t('Suggested plan')}</span><h2>${icon(displayedPlan.icon, 20)} ${esc(displayedPlan.name)}</h2><p class="small">${esc(displayedPlan.desc)}</p>${selected ? `<p class="small muted">${t('Ready when you are. Continue moves time forward.')}</p>` : `<p class="small muted">${esc(suggestion.reason)}</p>${btn(t('Choose {plan}', { plan: displayedPlan.name }), 'plan', { id: displayedPlan.id, cls: 'primary', disabled: s.stage !== 'plan', attrs: 'data-plan-suggestion="1"' })}`}</div>` : ''}<details id="manager-plans" class="manager-detail" data-detail="manager-plans-choice" tabindex="-1"><summary>${selected ? t('Change plan') : t('All activities')}</summary><div class="manager-detail-body">${planList(s)}</div></details>`)}
+      ${tempo === 'day' ? group(t('Today'), dayStrip(s)) : ''}
+    </section>
+    <div class="manager-current">
+      ${s.thesis && !s.thesis.deposited ? `<section id="manager-revisions" tabindex="-1">${group(t('Almost'), revisionPanel(s))}</section>` : ''}
+      ${open.length ? `<section id="manager-requests" tabindex="-1">${group(`${t('Advisor requests')} ${tag(String(open.length), 'warn')}`, requestList(s))}</section>` : ''}
+      <section id="manager-projects" tabindex="-1">${group(t('Projects'), projectList(s) + `<div class="row" style="margin-top:6px">${btn(t('Start main project'), 'start-project', { cls: 'small', disabled: s.stage !== 'plan' || !canStartMain(s), title: canStartMain(s) ? t('A new main project') : t('The current main project is still alive') })}${btn(t('Start side project'), 'start-side', { cls: 'small', disabled: s.stage !== 'plan' || !canStartSide(s), title: t('Month 5+, main project past 40%, one at a time. −5 Energy.') })}${s.milestones?.proposal === 'pass' && !s.milestones.thesisStarted ? btn(t('Start the dissertation'), 'start-thesis', { cls: 'small accent', disabled: s.stage !== 'plan' || s.month < thesisFloor(s), title: t('From {month}, a decent interval after the proposal. Accepted papers become chapters, and the ones you aimed at it become better ones.', { month: dateLabel(thesisFloor(s)) }) }) : ''}${s.projects.some(x => x.kind === 'thesis' && x.status === 'Ready') && (s.milestones.defenseMonth === null || s.milestones.defenseMonth === undefined) ? btn(t('Schedule the defense'), 'schedule-defense', { cls: 'small accent', disabled: s.stage !== 'plan' }) : ''}${btn(t('Open Overgrief'), 'open', { app: 'browser', cls: 'small link', attrs: 'data-page="overgrief"' })}</div>${quietDecision(s)}`)}</section>
+      ${crunch?.kind ? group(t('Agenda'), readinessWidget(s) + agenda(s)) : ''}
+      ${!s.thesis && timeline ? group(t('The timeline'), timeline) : ''}${internship ? group(t('Summer'), internship) : ''}${letters ? group(t('Letters'), letters) : ''}
+    </div>
+  </div>
+  <div class="manager-optional"><p class="small muted">${t('More at your desk — open only what you need.')}</p>
+    ${detail('calendar', t('Calendar & milestones'), journeyBar(s) + (crunch?.kind ? '' : readinessWidget(s) + agenda(s)))}
+    ${detail('support', t('Stuck?'), stuckPanel(s))}
+    ${detail('advisor', t('Advisor'), advisorCard(s) + `<div style="margin-top:8px">${quickAsks(s, 3)}</div>`)}
+    ${detail('notes', t('Field notes'), `<p class="small muted">${esc(seasonalFlavor(s.month, s.seed + s.month))}</p><div class="notes-box">${voiced(noticeText(s))}</div>`)}
+  </div></div>`;
 }
 
 
@@ -541,8 +597,8 @@ export function reportDialog(s) {
   return `<div class="modal"><section class="dialog wide" role="dialog" aria-modal="true" aria-labelledby="report-title"><div class="titlebar"><span class="tb-title">${icon('doc', 16)}<span>${r.monthsCovered > 1 ? t('Season statement — {from} to {to}', { from: dateLabel(s.month), to: dateLabel(s.month + r.monthsCovered - 1) }) : t('Monthly statement — {month}', { month: dateLabel(s.month) })}</span></span></div><div class="body">
     <h2 id="report-title">${esc(r.focus || t('A month, week by week'))}</h2>
     ${monthAtAGlance(s, r, b)}
-    <div class="report-grid"><div>${group(t('What changed'), stats)}${group(t('Money'), ledger || `<p class="muted small">${t('First month: moving costs and a deposit you will never see again.')}</p>`)}</div>
-    <div>${group(t('What happened'), events)}${group(t('Meetings'), meetings)}${group(t('Projects'), projects ? `<table class="grid"><tr><th>${t('Project')}</th><th>${t('Research')}</th><th>${t('Draft')}</th><th>${t('Status')}</th></tr>${projects}</table>` : `<p class="muted small">${t('No project yet.')}</p>`)}</div></div>
+    <div class="report-grid"><div>${group(t('What happened'), events)}${group(t('Projects'), projects ? `<table class="grid"><tr><th>${t('Project')}</th><th>${t('Research')}</th><th>${t('Draft')}</th><th>${t('Status')}</th></tr>${projects}</table>` : `<p class="muted small">${t('No project yet.')}</p>`)}</div>
+    <div>${[[t('What changed'), stats, 'stats'], [t('Money'), ledger || `<p class="muted small">${t('First month: moving costs and a deposit you will never see again.')}</p>`, 'money'], [t('Meetings'), meetings, 'meetings']].map(([title, body, id]) => `<details class="manager-detail" data-detail="report-${id}"><summary>${title}</summary><div class="manager-detail-body">${body}</div></details>`).join('')}</div></div>
     <div class="dialog-footer"><span>${next}</span><span>${t('Autosaved.')}</span></div></div>
     <div class="buttons">${btn(msNow && msNow.month === s.month ? t('Enter the room →') : t('Continue to {month} →', { month: dateLabel(s.month + (r.monthsCovered || 1)) }), 'dismiss-report', { cls: 'primary', attrs: 'data-default="1"' })}</div></section></div>`;
 }

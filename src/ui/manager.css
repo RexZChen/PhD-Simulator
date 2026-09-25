@@ -1,0 +1,42 @@
+/* The manager has one turn to plan. Keep that work together, with the rest of the desk a click away. */
+.manager { min-width: 0; }
+.manager-header { gap: 12px; align-items: flex-start; }
+.manager-header > div { min-width: 0; }
+.manager-header .stack { min-width: 0; }
+.manager-header .pace { flex-wrap: wrap; justify-content: flex-end; }
+.manager-header .pace-step { flex-shrink: 0; white-space: nowrap; }
+.manager-plan-status { margin: 7px 0 0; font-size: var(--fs-sm); font-weight: 700; }
+.manager-next { padding: 10px 12px; margin: 10px 0 12px; background: #eef4ff; border-color: #7d9dd0; }
+.manager-kicker { display: block; color: #36517a; font-size: var(--fs-xs); margin-bottom: 2px; }
+.manager-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.manager-grid > *, .manager-grid section { min-width: 0; }
+.manager-plan-help { margin-bottom: 8px; }
+.manager-plan-summary { padding: 6px 2px 10px; }
+.manager-plan-summary h2 { display: flex; align-items: center; gap: 7px; }
+.manager-plan-summary h2 .ico { flex-shrink: 0; }
+.manager-planning > .group > .manager-detail { margin-top: 8px; }
+.manager .radio-list.plans .option { padding: 3px 7px; }
+.manager .radio-list.plans .option .eff { gap: 3px 5px; }
+.manager .radio-list.plans .option .pill { padding: 0 4px; }
+.manager-current .group { margin-bottom: 12px; }
+.manager section[tabindex="-1"]:focus { outline: 2px solid #5276a5; outline-offset: 3px; }
+.manager-optional { border-top: 1px solid var(--shadow); margin-top: 10px; padding-top: 10px; }
+.manager-optional > p { margin: 0 0 8px; }
+.manager-detail { border: 1px solid var(--shadow); background: var(--face-light); margin-bottom: 6px; }
+.manager-detail > summary { padding: 8px 10px; cursor: pointer; font-size: var(--fs-sm); font-weight: 700; }
+.manager-detail > summary:hover { background: #e9eef8; }
+.manager-detail > summary:focus-visible { outline: 2px solid var(--sel); outline-offset: -3px; }
+.manager-detail[open] > summary { border-bottom: 1px solid var(--shadow); }
+.manager-detail-body { padding: 10px; background: var(--paper); }
+.manager-detail-body > :last-child { margin-bottom: 0; }
+.manager-detail .advisor-card { max-width: 650px; }
+.manager-detail .notes-box { max-height: none; }
+.manager-detail .journey { margin-bottom: 12px; }
+@media (max-width: 760px) {
+  .manager-grid { grid-template-columns: minmax(0, 1fr); }
+  .manager-header { flex-direction: column; }
+  .manager-header .stack { max-width: none; width: 100%; text-align: left; align-items: flex-start; }
+  .manager-header .continue { max-width: 100%; white-space: normal; }
+  .manager .radio-list.plans .option { min-height: 44px; }
+  .manager-next .ns-cta { padding-left: 36px; }
+}

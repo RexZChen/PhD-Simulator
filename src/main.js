@@ -1,5 +1,6 @@
 import './styles.css';
-import { createRun, chatBody, mailSubject, mailSender, requestText, noticeText, entryText } from './engine/state.js';
+import './ui/manager.css';
+import { createRun, requestText, noticeText, entryText } from './engine/state.js';
 import { dispatch, prepareRun } from './engine/game.js';
 import { loadSave, saveRun, resetSave, emptyMeta, listSlots, readSlot, writeSlot, deleteSlot } from './engine/save.js';
 import { shell } from './ui/shell.js';
@@ -30,6 +31,7 @@ let meta = loaded.meta;
 let notices = [loaded.notice, loaded.error].filter(Boolean);
 let ui = { screen: 'boot', wizardStep: 0, wizardChoice: run && run.phase !== 'ending' ? 'continue' : 'new', eula: false, app: 'dashboard', browserTab: 'overgrief', mailFolder: 'inbox', selectedMail: null, chatChannel: 'advisor', startMenu: false, minimized: false, confirm: null, dialog: null, balloons: [], saveError: loaded.error, effort: 'generic', contact: false };
 let balloonId = 0;
+const detailState = new Map();
 setSound(meta.settings.sound);
 // Text size is a scale now, not a switch. Old saves carry a boolean; read it once and forget it.
 if (meta.settings.textSize === undefined) meta.settings.textSize = meta.settings.largeText ? 2 : 1;   // 1 is Normal, not the floor
@@ -110,16 +112,18 @@ function flashAwards() {
   const now = run.achievements || [];
   if (seenAwards === null) { seenAwards = new Set(now); return; }
   const fresh = now.filter(id => !seenAwards.has(id));
+  // Let the story finish before asking for attention elsewhere on the desktop.
+  if (document.querySelector('.modal')) return;
   for (const id of fresh) seenAwards.add(id);
   if (!fresh.length || !meta.settings.sound && meta.settings.quiet) return;
   const host = document.querySelector('[data-award-host]');
   if (!host) return;
-  for (const id of fresh) {
+  for (const id of fresh.slice(0, 1)) {
     const a = achievements[id];
     if (!a) continue;
     const el = document.createElement('div');
     el.className = 'award-toast';
-    el.innerHTML = `<b>${t('Achievement unlocked')}</b><span>${esc(t(a.name))}</span><small>${esc(t(a.desc))}</small>`;
+    el.innerHTML = `<b>${t('Achievement unlocked')}</b><span>${fresh.map(key => esc(t(achievements[key]?.name || key))).join(' · ')}</span><small>${esc(t(a.desc))}</small>`;
     host.appendChild(el);
     setTimeout(() => el.remove(), 5200);
   }
@@ -197,16 +201,35 @@ function followThreads() {
   }
 }
 
+function revealSection(element) {
+  if (!element) return;
+  for (let parent = element; parent && parent !== root; parent = parent.parentElement) {
+    if (parent.matches('details')) parent.open = true;
+  }
+  element.scrollIntoView({ block: 'nearest' });
+  if (!element.hasAttribute('tabindex')) element.tabIndex = -1;
+  element.focus({ preventScroll: true });
+}
+
 function render({ restoreTyping = false, preserveScroll = true } = {}) {
   const scroll = preserveScroll ? (document.querySelector('.client')?.scrollTop || 0) : 0;
-  const modalScroll = document.querySelector('.dialog .body')?.scrollTop || 0;
+  const previousDialog = document.querySelector('.modal:last-of-type .dialog') || document.querySelector('.dialog');
+  const dialogKey = dialog => dialog ? `${dialog.className}:${dialog.querySelector('.titlebar')?.textContent}:${dialog.querySelector('h2')?.textContent}` : '';
+  const previousDialogKey = dialogKey(previousDialog);
+  const modalScroll = previousDialog?.querySelector('.body')?.scrollTop || 0;
+  for (const detail of root.querySelectorAll('details[data-detail]')) detailState.set(detail.dataset.detail, detail.open);
   // Rendering calls t() thousands of times; none of it is text the run stores, so keep it
   // out of the provenance buffer.
   pauseProvenance();
   try { root.innerHTML = shell(run, ui, meta, loaded.run, notices); } finally { resumeProvenance(); }
+  for (const detail of root.querySelectorAll('details[data-detail]')) {
+    if (detailState.has(detail.dataset.detail)) detail.open = detailState.get(detail.dataset.detail);
+  }
   const client = document.querySelector('.client');
   if (client && preserveScroll) client.scrollTop = scroll;
-  const body = document.querySelector('.dialog .body'); if (body) body.scrollTop = modalScroll;
+  const dialog = document.querySelector('.modal:last-of-type .dialog') || document.querySelector('.dialog');
+  const body = dialog?.querySelector('.body');
+  if (body && preserveScroll && dialogKey(dialog) === previousDialogKey) body.scrollTop = modalScroll;
   if (restoreTyping) document.querySelector('#typing-zone')?.focus();
   followThreads();
   syncSceneTimer();
@@ -221,14 +244,17 @@ function persist() {
   meta = result.meta; ui.saveError = result.error; loaded.run = run; loaded.meta = meta;
 }
 function saveMeta() { const result = saveRun(localStorage, run, meta); meta = result.meta; ui.saveError = result.error; loaded.meta = meta; }
-function balloon(title, text, icon = 'bell', sound = 'notify') {
-  ui.balloons.push({ id: ++balloonId, title, text: String(text).slice(0, 140) });
-  if (ui.balloons.length > 3) ui.balloons.shift();
+function balloon(title, text, icon = 'bell', sound = 'notify', error = false) {
+  ui.balloons = [{ id: ++balloonId, title, text: String(text).slice(0, 140), icon, error }];
   const id = balloonId;
-  setTimeout(() => { ui.balloons = ui.balloons.filter(b => b.id !== id); render(); }, 6000);
+  // Expiring a notice must not rebuild the desktop, steal focus, or reset a dialog.
+  setTimeout(() => {
+    ui.balloons = ui.balloons.filter(b => b.id !== id);
+    root.querySelector(`[data-action="dismiss-balloon"][data-id="${id}"]`)?.closest('.balloon')?.remove();
+  }, 6000);
   play(sound);
 }
-function notify(text) { balloon('Academic OS', text, 'warn', 'error'); }
+function notify(text) { balloon('Academic OS', text, 'warn', 'error', true); }
 // The composer types a canned line into the box, then Send becomes available.
 function closeCompose() { stopStream(); ui.compose = null; ui.chatMenu = false; }
 function beginCompose(mailId, optionId) {
@@ -241,19 +267,11 @@ function beginCompose(mailId, optionId) {
 function setLanguage(lang) { meta.settings.lang = lang; setAppLanguage(lang); saveMeta(); render(); }
 
 function afterDispatch(before, after) {
-  const newMail = after.inbox.filter(m => !before.inbox.some(x => x.id === m.id));
-  const newChat = after.chatMessages.filter(m => !m.mine && !before.chatMessages.some(x => x.id === m.id));
   const newReq = after.requests.filter(r => r.status === 'open' && !before.requests.some(x => x.id === r.id));
-  const newAch = after.achievements.filter(a => !before.achievements.includes(a));
-  // The balloon printed the raw id — "Achievement unlocked — boundary" — next to a panel that had
-  // the real name in it. Look it up, the way the panel does.
-  if (newAch.length) balloon(t('Achievement unlocked'), newAch.map(id => t(achievements[id]?.name || id)).join(', '), 'star', 'chime');
-  if (newReq.length) balloon(t('Request from Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), requestText(after, newReq[0]), 'chat', 'ring');
-  else if (newChat.filter(m => m.channel === 'advisor').length) balloon(t('Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), chatBody(after, newChat.filter(m => m.channel === 'advisor')[0]), 'chat', 'notify');
-  else if (newChat.length) balloon(`#${newChat[0].channel}`, `${newChat[0].sender}: ${chatBody(after, newChat[0])}`, 'chat', 'notify');
-  if (newMail.length) balloon(t('New mail'), `${mailSender(after, newMail[0])}: ${mailSubject(after, newMail[0])}`, 'mail', newChat.length ? 'click' : 'notify');
+  // Routine mail/chat already have unread badges. One notice is enough for something actionable.
   const newConds = (after.conditions || []).filter(c => !(before.conditions || []).some(x => x.id === c.id));
   if (newConds.length) balloon(t('Your body, calling'), t(conditionNames[newConds[0].id] || newConds[0].id), 'warn', 'error');
+  else if (newReq.length) balloon(t('Request from Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), requestText(after, newReq[0]), 'chat', 'notify');
   if (after.phase === 'ending' && before.phase !== 'ending') play(after.ending.id === 'pass' ? 'accept' : 'reject');
   const acc = after.counts?.accepted || 0, bef = before.counts?.accepted || 0;
   if (acc > bef) play('accept'); else if ((after.counts?.rejected || 0) > (before.counts?.rejected || 0)) play('reject');
@@ -262,6 +280,7 @@ function perform(action, options = {}) {
   try {
     const before = run;
     run = dispatch(run, action);
+    if (before.phase !== run.phase) ui.gaTab = null;
     if (before.phase === 'playing' || run.phase === 'playing') afterDispatch(before, run);
     // Anything that arrived in the channel you are currently looking at has been seen. Without
     // this the badge counts messages that are already on the screen in front of you.
@@ -274,10 +293,12 @@ function perform(action, options = {}) {
   } catch (error) { notify(error.message || t('That action is unavailable.')); render(); }
 }
 function startRun(seed, answers) {
+  detailState.clear();
+  seenAwards = null;
   run = prepareRun(createRun(seed, answers));
   run.seenBefore = { ...meta.eventCounts };
   meta.runs = (meta.runs || 0) + 1;
-  ui = { ...ui, screen: 'game', app: 'dashboard', confirm: null, startMenu: false, minimized: false, wizardStep: 0, selectedMail: null };
+  ui = { ...ui, screen: 'game', app: 'dashboard', confirm: null, startMenu: false, minimized: false, wizardStep: 0, selectedMail: null, guideOff: false };
   persist(); play('submit'); render();
 }
 function submitProfile() {
@@ -290,26 +311,25 @@ function wizardNext() {
   const choice = ui.wizardChoice || 'new';
   if (ui.wizardStep === 0) {
     if (choice === 'collection') { ui.screen = 'collection'; render(); return; }
-    if (choice === 'continue' && run) { ui.screen = 'game'; ui.app = 'dashboard'; if (meta.settings.tips && run.phase !== 'ending') ui.dialog = 'tips'; render(); return; }
+    if (choice === 'continue' && run) { ui.screen = 'game'; ui.app = 'dashboard'; render(); return; }
     ui.wizardStep = 1; render(); return;
   }
   if (ui.wizardStep === 1) {
     if (!ui.eula) { notify(t('The license is short. Please tick the box.')); return; }
-    if (choice === 'random') { startRun(); if (meta.settings.tips) { ui.dialog = 'tips'; render(); } return; }
+    if (choice === 'random') { startRun(); return; }
     ui.wizardStep = 2; render(); return;
   }
   submitProfile();
 }
 
 root.addEventListener('submit', e => {
-  if (e.target.id === 'profile-form') { e.preventDefault(); submitProfile(); if (meta.settings.tips) { ui.dialog = 'tips'; render(); } }
+  if (e.target.id === 'profile-form') { e.preventDefault(); submitProfile(); }
   if (e.target.id === 'chatphd-form') { e.preventDefault(); const input = document.querySelector('#chatphd-input'); const text = input?.value || ''; perform({ type: 'CHATPHD_SAY', text }); const again = document.querySelector('#chatphd-input'); if (again) again.focus(); }
 });
 root.addEventListener('change', e => {
   if (e.target.id === 'eula') { ui.eula = e.target.checked; render(); }
   if (e.target.id === 'effort-select') { ui.effort = e.target.value; render(); }
   if (e.target.id === 'contact-faculty') { ui.contact = e.target.checked; render(); }
-  if (e.target.id === 'tips-toggle') { meta.settings.tips = e.target.checked; saveMeta(); }
 });
 root.addEventListener('keydown', e => {
   if (e.target.id === 'typing-zone') {
@@ -341,10 +361,19 @@ root.addEventListener('click', event => {
     case 'collection': ui.screen = 'collection'; ui.minimized = false; render({ preserveScroll: false }); return;
     case 'back-to-game': ui.screen = 'game'; ui.minimized = false; render({ preserveScroll: false }); return;
     case 'guide-off': ui.guideOff = true; render(); return;
+    case 'manager-jump': revealSection(document.getElementById(`manager-${id}`)); return;
+    case 'application-jump': {
+      const tabs = { letters: 'prep', 'programs-research': 'prep', gre: 'prep', programs: 'application', interviews: 'interviews', updates: 'interviews', offers: 'admissions' };
+      if (!tabs[id]) return;
+      ui.gaTab = tabs[id];
+      render({ preserveScroll: false });
+      revealSection(document.querySelector(`[data-application-section="${id}"]`));
+      return;
+    }
     case 'wiz-choice': ui.wizardChoice = id; render(); return;
     case 'wiz-next': wizardNext(); return;
     case 'wiz-back': ui.wizardStep = Math.max(0, ui.wizardStep - 1); render(); return;
-    case 'wiz-submit': submitProfile(); if (meta.settings.tips) { ui.dialog = 'tips'; render(); } return;
+    case 'wiz-submit': submitProfile(); return;
     case 'wiz-cancel': if (run && run.phase !== 'ending') { ui.screen = 'game'; } ui.wizardStep = 0; render(); return;
     case 'new': if (run && run.phase !== 'ending') { ui.confirm = 'new'; render(); } else { ui.screen = 'home'; ui.wizardStep = 0; ui.wizardChoice = 'new'; render(); } return;
     case 'reset': ui.confirm = 'reset'; render(); return;
@@ -404,7 +433,8 @@ root.addEventListener('click', event => {
         else if (ui.app === 'mail') ui.selectedMail = page;
       }
       if (ui.app === 'mail' && !ui.selectedMail) ui.selectedMail = run.inbox[0]?.id;
-      if (ui.app === 'chat') perform({ type: 'READ_CHAT', channel: ui.chatChannel }, { preserveScroll: false });
+      if (target.dataset.project && run.projects.some(p => p.id === target.dataset.project)) perform({ type: 'SELECT_PROJECT', id: target.dataset.project }, { preserveScroll: false });
+      else if (ui.app === 'chat') perform({ type: 'READ_CHAT', channel: ui.chatChannel }, { preserveScroll: false });
       else render({ preserveScroll: false });
       return;
     }

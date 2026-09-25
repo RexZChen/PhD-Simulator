@@ -112,7 +112,7 @@ export const tipsDialog = (s = null) => {
     t('Set a target deadline in OpenRegret. Real venues, real annual cycles.'),
     t('Stress is never shown as a number. Watch the desktop.'),
   ];
-  return `<div class="modal"><section class="dialog narrow" role="dialog" aria-modal="true"><div class="titlebar"><span class="tb-title">${icon('info', 16)}<span>${t('Welcome to Academic OS')}</span></span></div><div class="body"><h2>${applying ? t('How this starts') : t('Did you know…')}</h2><ul class="small">${tips.map(x => `<li>${x}</li>`).join('')}</ul><label class="check"><input type="checkbox" id="tips-toggle" checked> ${t('Show tips at startup')}</label></div><div class="buttons">${btn(t('Close'), 'close-dialog', { cls: 'primary', attrs: 'data-default="1"' })}</div></section></div>`;
+  return `<div class="modal"><section class="dialog narrow" role="dialog" aria-modal="true"><div class="titlebar"><span class="tb-title">${icon('info', 16)}<span>${t('Welcome to Academic OS')}</span></span></div><div class="body"><h2>${applying ? t('How this starts') : t('Did you know…')}</h2><ul class="small">${tips.map(x => `<li>${x}</li>`).join('')}</ul></div><div class="buttons">${btn(t('Close'), 'close-dialog', { cls: 'primary', attrs: 'data-default="1"' })}</div></section></div>`;
 };
 
 // Saved runs.
