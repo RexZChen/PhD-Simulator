@@ -3,7 +3,7 @@ import { dayBlocks } from './../data/life.js';
 import { focusAvailability } from '../data/calendar.js';
 import { venueById } from '../data/venues.js';
 import { t } from '../i18n/index.js';
-import { TOTAL_MONTHS } from './state.js';
+import { TOTAL_MONTHS, editable as projectEditable } from './state.js';
 
 export const sprintSets = {
   deadline: [
@@ -35,7 +35,7 @@ export function milestoneOf(s) {
   if (!m) return s.month <= 23 ? { kind: 'prelim', month: 23 } : null;
   if (!m.prelim || m.prelim === 'retake') return { kind: 'prelim', month: m.prelimMonth };
   if (!m.proposal || m.proposal === 'conditional' || m.proposal === 'retake') return { kind: 'proposal', month: m.proposalMonth };
-  if (m.defenseMonth !== null && m.defenseMonth !== undefined && !m.defense) return { kind: 'defense', month: m.defenseMonth };
+  if (m.defenseMonth !== null && m.defenseMonth !== undefined && m.defense !== 'pass') return { kind: 'defense', month: m.defenseMonth };
   return null;
 }
 export function crunchOf(s) {
@@ -94,7 +94,7 @@ export function focusOptions(s) {
   // so once the first one landed these two stayed enabled, still advertising "▲ Progress +++",
   // and silently produced nothing — for as long as the player failed to guess that the fix was to
   // start another project. Measured at 44% of a naive player's turns.
-  const editable = (s.projects || []).some(p => !['Accepted', 'Abandoned'].includes(p.status));
+  const editable = (s.projects || []).some(p => projectEditable(p) && p.status !== 'Rejected');
   const noProject = editable ? null : t('No project you can work on. Start one in the Projects box.');
   return focuses.map(f => ({ ...f, disabled: availability[f.id] || (['research', 'write'].includes(f.id) ? noProject : null) }));
 }
@@ -152,8 +152,8 @@ export const canDecideThesis = s => s.phase === 'playing' && !s.thesisIdea
 
 // The middle: after the prelim is passed, before the proposal is. The stretch with no external
 // structure — year one has coursework and a cohort, year six has a deadline and a market, and
-// years three and four have a project, an advisor, and a very long corridor. The UI stops naming
-// an end date in here, because nobody names one in life either.
+// Years three and four have a project, an advisor, and a very long corridor.
+// This phase still has visible dates; choosing a thesis question can move them.
 export const inTheMiddle = s => s.phase === 'playing'
   && s.milestones?.prelim === 'pass' && s.milestones?.proposal !== 'pass'
   && !s.thesis && !s.milestones?.thesisStarted;

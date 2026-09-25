@@ -164,7 +164,7 @@ export function setTarget(s, p, mode = true) {
   let candidates = venuesForTopic(p.topic).filter(v => !v.rolling);
   if (typeof mode === 'string' && venueById[mode]) candidates = [venueById[mode]];
   else if (mode === 'top') candidates = candidates.filter(v => v.tier === 1);
-  const ranked = candidates.map(v => ({ v, at: nextDeadline(v, from, monthOf) })).filter(x => x.at < 24).sort((a, b) => a.at - b.at || a.v.tier - b.v.tier);
+  const ranked = candidates.map(v => ({ v, at: nextDeadline(v, from, monthOf) })).sort((a, b) => a.at - b.at || a.v.tier - b.v.tier);
   const choice = (mode === true ? ranked.filter(x => x.v.tier <= 2 && x.at - s.month <= 5)[0] : ranked[0]) || ranked[0];
   if (!choice) return null;
   p.targetVenueId = choice.v.id; p.targetMonth = choice.at; p.targetVenue = choice.v.name;

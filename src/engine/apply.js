@@ -30,6 +30,14 @@ export function initPrep(s) {
   for (const a of s.advisors) { a.openings = random(s) < .2 ? 0 : random(s) < .6 ? 1 : 2; a.fitBonus = 0; }
 }
 export const prepEnergy = s => s.player.stats.energy;
+export function prepareStatement(s, thorough = false) {
+  const steps = thorough ? [['sop_draft', 'draft', 6], ['sop_mentor', 'mentor', 3], ['sop_specific', 'specific', 5], ['sop_cut', 'cut', 4]]
+    : [['sop_draft', 'draft', 6], ['sop_friend', 'friend', 4]];
+  const remaining = steps.filter(([, key]) => !s.prep.sopSteps.includes(key));
+  const cost = remaining.reduce((sum, [, , energy]) => sum + energy, 0);
+  if (s.player.stats.energy < cost) throw new Error(t('Not enough Energy ({n} needed). Rest is not available before applications; the deadline is.', { n: cost }));
+  for (const [id] of remaining) prepAction(s, id);
+}
 export function prepAction(s, id, target) {
   const p = s.prep, st = s.player.stats;
   const spend = (energy, money = 0) => { if (st.energy < energy) throw new Error(t('Not enough Energy ({n} needed). Rest is not available before applications; the deadline is.', { n: energy })); if (st.money < money) throw new Error(t('Not enough money.')); effects(s, { energy: -energy, money: -money }); };
@@ -240,7 +248,7 @@ export function admissionChance(s, school, application = { effort: 'generic', co
     * (application.contact ? 1.04 : 1) * (s.flags.interviewed ? 1.03 : 1) * (s.flags.backupLetter ? .95 : 1), .02, .9);
 }
 export const applicationCost = (s, effort, contact) => ({ money: s.prep?.waivers ? 0 : 90, energy: (effort === 'tailored' ? 6 : 4) + (contact ? 2 : 0) });
-export function apply(s, a) {
+export function apply(s, a, deferEvents = false) {
   const school = schools.find(x => x.id === a.schoolId);
   if (!school || !['generic', 'tailored'].includes(a.effort) || s.applications.some(x => x.schoolId === school.id)) throw new Error(t('Choose a school you have not applied to.'));
   const poi = s.advisors.find(x => x.id === a.poiId && x.schoolId === school.id) || s.advisors.find(x => x.schoolId === school.id);
@@ -250,8 +258,35 @@ export function apply(s, a) {
   s.applications.push({ schoolId: school.id, effort: a.effort, contact: !!a.contact, poiId: poi.id, status: 'submitted' });
   log(s, t('Applied to {school} (POI: {poi}).', { school: school.name, poi: lastName(poi.name) }));
   const next = { 1: 'fee', 3: 'letter' }[s.applications.length];
-  if (next && !s.prep.waivers) { s.eventQueue.push(next); s.eventReturn = 'plan'; openNext(s); }
-  else if (next === 'letter') { s.eventQueue.push(next); s.eventReturn = 'plan'; openNext(s); }
+  if (next && (!s.prep.waivers || next === 'letter')) {
+    s.eventQueue.push(next); s.eventReturn = 'plan';
+    if (!deferEvents) openNext(s);
+  }
+}
+
+// A visible shortlist, with ordinary fees and ordinary odds. Batch the paperwork, not the lottery.
+export function applicationSlate(s, style = 'balanced') {
+  const effort = style === 'ambitious' ? 'tailored' : 'generic';
+  const pool = schools.filter(sc => sc.topics.includes(s.player.profile.topic) && !s.applications.some(a => a.schoolId === sc.id)).map(sc => {
+    const poi = s.advisors.find(a => a.schoolId === sc.id && a.topic === s.player.profile.topic) || s.advisors.find(a => a.schoolId === sc.id);
+    const application = { schoolId: sc.id, poiId: poi.id, effort, contact: false };
+    return { school: sc, poi, application, chance: admissionChance(s, sc, application) };
+  }).sort((a, b) => a.chance - b.chance || a.school.id.localeCompare(b.school.id));
+  let selected;
+  if (style === 'ambitious') selected = pool.slice(0, 4);
+  else if (style === 'budget') selected = pool.slice(-3);
+  else selected = [...new Set([0, .2, .4, .6, .8, 1].map(q => pool[Math.round(q * (pool.length - 1))]).filter(Boolean))];
+  const each = applicationCost(s, effort, false);
+  return { selected, energy: selected.length * each.energy, money: selected.length * each.money };
+}
+
+export function applySlate(s, style) {
+  if (!['balanced', 'ambitious', 'budget'].includes(style)) throw new Error(t('Choose an application strategy.'));
+  const slate = applicationSlate(s, style);
+  if (!slate.selected.length || s.player.stats.energy < slate.energy || s.player.stats.money < slate.money)
+    throw new Error(t('Not enough Money or Energy for that application.'));
+  for (const row of slate.selected) apply(s, row.application, true);
+  if (s.eventQueue.length) openNext(s);
 }
 export function submitAll(s) {
   if (!s.applications.length) throw new Error(t('Apply to at least one program first.'));

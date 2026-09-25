@@ -5,7 +5,8 @@ import { SHORT_DISCLAIMER } from '../data/names.js';
 import { lastName, noticeText } from '../engine/state.js';
 import { fixtures, fixtureOrder } from '../data/desk.js';
 import { MODES } from '../engine/advisor.js';
-import { managerApp, reportDialog } from './apps/manager.js';
+import { reportDialog } from './apps/manager.js';
+import { deskApp as managerApp } from './apps/desk.js';
 import { mailApp } from './apps/mail.js';
 import { chatApp } from './apps/chat.js';
 import { browserApp } from './apps/browser.js';
@@ -172,7 +173,7 @@ export function shell(run, ui, meta, saved, notices = []) {
   <main class="workspace ${playing ? '' : 'no-side'}">
     <section class="window ${ui.minimized ? 'minimized' : ''} ${isWizard ? 'wizard-window' : ''}" aria-label="${esc(title)}">${titlebar(esc(title), ic)}${menubar(windowMenus(s, ui, meta, playing), menuRight, ui.menu)}<div class="client" style="${isWizard ? 'padding:0;display:grid;grid-template-rows:minmax(0,1fr) auto' : ''}">${content(s, ui, meta, saved, notices)}</div>${statusbar([ui.saveError ? '⚠ ' + esc(ui.saveError) : playing ? esc(noticeText(s)) : t(SHORT_DISCLAIMER), playing ? vitalsPane(s) : '', s ? t('Seed {seed}', { seed: s.seed }) : t('Offline'), ui.saveError ? t('Not saved') : t('Autosave on')].filter(Boolean))}</section>
     ${playing ? `<aside class="sidebar"><div class="mini"><div class="titlebar"><span class="tb-title">${icon('status', 14)}<span>${esc(s.player.name)}</span></span></div><div class="body">${sideStatus(s)}</div></div>
-    <div class="mini"><div class="titlebar"><span class="tb-title">${icon('user', 14)}<span>${t('Prof. {name}', { name: lastName(s.advisor.name) })}</span></span></div><div class="body"><div class="presence ${['checkedOut', 'traveling'].includes(s.advisorMode?.id) ? 'off' : s.advisorMode?.id === 'grant' ? 'away' : s.advisorMode?.id === 'pressed' ? 'typing' : ''}"><i></i>${esc(t(mode.presence))}</div><div class="small muted">${esc(t(mode.label))} · ${t('1:1s {cadence}', { cadence: t(s.cadence.oneOnOne) })}</div>${openReq ? `<div class="small" style="margin-top:4px">${tag(t('{n} open request(s)', { n: openReq }), 'warn')}</div>` : ''}<div class="row" style="margin-top:6px">${btn(t('Message'), 'open', { app: 'chat', cls: 'small' })}${btn(t('Requests'), 'open', { app: 'dashboard', cls: 'small link' })}</div></div></div>
+    <div class="mini"><div class="titlebar"><span class="tb-title">${icon('user', 14)}<span>${t('Prof. {name}', { name: lastName(s.advisor.name) })}</span></span></div><div class="body"><div class="presence ${['checkedOut', 'traveling'].includes(s.advisorMode?.id) ? 'off' : s.advisorMode?.id === 'grant' ? 'away' : s.advisorMode?.id === 'pressed' ? 'typing' : ''}"><i></i>${esc(t(mode.presence))}</div><div class="small muted">${esc(t(mode.label))} · ${t('1:1s {cadence}', { cadence: t(s.cadence.oneOnOne) })}</div>${openReq ? `<div class="small" style="margin-top:4px">${tag(t('{n} open request(s)', { n: openReq }), 'warn')}</div>` : ''}<div class="row" style="margin-top:6px">${btn(t('Message'), 'open', { app: 'chat', cls: 'small' })}${btn(t('Requests'), 'open', { app: 'dashboard', cls: 'small link', attrs: 'data-page="now"' })}</div></div></div>
     <div class="sticky"><span class="pin"></span>${esc(reminders()[(s.month + s.seed) % 6])}<small>— notes.txt</small></div>
     <div class="desk-fixtures">${fixtureOrder.map(id => deskFixture(s, id)).join('')}</div></aside>` : ''}
     ${ui.minimized ? `<div style="color:#fff;place-self:center;text-align:center">${t('Your desk is still here.')}<br><br>${btn(t('Restore window'), 'restore')}</div>` : ''}

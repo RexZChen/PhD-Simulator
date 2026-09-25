@@ -10,9 +10,9 @@ const sealed = a => unopened({ applications: [a] }).length > 0;
 import { schools, backgrounds, topics } from '../../data/catalog.js';
 import { emailOpeners, emailFollowUps, studentOpeners, interviewQuestions, visitQuestions } from '../../data/threads.js';
 import { campus, campusFields } from '../../data/campus.js';
-import { admissionChance, applicationCost, nextStep, interviewStep, unopenedDecisions as unopened } from '../../engine/apply.js';
+import { admissionChance, applicationCost, applicationSlate, nextStep, interviewStep, unopenedDecisions as unopened } from '../../engine/apply.js';
 import { LETTERS_EXPECTED, RECOMMENDER_NOTE } from '../../data/recommenders.js';
-import { lastName } from '../../engine/state.js';
+import { lastName, noticeText } from '../../engine/state.js';
 import { t } from '../../i18n/index.js';
 
 const phases = ['prep', 'application', 'interviews', 'admissions'];
@@ -36,13 +36,14 @@ function header(s, ui, title, sub, action = '') {
   const tab = currentTab(s, ui);
   const current = tab === s.phase || unopened(s).length > 0;
   return `<div class="topstrip raised"><div><h1>${title}</h1><div class="sub">${sub}</div></div><div class="stack right">${current ? action : ''}${energyMeter(s)}<span class="tiny muted">${esc(s.player.name)} · ${money(st.money)}</span></div></div>
-  <div class="tabs" style="margin-bottom:8px">${tabDefs().map(([id, label, when]) => btn(`${label} <span class="tiny muted">${when}</span>`, 'ga-tab', { id, disabled: phases.indexOf(id) > phases.indexOf(s.phase) || (id === 'admissions' && unopened(s).length > 0), title: id === 'admissions' && unopened(s).length > 0 ? t('Read your updates first.') : '', cls: tab === id ? 'active' : '' })).join('')}</div>
+  <div class="tabs application-tabs" style="margin-bottom:8px">${tabDefs().map(([id, label, when]) => btn(`${label} <span class="tiny muted">${when}</span>`, 'ga-tab', { id, disabled: phases.indexOf(id) > phases.indexOf(s.phase) || (id === 'admissions' && unopened(s).length > 0), title: id === 'admissions' && unopened(s).length > 0 ? t('Read your updates first.') : '', cls: tab === id ? 'active' : '' })).join('')}</div>
   ${guideStrip(s, ui)}`;
 }
 
 // The single next thing worth doing. The difficulty in this game is meant to be the choices,
 // not working out what the screen wants.
 function guideStrip(s, ui) {
+  if (currentTab(s, ui) === s.phase && (s.phase === 'prep' || s.phase === 'application' && !ui.gaDirectory)) return '';
   if (ui.guideOff) return '';
   const tab = currentTab(s, ui);
   const phaseLabel = tabDefs().find(([id]) => id === s.phase)?.[1];
@@ -67,32 +68,32 @@ function schoolCard(s, sc, extra = '') {
 
 export function prepare(s, ui) {
   const p = s.prep;
-  const sopSteps = p.sopSteps;
-  const emailed = Object.values(s.threads).filter(x => x.kind === 'email').length;
-  return `${header(s, ui, t('GradApply — Preparation'), t('Draft a statement, request letters, then choose programs. Energy lasts until December.'), btn(t('Proceed to applications (December) →'), 'prep', { id: 'proceed', cls: 'primary continue', disabled: !p.letters.some(l => l.asked) }))}
-  <div class="grid-3"><div>${group(`${t('Statement of purpose')} ${tag(`${Math.round(p.sop)}/100`, p.sop > 60 ? 'ok' : p.sop > 35 ? 'warn' : 'bad')}`, `${bar(t('Quality'), p.sop)}<div class="stack" style="margin-top:6px">${btn(t('Draft it (−6 Energy)'), 'prep', { id: 'sop_draft', cls: 'small', disabled: sopSteps.includes('draft') })}<details class="application-details" data-detail="application-statement"><summary>${t('Improve the statement')}</summary>${btn(t('Ask a friend to read it (−4)'), 'prep', { id: 'sop_friend', cls: 'small', disabled: !sopSteps.includes('draft') || sopSteps.includes('friend') })}${btn(t('Ask a recommender for notes (−3)'), 'prep', { id: 'sop_mentor', cls: 'small', disabled: !sopSteps.includes('draft') || sopSteps.includes('mentor') })}${btn(t('Name the actual research question (−5)'), 'prep', { id: 'sop_specific', cls: 'small', disabled: !sopSteps.includes('draft') || sopSteps.includes('specific'), title: t('Worth far more once you have researched three or more programs — you cannot aim a question at people you have not read.') })}${btn(t('Cut it to two pages (−4)'), 'prep', { id: 'sop_cut', cls: 'small', disabled: !sopSteps.includes('draft') || sopSteps.includes('cut') })}${btn(t('Read it aloud again (−3)'), 'prep', { id: 'sop_reread', cls: 'small', disabled: !sopSteps.includes('draft') || sopSteps.filter(x => x === 'reread').length >= 3, title: t('Diminishing, three times over. Past that it is a way of not sending it.') })}</details></div>`)}
-  <details class="application-details" data-detail="application-tests" data-application-section="gre" tabindex="-1"><summary>${t('Tests & fees (optional)')}</summary>${group(t('Standardized test'), p.gre === null ? `<p class="small muted">${t('The GRE is “optional,” a word with a range of meanings. Exam-style programs peek at it.')}</p><div class="row">${btn(t('Take it (−8 Energy, −$220)'), 'prep', { id: 'gre', cls: 'small' })}${btn(t('Skip it'), 'prep', { id: 'gre', cls: 'small', attrs: 'data-target="skip"' })}</div>` : `<p class="small">${p.gre === 'skipped' ? t('Skipped. Bold.') : t('Quant {score}. The chair was designed by a rival.', { score: p.gre })}</p>`)}
-  ${group(t('Fees'), p.waiverRolled ? `<p class="small">${p.waivers ? t('Waivers approved: applications are free.') : t('Waiver denied. {fee} each, payable to a portal.', { fee: money(applicationCost(s, 'generic', false).money) })}</p>` : `<p class="small muted">${t('{fee} per application unless waived. Waivers go to people who fill out the right form on the right site.', { fee: money(applicationCost(s, 'generic', false).money) })}</p>${btn(t('Request fee waivers (−3 Energy)'), 'prep', { id: 'waiver', cls: 'small' })}`)}</details></div>
-  <div data-application-section="letters" tabindex="-1">${(() => {
-    const asked = p.letters.filter(l => l.asked);
-    const head = `${t('Recommendation letters')} ${tag(t('{n} of {m} asked', { n: asked.length, m: LETTERS_EXPECTED }), asked.length >= LETTERS_EXPECTED ? 'ok' : asked.length ? 'warn' : 'bad')}`;
-    return group(head, `<p class="small muted">${t(RECOMMENDER_NOTE)}</p>${p.letters.map(l => `<div class="request ${l.asked ? 'done' : ''}"><div class="meta"><span><b>${esc(l.name)}</b> · ${esc(t(l.relation))}</span><span>${l.asked ? (l.reminded ? t('asked & reminded') : t('asked')) : t('not asked')}</span></div><span class="rec-note">${esc(t(l.note || ''))}</span><div class="row">${!l.asked ? btn(t('Ask for a letter (−2)'), 'prep', { id: 'letter_ask', cls: 'small', attrs: `data-target="${l.id}"` }) : btn(t('Send a reminder (−2)'), 'prep', { id: 'letter_remind', cls: 'small', disabled: l.reminded, attrs: `data-target="${l.id}"` })}</div></div>`).join('')}`);
-  })()}</div>
-  <details class="application-details" data-detail="application-research" data-application-section="programs-research" tabindex="-1"><summary>${t('Explore programs & advisors')} <span class="tiny muted">${t('{n} researched', { n: Object.keys(p.researched).length })}</span></summary>${group(`${t('Prospective advisors')} ${emailed ? tag(t('{n} emailed', { n: emailed }), 'info') : ''}`, `<p class="small muted">${t('Email a professor of interest. Most replies say “apply through the portal.” Some say more. Pick a school below to see its faculty and write.')}</p><div class="school-pick">${schools.map(sc => {
-      const wroteTo = s.advisors.filter(a => a.schoolId === sc.id && s.threads[`${a.id}:email`]).length;
-      const read = !!s.prep.researched[sc.id];
-      const cls = [ui.gaSchool === sc.id ? 'primary' : '', wroteTo ? 'visited' : read ? 'researched' : ''].filter(Boolean).join(' ');
-      const why = wroteTo ? t('You have written to {n} professor(s) here.', { n: wroteTo }) : read ? t('You have read up on this program.') : esc(sc.tagline);
-      return `<button class="btn small ${cls}" data-action="ga-school" data-id="${sc.id}" title="${esc(why)}">${crest(sc, 16)} ${esc(sc.name)}</button>`;
-    }).join('')}</div>${ui.gaSchool ? facultyPanel(s, ui, schools.find(x => x.id === ui.gaSchool)) : ''}`)}</details></div>`;
+  const drafted = p.sopSteps.includes('draft');
+  const asked = p.letters.filter(l => l.asked).length;
+  const step = !drafted ? 1 : asked < LETTERS_EXPECTED ? 2 : 3;
+  const head = header(s, ui, t('Before anybody calls you a student.'), t('One statement. Three letters. Then the portals.'), '');
+  if (s.phase !== 'prep') return head + `<section class="application-focus"><h2>${t('The file exists.')}</h2><p>${t('Your statement and letter requests are saved. Continue with your applications.')}</p></section>`;
+  const progress = `<div class="application-steps">${[t('Write the statement'), t('Ask for letters'), t('Send the paperwork')].map((label, i) => `<span class="${step === i + 1 ? 'current' : step > i + 1 ? 'done' : ''}">${step > i + 1 ? '✓' : i + 1} ${label}</span>`).join('')}</div>`;
+  let body;
+  if (step === 1) body = `<section class="application-focus"><span class="desk-eyebrow">${t('Statement of purpose')}</span><h2>${t('Explain why this seems like a good idea.')}</h2><p>${t('The committee wants a research question. Your first draft wants to describe your childhood.')}</p><div class="application-options">
+    ${btn(`<b>${t('Make it clear and sendable')}</b><span>${t('Draft it and have a friend read it. −10 Energy.')}</span>`, 'prep-statement', { id: 'basic', disabled: s.player.stats.energy < 10 })}
+    ${btn(`<b>${t('Make every paragraph earn its place')}</b><span>${t('Draft, mentor feedback, a specific question, and a shorter version. −18 Energy.')}</span>`, 'prep-statement', { id: 'thorough', disabled: s.player.stats.energy < 18 })}</div></section>`;
+  else if (step === 2) body = `<section class="application-focus" data-application-section="letters"><span class="desk-eyebrow">${t('{n} of {m} asked', { n: asked, m: LETTERS_EXPECTED })}</span><h2>${t('Who knows your work?')}</h2><p>${t('Choose three people. A famous signature and a useful letter are different things. Each request costs 2 Energy.')}</p><div class="letter-choices">${p.letters.map(l => `<button class="letter-choice ${l.asked ? 'chosen' : ''}" data-action="prep" data-id="letter_ask" data-target="${l.id}" ${l.asked || s.player.stats.energy < 2 ? 'disabled' : ''}><b>${esc(t(l.relation))}${l.asked ? ' ✓' : ''}</b><span>${esc(l.name)}</span><p>${esc(t(l.note))}</p><small>${l.asked ? t('Asked') : t('Ask for a letter · −2 Energy')}</small></button>`).join('')}</div></section>`;
+  else body = `<section class="application-focus"><span class="desk-eyebrow">${t('The file exists.')}</span><h2>${t('Now pay to have it considered.')}</h2><p>${t('Your statement and three letter requests are ready. A waiver can save the application fees. The test is optional; the uncertainty is included.')}</p><div class="application-options">
+    ${p.waiverRolled ? `<p>${p.waivers ? t('Waivers approved: applications are free.') : t('Waiver denied. Applications cost $90 each.')}</p>` : btn(t('Request fee waivers · −3 Energy'), 'prep', { id: 'waiver', disabled: s.player.stats.energy < 3 })}
+    ${p.gre === null ? btn(t('Take the GRE · −8 Energy, −$220'), 'prep', { id: 'gre', disabled: s.player.stats.energy < 8 || s.player.stats.money < 220 }) : `<p>${p.gre === 'skipped' ? t('Skipped. Bold.') : t('Quant {score}. The chair was designed by a rival.', { score: p.gre })}</p>`}
+    ${btn(t('Choose programs →'), 'prep', { id: 'proceed', cls: 'primary continue' })}</div><p class="small muted">${t('You can proceed without the test or a waiver. Neither is required.')}</p></section>`;
+  if (step < 3 && asked > 0 && s.player.stats.energy < 2) body += btn(t('Continue with the letters you have →'), 'prep', { id: 'proceed', cls: 'primary continue' });
+  return `${head}${progress}${body}<p class="application-outcome" role="status">${esc(noticeText(s))}</p>`;
 }
+
 function facultyPanel(s, ui, sc) {
   const facs = s.advisors.filter(a => a.schoolId === sc.id);
   return `<div class="faculty-panel">${schoolCard(s, sc, `<span class="small muted">${sc.topics.map(x => esc(topics[x])).join(' · ')}</span>`)}${researched(s, sc)}<div class="cols two">${facs.map(a => { const th = s.threads[`${a.id}:email`]; const st = s.threads[`${a.id}:student`]; return `<div class="offer-card"><div class="advisor-card">${avatar(a.id, 44)}<div><b>${t('Prof. {name}', { name: a.name })}</b><div class="small muted">${esc(topics[a.topic])} · ${t('lab of {n}', { n: a.labSize })}${a.openingsKnown ? ` · ${a.openings === 0 ? t('not recruiting') : t('{n} opening(s)', { n: a.openings })}` : ''}</div><div class="traits" style="margin-top:4px">${['ambition', 'prestige', 'connections', 'funding'].map(k => `<span>${t(k)}<b>${dots(a[k])}</b></span>`).join('')}</div></div></div>${a.known?.length ? `<ul class="hint-list">${a.known.map(k => `<li>${t('You learned: {fact}.', { fact: k })}</li>`).join('')}</ul>` : ''}<div class="row" style="margin-top:6px">${btn(th ? t('Open thread') : t('Write an email'), 'ga-thread', { id: `${a.id}:email`, cls: 'small' })}${st ? btn(t('Message the student'), 'ga-thread', { id: `${a.id}:student`, cls: 'small' }) : ''}</div></div>`; }).join('')}</div></div>`;
 }
 const researched = (s, sc) => {
   const r = s.prep.researched[sc.id];
-  if (!r) return `<div class="row">${btn(t('Research this program (−1 Energy)'), 'prep', { id: 'research', cls: 'small link', attrs: `data-target="${sc.id}"` })}<span class="tiny muted">${t('The website, a forum thread, and someone who actually goes there.')}</span></div>`;
+  if (!r) return `<div class="row">${btn(t('Research this program (−1 Energy)'), 'prep', { id: 'research', cls: 'small link', disabled: s.player.stats.energy < 1, attrs: `data-target="${sc.id}"` })}<span class="tiny muted">${t('The website, a forum thread, and someone who actually goes there.')}</span></div>`;
   const facts = `<p class="small">${t('Structure')}: ${sc.structure === 'exam' ? t('written qualifier in year two') : t('project-based prelim in year two')} · ${t('climate {c}', { c: t(sc.climate) })} · ${t('rent {r} vs stipend {s}', { r: money(sc.rent), s: money(sc.stipend) })}</p>`;
   const notes = Array.isArray(r.notes) ? r.notes : [];
   // The place, not the ranking. Two programs with the same numbers are not the same six years.
@@ -102,6 +103,21 @@ const researched = (s, sc) => {
 };
 
 export function programs(s, ui) {
+  const selected = schools.find(sc => sc.id === ui.gaSchool);
+  if (selected) return btn(t('Back to programs'), 'ga-school', { id: selected.id, cls: 'small' }) + facultyPanel(s, ui, selected);
+  if (ui.gaDirectory) return btn(t('Back to shortlist'), 'application-directory', { id: 'shortlist', cls: 'small' }) + programDirectory(s, ui);
+  const applied = s.applications.length;
+  const style = ui.applicationStyle || 'balanced';
+  const slate = applicationSlate(s, style);
+  const canAfford = slate.selected.length && s.player.stats.energy >= slate.energy && s.player.stats.money >= slate.money;
+  return `${header(s, ui, t('Where will you send the file?'), t('Pick a strategy. The paperwork travels together; the decisions do not.'), '')}
+  ${applied ? `<section class="application-focus"><span class="desk-eyebrow">${t('{n} application(s) prepared', { n: applied })}</span><h2>${t('The applications are in the portal.')}</h2><p>${s.applications.map(a => esc(schools.find(sc => sc.id === a.schoolId)?.name)).join(' · ')}</p>${btn(t('Submit & wait for replies →'), 'admissions', { cls: 'primary continue' })}</section>` : `<section class="application-focus"><div class="application-strategies">${[['balanced', t('Spread the bets'), t('Six programs across the odds range.')], ['ambitious', t('Aim high'), t('Four difficult programs. More effort per statement.')], ['budget', t('Keep it affordable'), t('Three more attainable programs. Fewer fees, fewer chances.')]].map(([id, name, note]) => `<button class="btn ${style === id ? 'primary' : ''}" data-action="application-style" data-id="${id}" aria-pressed="${style === id}"><b>${name}</b><span>${note}</span></button>`).join('')}</div>
+  <h2>${t('Your shortlist')}</h2><div class="application-shortlist">${slate.selected.map(row => `<div>${crest(row.school, 25)}<span>${btn(esc(row.school.name), 'ga-school', { id: row.school.id, cls: 'small link' })}<small>${esc(row.poi.name)}</small></span>${oddsTag(row.chance)}</div>`).join('')}</div>
+  <p>${t('Total: {money} and {energy} Energy.', { money: money(slate.money), energy: slate.energy })}</p>${btn(t('Prepare these {n} applications →', { n: slate.selected.length }), 'apply-slate', { id: style, cls: 'primary continue', disabled: !canAfford })}${!canAfford ? `<p class="small">${t('This set is beyond your budget. Try fewer applications or choose programs individually.')}</p>` : ''}</section>`}
+  <p class="small">${btn(t('Choose programs individually'), 'application-directory', { cls: 'small' })}</p>`;
+}
+
+function programDirectory(s, ui) {
   const st = s.player.stats;
   const effort = ui.effort || 'generic', contact = !!ui.contact;
   const cost = applicationCost(s, effort, contact);
@@ -130,14 +146,14 @@ export function programs(s, ui) {
     const eContact = applicationCost(s, effort, true).energy - applicationCost(s, effort, false).energy;
     return group(t('Settings for the next application'), `<div class="row"><label class="field"><span>${t('Effort')}</span><select id="effort-select">${[['generic', t('Generic application · {n} Energy', { n: eGeneric })], ['tailored', t('Tailored statement · {n} Energy · better odds', { n: eTailored })]].map(([v, l]) => `<option value="${v}" ${effort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label class="check" style="margin-top:14px"><input id="contact-faculty" type="checkbox" ${contact ? 'checked' : ''}> ${t('Mention the email you sent (+{n} Energy)', { n: eContact })}</label><span class="small muted" style="margin-left:auto">${t('Next')}: ${cost.money ? money(cost.money) : t('fee waived')} · ${t('{n} Energy', { n: cost.energy })}</span></div><div class="row" style="margin-top:6px"><span class="small muted">${t('Show')}:</span>${[['all', t('All {n}', { n: schools.length })], ['mine', t('My area')], ['applied', t('Applied')]].map(([id, l]) => btn(l, 'ga-filter', { id, cls: `small ${filter === id ? 'primary' : ''}` })).join('')}</div>`);
   })()}
-  <div class="listview apply-table" data-application-section="programs" tabindex="-1"><div class="lv-head"><span>${t('Program')}</span><span>${t('Areas · prelim')}</span><span>${t('Stipend/mo')}</span><span>${t('Rent/mo')}</span><span>${t('Your odds')}</span><span>${t('Professor of interest')}</span></div>${list.map(sc => { const applied = s.applications.find(a => a.schoolId === sc.id); const facs = s.advisors.filter(a => a.schoolId === sc.id); const poi = ui.poi?.[sc.id] || facs[0].id; const chance = admissionChance(s, sc, { effort, contact, poiId: poi }); return `<div class="lv-row"><span class="school-cell">${crest(sc, 30)}<span><b>${esc(sc.name)}</b><br><span class="tiny muted">${esc(sc.tagline)}</span></span></span><span class="small">${sc.topics.map(x => esc(topics[x])).join(' · ')}<br><span class="tiny muted">${sc.structure === 'exam' ? t('exam-style') : t('project-style')} · ${t(sc.climate)}</span></span><span>${money(sc.stipend)}</span><span>${money(sc.rent)}</span><span>${applied ? tag(applied.effort === 'tailored' ? t('Applied · tailored') : t('Applied'), 'ok') : oddsTag(chance)}</span><span>${applied
+  <div class="listview apply-table" data-application-section="programs" tabindex="-1"><div class="lv-head"><span>${t('Program')}</span><span>${t('Areas · prelim')}</span><span>${t('Stipend/mo')}</span><span>${t('Rent/mo')}</span><span>${t('Your odds')}</span><span>${t('Professor of interest')}</span></div>${list.map(sc => { const applied = s.applications.find(a => a.schoolId === sc.id); const facs = s.advisors.filter(a => a.schoolId === sc.id); const poi = ui.poi?.[sc.id] || facs[0].id; const chance = admissionChance(s, sc, { effort, contact, poiId: poi }); return `<div class="lv-row"><span class="school-cell">${crest(sc, 30)}<span>${btn(esc(sc.name), 'ga-school', { id: sc.id, cls: 'small link' })}<br><span class="tiny muted">${esc(sc.tagline)}</span></span></span><span class="small">${sc.topics.map(x => esc(topics[x])).join(' · ')}<br><span class="tiny muted">${sc.structure === 'exam' ? t('exam-style') : t('project-style')} · ${t(sc.climate)}</span></span><span>${money(sc.stipend)}</span><span>${money(sc.rent)}</span><span>${applied ? tag(applied.effort === 'tailored' ? t('Applied · tailored') : t('Applied'), 'ok') : oddsTag(chance)}</span><span>${applied
       ? (() => { const pa = s.advisors.find(a => a.id === applied.poiId); const th = pa && s.threads[`${pa.id}:email`];
           return `<span class="small">${esc(lastName(pa?.name || ''))}${th ? ` ${btn(`${icon('mail', 12)} ${t('thread')}`, 'ga-thread', { id: `${pa.id}:email`, cls: 'small link', title: t('Read what you wrote and what came back.') })}` : ''}</span>`; })()
       : `<span class="poi-pick">${facs.map(a => {
           const th = s.threads[`${a.id}:email`];
           const replied = th && th.messages?.some(m => m.from === 'them');
           const title = th ? t('You wrote to them{reply}. Click the envelope to reread the thread.', { reply: replied ? t(' and they replied') : t('; no reply yet') }) : esc(a.comment);
-          return `<span class="contacted"><button class="btn small ${poi === a.id ? 'primary' : ''} ${th ? 'contacted-on' : ''}" data-action="ga-poi" data-id="${sc.id}" data-target="${a.id}" title="${esc(title)}${a.openingsKnown ? ` · ${t('{n} opening(s)', { n: a.openings })}` : ''}">${avatar(a.id, 16)} ${esc(lastName(a.name))}${th ? ` <b class="wrote" title="${esc(t('You have written to them.'))}">✉</b>` : ''}</button>${th ? btn(icon('mail', 12), 'ga-thread', { id: `${a.id}:email`, cls: 'small link thread-peek', title: t('Reread the thread') }) : ''}</span>`;
+          return `<span class="contacted"><button class="btn small ${poi === a.id ? 'primary' : ''} ${th ? 'contacted-on' : ''}" data-action="ga-poi" data-id="${sc.id}" data-target="${a.id}" title="${esc(title)}${a.openingsKnown ? ` · ${t('{n} opening(s)', { n: a.openings })}` : ''}">${avatar(a.id, 16)} ${esc(lastName(a.name))}${th ? ` <b class="wrote" title="${esc(t('You have written to them.'))}">✉</b>` : ''}</button>${btn(icon('mail', 12), 'ga-thread', { id: `${a.id}:email`, cls: 'small link thread-peek', title: th ? t('Reread the thread') : t('Write to this professor') })}</span>`;
         }).join('')}${btn(t('Apply'), 'apply', { id: sc.id, cls: 'small primary', disabled: st.money < cost.money || st.energy < cost.energy, attrs: `data-target="${poi}"` })}</span>`}</span></div>`; }).join('')}</div>`;
 }
 

@@ -17,7 +17,7 @@ import { loadSave, saveRun, validRun, emptyMeta } from '../src/engine/save.js';
 import { memeFor, memeArt } from '../src/data/memes.js';
 import { gradApply } from '../src/ui/apps/gradapply.js';
 import { shell } from '../src/ui/shell.js';
-import { managerApp, managerNextStep } from '../src/ui/apps/manager.js';
+import { deskApp as managerApp } from '../src/ui/apps/desk.js';
 import { inTheMiddle, canDecideThesis } from '../src/engine/time.js';
 import { createThesis } from '../src/engine/paper.js';
 import { reentry, stampRisk } from '../src/engine/trip.js';
@@ -722,58 +722,21 @@ test('coming back into the country you live in is a question the trip actually a
   assert.equal(stampRisk(early), 0, 'not in year one, when the stamp is still good');
 });
 
-test('the middle years have no date on them, and the way out is not advertised', () => {
-  // From day one the strip said "Next: Prelim · 20 months", and the moment you passed it, "Next:
-  // Proposal · 24 months". There is always a named thing with a date, and the pace control makes
-  // the empty stretches pass three months a click — so the middle of a PhD was the fastest and
-  // best-signposted part of this game, which is the opposite of the thing it is about.
-  let s = enterProgram(12);
-  s.month = 30;
-  s.milestones.prelim = 'pass'; s.milestones.prelimMonth = 20;
-  assert.ok(inTheMiddle(s), 'after the prelim and before the proposal is the middle');
-  const mid = managerApp(s, { app: 'dashboard' });
-  assert.doesNotMatch(mid, /jb-next/, 'nothing is counted down to when nothing else is dated');
-  assert.match(mid, /jb-middle/, 'it says what it is instead');
-  // The proposal was named with a date in three separate boxes. Removing it from one would have
-  // moved the promise rather than dropped it.
-  const proposalMonth = dateLabel(s.milestones.proposalMonth);
-  assert.ok(!mid.includes(proposalMonth), `the proposal's date does not appear anywhere on the screen (found ${proposalMonth})`);
-  assert.doesNotMatch(mid, /month\(s\)\)/, 'and neither does a countdown to it');
-
-  // But a conference deadline is a real date somebody else set, and it stays. The thing that
-  // loses its date is the milestone nobody schedules for you.
-  let withDeadline = enterProgram(12);
-  withDeadline.month = 30; withDeadline.milestones.prelim = 'pass';
-  const proj = createProject(withDeadline);
-  proj.targetMonth = 33; proj.targetVenue = 'NeurIPSy'; proj.status = 'Drafting';
-  const html2 = managerApp(withDeadline, { app: 'dashboard' });
-  assert.match(html2, /jb-next/, 'a deadline you chose is still a date');
-  assert.ok(!html2.includes(dateLabel(withDeadline.milestones.proposalMonth)), 'and the proposal still has none');
-
-  // Before the prelim, and once the proposal is behind you, the dates come back — those parts of
-  // a PhD really are scheduled, and pretending otherwise would be a different lie.
-  let early = enterProgram(12);
-  early.month = 10;
-  assert.ok(!inTheMiddle(early));
-  assert.match(managerApp(early, { app: 'dashboard' }), /jb-next/, 'year one has a date on it');
-  let late = enterProgram(12);
-  late.month = 50; late.milestones.prelim = 'pass'; late.milestones.proposal = 'pass'; late.milestones.defenseMonth = 62;
-  assert.ok(!inTheMiddle(late));
-  assert.match(managerApp(late, { app: 'dashboard' }), /jb-next/, 'and so does the defense');
+test('the middle years name the next milestone and surface the thesis decision', () => {
+  const s = enterProgram(12);
+  s.month = 30; s.milestones.prelim = 'pass'; s.requests = [];
+  assert.ok(inTheMiddle(s));
+  const html = managerApp(s, {});
+  assert.ok(html.includes(dateLabel(s.milestones.proposalMonth)));
+  assert.match(html, /DECIDE_THESIS/);
+  assert.match(html, /What is this PhD actually about/);
 });
 
-test('deciding what the thesis is has to be found, and then it is worth finding', () => {
-  // Nobody is ever told when to stop collecting results and start deciding what the story is.
-  // There is no form for it, so there is no prompt for it here: no callout, no next-step entry,
-  // no tag. A run that never presses it still finishes, later and worse.
+test('the visible thesis decision still changes the proposal and research story', () => {
   let s = enterProgram(20);
-  s.month = 30; s.milestones.prelim = 'pass';
-  assert.ok(canDecideThesis(s), 'the afternoon is available in the middle years');
-  const html = managerApp(s, { app: 'dashboard' });
-  assert.match(html, /decide-thesis/, 'it is on the screen');
-  assert.doesNotMatch(html, /next-step[\s\S]{0,400}Decide what the thesis is/, 'and nothing points at it');
-  const step = managerNextStep(s);
-  assert.ok(!step || !/thesis is/i.test(step.title), 'it never becomes the objective');
+  s.month = 30; s.milestones.prelim = 'pass'; s.requests = [];
+  assert.ok(canDecideThesis(s));
+  assert.match(managerApp(s, {}), /DECIDE_THESIS/);
 
   // Taking it moves the proposal closer, because you can say in one sentence what you are proposing.
   const before = s.milestones.proposalMonth;
@@ -881,7 +844,7 @@ test('the application screen advertises the price it actually charges', () => {
   s = act(s, { type: 'PREP', id: 'sop_draft' });
   s = act(s, { type: 'PREP', id: 'letter_ask', target: 'rec-0' });
   s = act(s, { type: 'PREP', id: 'proceed' });
-  const html = gradApply(s, { gaTab: 'application', effort: 'tailored', contact: true });
+  const html = gradApply(s, { gaTab: 'application', gaDirectory: true, effort: 'tailored', contact: true });
   const generic = applicationCost(s, 'generic', false);
   const tailored = applicationCost(s, 'tailored', false);
   const withContact = applicationCost(s, 'tailored', true);

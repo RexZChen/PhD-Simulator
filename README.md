@@ -6,7 +6,7 @@
 
 **[▶ Play it in your browser](https://rexzchen.github.io/PhD-Simulator/)** · no install · no account · nothing leaves your machine
 
-<img src="docs/screens/desktop.png" width="820" alt="The PhD Manager desktop: a monthly plan, an advisor card, a Stuck? panel, and a plant on the desk.">
+<img src="docs/screens/desktop.png" width="820" alt="The PhD Manager desk: one immediate decision, clear turn choices, and the next academic milestone.">
 
 </div>
 
@@ -15,9 +15,13 @@
 <table>
 <tr><td width="50%" valign="top">
 
-### Six years. One decision a month.
+### Six years. One click at a time.
 
 You apply, you pick an advisor with incomplete information, you run projects, you publish or you don't, you sit three exams, and you find out what you become.
+
+The **Now** desk shows the next decision and two or three ways to spend your time. Clicking an activity plays the turn, including the writing session. Papers, advisor requests, health problems, and graduation steps arrive on your desk when they need attention. Results stay on the desk; conversations let you read at your own pace.
+
+**Research**, **People**, and **Records** keep the detailed tools available. Applications start with a statement approach and three letters, then a shortlist with the actual programs, odds, and fees before you send it.
 
 Then it keeps going, because a PhD does not end at graduation and neither does your advisor.
 
@@ -91,10 +95,12 @@ npm install
 npm run dev
 ```
 
+Open **http://127.0.0.1:5173** (or the address Vite prints if that port is busy).
+
 | | |
 |---|---|
-| `npm test` | 118 engine tests |
-| `npm run test:e2e` | 45 Playwright tests |
+| `npm test` | Engine and workflow tests |
+| `npm run test:e2e` | Playwright interaction and layout tests |
 | `npm run i18n` | plays real runs in Chinese; must print zero |
 | `npm run balance` | 40 seeds × 3 playstyles |
 | `npm run reach` | which written content anybody actually reaches |

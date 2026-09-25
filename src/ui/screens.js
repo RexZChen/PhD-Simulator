@@ -98,18 +98,18 @@ export const tipsDialog = (s = null) => {
   const applying = s && ['prep', 'application', 'interviews', 'admissions'].includes(s.phase);
   const tips = applying ? [
     t('You are applying to graduate school. It is autumn 2027 and the deadlines are in December.'),
-    t('The blue bar at the top is Energy. It is the entire budget for this phase and it does not come back — every action spends some, and December arrives whether you are ready or not.'),
-    t('The blue box under the tabs always names the single next thing worth doing, with the button that does it. Follow it if you are unsure; ignore it once you are not.'),
-    t('Your statement of purpose is the one document everyone reads. Draft it first, then improve it — naming an actual research question is worth more than anything else you can do to it.'),
+    t('Energy is your preparation budget. The statement and each letter request spend some. The deadline does not negotiate.'),
+    t('Choose a statement approach, ask three people for letters, then choose your programs. Each step leads to the next.'),
+    t('A shortlist lets you apply to several programs together. You see the programs, professors, odds, and total cost before sending anything.'),
     t('Research a program before you write to it. One Energy, and it tells you what people who are actually there say — which is not what the website says.'),
     t('Ask three people for letters. The note under each name is a real hint about what they would write.'),
-    t('Then apply to four to eight programs, naming a professor of interest in each. One acceptance is all you need.'),
+    t('Click a program name to read about the campus or write to a professor. You can also choose applications individually.'),
   ] : [
-    t('Each turn: pick a plan, then press Continue (or Enter). Calm months pass in one step; deadline months run week by week; after year two, calm seasons pass three months at a time.'),
+    t('On the Now desk, click one of the time choices to play a turn. Writing includes the writing session. The screen tells you how much time will pass.'),
     t('Number keys 1–4 pick a choice in any conversation.'),
-    t('Your advisor sends requests in LabChat. You can do them, push back, or decline. Ignoring them is also a choice, with a cost.'),
+    t('On your desk shows what needs attention: advisor requests, a paper ready to send, a health problem, or the next step toward finishing.'),
     t('You can message your advisor: ask for leave, funding, a letter, fewer meetings, or a plan. Answers depend on who they are and what month it is.'),
-    t('Set a target deadline in OpenRegret. Real venues, real annual cycles.'),
+    t('Research has the full manual plans and project tools. People has advisor conversations. Records has your milestones and pace controls.'),
     t('Stress is never shown as a number. Watch the desktop.'),
   ];
   return `<div class="modal"><section class="dialog narrow" role="dialog" aria-modal="true"><div class="titlebar"><span class="tb-title">${icon('info', 16)}<span>${t('Welcome to Academic OS')}</span></span></div><div class="body"><h2>${applying ? t('How this starts') : t('Did you know…')}</h2><ul class="small">${tips.map(x => `<li>${x}</li>`).join('')}</ul></div><div class="buttons">${btn(t('Close'), 'close-dialog', { cls: 'primary', attrs: 'data-default="1"' })}</div></section></div>`;

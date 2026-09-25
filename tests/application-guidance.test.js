@@ -12,31 +12,27 @@ const run = () => {
 };
 const guide = html => html.match(/<div class="guide">[\s\S]*?<\/div>\s*<\/div>/)?.[0] || '';
 
-test('preparation guidance links to the named section instead of describing its position', () => {
+test('preparation shows the current decision and advances through statement, letters, and filing', () => {
   const s = run();
+  let html = gradApply(s, {});
+  assert.match(html, /data-action="prep-statement"/);
+  assert.doesNotMatch(html, /data-id="letter_ask"|<details/);
   s.prep.sopSteps.push('draft');
-  for (const target of ['letters', 'programs-research', 'gre']) {
-    if (target === 'programs-research') s.prep.letters[0].asked = true;
-    if (target === 'gre') {
-      s.prep.researched = Object.fromEntries(schools.slice(0, 3).map(sc => [sc.id, { notes: [] }]));
-      s.prep.sopSteps.push('specific');
-      s.prep.letters.slice(0, 3).forEach(letter => { letter.asked = true; });
-    }
-    const g = nextStep(s);
-    assert.equal(g.action, 'application-jump');
-    assert.equal(g.id, target);
-    assert.doesNotMatch(g.label, /right|left|column|below/i);
-    const html = gradApply(s, {});
-    assert.match(guide(html), new RegExp(`data-action="application-jump" data-id="${target}"`));
-    assert.match(html, new RegExp(`data-application-section="${target}"`));
-  }
+  html = gradApply(s, {});
+  assert.match(html, /data-id="letter_ask"/);
+  assert.doesNotMatch(html, /data-action="prep-statement"/);
+  s.prep.letters.slice(0, 3).forEach(l => { l.asked = true; });
+  html = gradApply(s, {});
+  assert.match(html, /data-id="proceed"/);
+  assert.match(html, /data-id="waiver"/);
+  assert.doesNotMatch(html, /data-id="letter_ask"/);
 });
 
 test('reviewing an earlier application tab gives a route back to the current task', () => {
   const s = run();
   s.phase = 'application';
   const html = gradApply(s, { gaTab: 'prep' });
-  assert.match(html, /GradApply — Preparation/);
+  assert.match(html, /Before anybody calls you a student/);
   assert.match(guide(html), /data-action="ga-tab" data-id="application"/);
   assert.match(guide(html), /Return to Programs/);
   assert.doesNotMatch(guide(html), /Apply to your first program/);
@@ -59,7 +55,7 @@ test('unavailable or unknown tab selection resolves both the content and active 
   const s = run();
   for (const gaTab of ['admissions', 'missing']) {
     const html = gradApply(s, { gaTab });
-    assert.match(html, /GradApply — Preparation/);
+    assert.match(html, /Before anybody calls you a student/);
     assert.match(html, /class="btn active" data-action="ga-tab" data-id="prep"/);
     assert.doesNotMatch(html, /class="btn active" data-action="ga-tab" data-id="admissions"/);
     assert.doesNotMatch(html, /<\/button>,<button[^>]*data-action="ga-tab"/, 'tab markup must not render array separators');
@@ -79,18 +75,11 @@ test('sealed updates keep Offers disabled and give a direct route to the updates
   assert.doesNotMatch(html, /data-action="decisions"/);
 });
 
-test('optional preparation is collapsed while draft and letter choices remain visible', () => {
-  const html = gradApply(run(), {});
-  const optional = html.match(/<details\b[^>]*data-application-section="gre"[^>]*>[\s\S]*?<\/details>/)?.[0];
-  assert.ok(optional, 'GRE and fee controls have a disclosure');
-  assert.doesNotMatch(optional.split('>')[0], /\bopen\b/);
-  assert.match(optional, /data-id="gre"/);
-  assert.match(optional, /data-id="waiver"/);
-  const visible = html.replace(/<details\b[\s\S]*?<\/details>/g, '');
-  assert.match(visible, /data-id="sop_draft"/);
-  assert.match(visible, /data-id="letter_ask"/);
-  const research = html.match(/<details\b[^>]*data-application-section="programs-research"[^>]*>/)?.[0];
-  assert.ok(research, 'the full program directory has a labeled disclosure');
-  assert.doesNotMatch(research, /\bopen\b/);
-  assert.doesNotMatch(visible, /data-action="ga-school"/);
+test('a legacy preparation save can proceed when it has letters but no energy', () => {
+  const s = run();
+  s.prep.sopSteps.push('draft'); s.prep.letters[0].asked = true;
+  s.player.stats.energy = 0;
+  const html = gradApply(s, {});
+  assert.match(html, /Continue with the letters you have/);
+  assert.match(html, /data-id="proceed"/);
 });

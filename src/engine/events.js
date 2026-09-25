@@ -173,6 +173,9 @@ export function pushEvent(s, id, actor = null) {
 // Build the queue for this turn. ctx = { tempo, crunch, meetingTemplate, cancelledMeeting, present, monthEnd }
 export function scheduleTurnEvents(s, ctx) {
   const now = absWeek(s);
+  const isDay = ctx.tempo === 'day';
+  const isMonth = ctx.tempo === 'month' || ctx.tempo === 'season';
+  const cap = ctx.tempo === 'season' ? 3 : isMonth ? 2 : 1;
   const due = s.scheduled.filter(x => x.week <= now);
   s.scheduled = s.scheduled.filter(x => x.week > now);
   const queue = [];
@@ -189,17 +192,17 @@ export function scheduleTurnEvents(s, ctx) {
   for (const id of URGENT) if (eligible(s, eventById[id], ctx) && !queue.includes(id)) queue.push(id);
   for (const e of events) if (e.forced && !queue.includes(e.id) && eligible(s, e, ctx)) queue.push(e.id);
   for (const id of s.eventQueue) if (!queue.includes(id)) queue.push(id);
-  if (ctx.meetingTemplate && !queue.includes(ctx.meetingTemplate)) queue.push(ctx.meetingTemplate);
+  // Scheduled stories and urgent consequences get the space first. Routine meetings still
+  // affect the simulation and its digest, but need not add another dialog to a crowded turn.
+  const room = () => queue.filter(id => !URGENT.includes(id)).length < cap;
+  if (ctx.meetingTemplate && !queue.includes(ctx.meetingTemplate) && room()) queue.push(ctx.meetingTemplate);
   // Group meeting is the most-repeated slot in the game — measured at 7.8 firings per run in the
   // middle years, up to 17. It is a pool now: your turn, somebody else's turn, and the weeks where
   // the meeting is about something other than what it was supposed to be about.
-  if (ctx.present) {
+  if (ctx.present && room()) {
     const pool = GROUP_POOL.filter(id => eventById[id] && eligible(s, eventById[id], ctx));
     if (pool.length) queue.push(pickWeighted(s, pool, id => (id === 'group_praise_public' ? 9 : id === 'group_present' ? 1.3 : 1)));
   }
-  const isDay = ctx.tempo === 'day';
-  const isMonth = ctx.tempo === 'month' || ctx.tempo === 'season';
-  const cap = ctx.tempo === 'season' ? 5 : isMonth ? 4 : isDay ? 1 : 2;
   const soft = queue.filter(id => !URGENT.includes(id)).length;
   if (isMonth && soft < cap) {
     const rounds = ctx.monthsList ? 2 : 1;

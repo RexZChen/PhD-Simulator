@@ -86,7 +86,7 @@ export function revisionPanel(s) {
     ${bar(t('Revised'), pct, { cls: pct >= 100 ? 'green' : 'gold' })}
     <div class="rev-list">${th.items.map(x => {
       const done = x.done >= x.effort;
-      return `<button class="rev-item ${done ? 'done' : ''}" data-action="revise" data-id="${x.id}" ${done || s.stage !== 'plan' ? 'disabled' : ''} title="${esc(t(x.line))}">
+      return `<button class="rev-item ${done ? 'done' : ''}" data-action="revise" data-id="${x.id}" ${done || s.stage !== 'plan' || s.player.stats.energy < 6 ? 'disabled' : ''} title="${esc(t(x.line))}">
         <span class="rev-tick">${done ? '✓' : '○'}</span><span><b>${esc(t(x.label))}</b><small class="muted">${done ? t('done') : t('{n} more session(s) · −6 Energy', { n: x.effort - x.done })}</small></span></button>`;
     }).join('')}</div>
     <div class="row" style="margin-top:6px">${btn(t('Deposit the dissertation →'), 'deposit', { cls: canDeposit(s) ? 'primary' : '', disabled: !canDeposit(s) || s.stage !== 'plan', title: canDeposit(s) ? t('Format review. It is not about the research.') : t('The committee’s list first.') })}${th.formatFails ? `<span class="tiny muted">${t('format review rejected it {n} time(s)', { n: th.formatFails })}</span>` : ''}</div>
@@ -284,85 +284,6 @@ export function journeyBar(s) {
 
 // The main screen is seen hundreds of times, and its guidance was one italic line while the paper
 // editor had a proper callout with a button. Same component, same clarity, here.
-function continueLabel(s) {
-  if (s.tempo === 'day') return daysLeftInWeek(s) <= 1 && s.week >= 3 ? t('Finish the month →') : t('End the day →');
-  if (s.tempo === 'week') return s.week >= 3 ? t('Finish the month →') : t('Continue → week {n}', { n: s.week + 2 });
-  if (s.tempo === 'season') return t('Continue → {month} (3 months)', { month: dateLabel(s.month + 3) });
-  return t('Continue → {month}', { month: dateLabel(s.month + 1) });
-}
-
-// A suggestion is a shortcut through the existing choices, not a new rule or an automatic turn.
-export function recommendedPlan(s) {
-  const available = focusOptions(s).filter(f => !f.disabled);
-  const find = (...ids) => ids.map(id => available.find(f => f.id === id)).find(Boolean);
-  const recovery = find('rest', 'sleep') || available.find(f => f.effects?.energy > 0);
-  if ((s.player.stats.energy < 35 || s.player.stats.health < 40) && recovery)
-    return { plan: recovery, reason: t('A little recovery now. The inbox can survive it.') };
-  const milestone = milestoneOf(s);
-  if (milestone && milestone.month - s.month <= 6 && milestone.month >= s.month) {
-    const prep = s.coursework < 65 ? find('coursework', 'reading', 'practice') : find('practice', 'reading');
-    if (prep) return { plan: prep, reason: t('The exam is getting closer. Give the basics some time.') };
-  }
-  const p = activeProject(s);
-  if (p && ['Idea', 'Prototype', 'Experiments', 'Drafting'].includes(p.status)) {
-    const writing = find('write', 'writing');
-    if (p.progress >= 40 && p.draft < 90 && writing)
-      return { plan: writing, reason: t('You have results. They need sentences.') };
-    const research = find('research', 'experiments', 'deep');
-    if (research) return { plan: research, reason: t('The project needs results before it needs adjectives.') };
-  }
-  const plan = find('coursework', 'practice', 'writing', 'life', 'rest', 'sleep') || available[0];
-  return plan ? { plan, reason: t('A useful place to start. You can change your mind.') } : null;
-}
-
-export function managerNextStep(s) {
-  const p = activeProject(s);
-  const rebuttal = p?.status === 'Rebuttal' ? p : s.projects.find(project => project.status === 'Rebuttal');
-  const open = s.requests.filter(r => r.status === 'open');
-  const due = open.filter(r => r.dueWeek <= absWeek(s));
-  const selected = focusOptions(s).find(f => f.id === s.focus && !f.disabled);
-  const go = (label, action, opts = {}) => btn(label, action, { cls: 'primary small', attrs: 'data-guide="1"', ...opts });
-  const jump = (label, id) => go(label, 'manager-jump', { id });
-  // A jump that names a page lands on that page. "Open OpenRegret" used to open Netscope on
-  // whatever tab you happened to leave it on, which is not what the button says.
-  const openApp = (label, app, page = '', project = '') => btn(label, 'open', { app, cls: 'primary small', attrs: `data-guide="1"${page ? ` data-page="${page}"` : ''}${project ? ` data-project="${esc(project)}"` : ''}` });
-  const suggest = suggestion => ({ title: t('Suggested: {plan}', { plan: suggestion.plan.name }), detail: suggestion.reason, cta: go(t('Choose {plan}', { plan: suggestion.plan.name }), 'plan', { id: suggestion.plan.id }) });
-
-  if (s.stage !== 'plan') return { title: t('Something is waiting for you'), detail: t('Answer what is on screen. Number keys 1–4 pick a choice.'), cta: '' };
-  if (s.thesis && !s.thesis.deposited) return canDeposit(s)
-    ? { title: t('Deposit the dissertation'), detail: t('Every revision is done. The degree is conferred on deposit, not on the defense.'), cta: go(t('Deposit it →'), 'deposit') }
-    : { title: t('Finish the committee’s revisions'), detail: t('{n} left. Defending was not finishing.', { n: revisionsLeft(s) }), cta: jump(t('Review the revisions'), 'revisions') };
-  // Running out of Energy outranks everything else, because at 0 Energy every other suggestion on
-  // this screen is a button the player cannot afford to press — and the way out is in another app,
-  // on a tab they have no reason to have opened.
-  if (s.player.stats.energy < 22 && !(selected?.effects?.energy > 0)) {
-    const recovery = recommendedPlan(s);
-    if (recovery?.plan.effects?.energy > 0) return suggest(recovery);
-    return { title: t('You are running on nothing'), detail: t('Everything costs Energy and you are out. Life.exe → Body has the things that give it back; every one of them costs you something else.'), cta: openApp(t('Open Life.exe'), 'life', 'body') };
-  }
-  if (rebuttal) return { title: t('The rebuttal window is open'), detail: t('Rebuttal for “{title}” due this month — open OpenRegret', { title: rebuttal.title }), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret', rebuttal.id) };
-  if (due.length) return { title: t('An advisor request is due'), detail: t('Review it before continuing. You can do it, push back, or decline; leaving it unanswered has a cost.'), cta: jump(t('Review requests'), 'requests') };
-  if (canStartMain(s) && (!selected || ['research', 'write'].includes(s.focus))) return { title: s.projects.length ? t('Start the next one') : t('Start a project'), detail: t('Research and writing need a project. Start one, then choose what to spend this turn on.'), cta: go(t('Start main project'), 'start-project') };
-  if (p?.status === 'Ready' && p.kind !== 'thesis') return { title: t('A draft is approved'), detail: t('Submit it when a venue is open.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
-  // The draft is finished and nobody has read it. This had no branch at all, so the screen said
-  // "Plan set. Use the desktop if you want to" — and four measured runs sat on a project reading
-  // 100/100 for more than twenty months and ended All But Dissertation. The verb lives in another
-  // app, which is the whole reason this callout exists.
-  if (p && p.status === 'Drafting' && p.draft >= (p.kind === 'thesis' ? 90 : 60) && p.progress >= 40)
-    return { title: p.draft >= 99 ? t('The draft is finished and nobody has read it') : t('The draft is ready for a reader'),
-      detail: t('Nothing happens to a paper until your advisor has it. It will come back with comments; that is the point of sending it.'),
-      cta: openApp(t('Open Overgrief'), 'browser', 'overgrief') };
-  if (p?.status === 'Rejected') return { title: t('It came back'), detail: t('A rejected paper is not a dead paper. Revise it, reframe it, or make it bigger, and send it somewhere else.'), cta: openApp(t('Open OpenRegret'), 'browser', 'openregret') };
-  if (p && ['Drafting', 'Experiments', 'Prototype', 'Idea'].includes(p.status) && !p.targetVenueId && p.progress >= 35)
-    return { title: t('Choose a venue'), detail: t('Work without a deadline expands, and your advisor will keep asking which one it is.'), cta: openApp(t('Set a target'), 'browser', 'openregret') };
-  if (!selected) {
-    const suggestion = recommendedPlan(s);
-    return suggestion ? suggest(suggestion) : { title: t('Choose a plan'), detail: t('Pick one activity in the plan list. It sets what happens when you press Continue; selecting it does not advance time.'), cta: jump(t('Choose a plan'), 'plans') };
-  }
-  return { title: t('{plan} selected', { plan: selected.name }), detail: t('Continue spends this plan. You can change it or explore optional tools first.'), cta: go(continueLabel(s), 'continue') };
-}
-
-
 // Knocking on the door is the most-repeated five seconds of a deadline week, and it was one line
 // of grey text. Four states, drawn in code and animated once on arrival, with a stamp on top: the
 // door is the joke, and the joke is that you cannot tell which one you are getting until it opens.
@@ -404,7 +325,7 @@ function paceControl(s) {
 
 // Being stuck, and who you ask. Six doors, each greyed with its own reason rather than missing,
 // and the one that suits this kind of stuck marked — because knowing which door is the skill.
-function stuckPanel(s) {
+export function stuckPanel(s) {
   const ob = obstacleOf(s);
   const opts = doorOptions(s);
   const plan = s.stage === 'plan';
@@ -464,7 +385,7 @@ export function agenda(s) {
   // promise. In the middle years the agenda names the thing without naming a month for it.
   if (ms && inTheMiddle(s)) items.push(`<li>${icon('portal', 14)} ${t('The proposal, eventually. Nobody has given you a date and nobody is going to.')}</li>`);
   else if (ms) items.push(`<li>${icon('portal', 14)} ${{ prelim: t('Prelim'), proposal: t('Thesis proposal'), defense: t('Defense') }[ms.kind]}: ${dateLabel(ms.month)} (${monthsAway(ms.month - s.month)})${s.milestones?.prelim === 'conditional' && ms.kind === 'proposal' ? ` · ${t('conditional pass: needs an accepted paper by Aug 2031')}` : ''}</li>`);
-  else if (s.milestones?.proposal === 'pass' && !s.milestones.thesisStarted) items.push(`<li>${icon('doc', 14)} ${t('Candidate. Start the dissertation from year five ({month}).', { month: dateLabel(54) })}</li>`);
+  else if (s.milestones?.proposal === 'pass' && !s.milestones.thesisStarted) items.push(`<li>${icon('doc', 14)} ${t('Dissertation opens {month}', { month: dateLabel(thesisFloor(s)) })}</li>`);
   else if (s.milestones?.thesisStarted && !s.milestones.defenseMonth) items.push(`<li>${icon('doc', 14)} ${t('Dissertation in progress. Get it approved, then schedule the defense.')}</li>`);
   if (s.jobs?.track) items.push(`<li>${icon('case', 14)} ${t('Job market: {track} track', { track: t(s.jobs.track) })}${s.jobs.offers.length ? ` · ${t('offers')}: ${s.jobs.offers.map(o => esc(t(o))).join(', ')}` : ''}</li>`);
   if (s.flags.fundingGap) items.push(`<li>${icon('money', 14)} ${t('Year-six funding gap: stipend at 70%')}</li>`);
@@ -477,7 +398,7 @@ export function requestList(s) {
   return open.map(r => {
     const tpl = requestById[r.templateId];
     const due = r.dueWeek - absWeek(s);
-    return `<div class="request"><div class="meta"><span>${esc(lastName(s.advisor.name))} · ${esc(t(r.kind))}</span><span class="${due <= 0 ? 'overdue' : ''}">${due <= 0 ? t('due before you continue') : t('due in {n} wk', { n: due })}</span></div><p>${esc(requestText(s, r))}</p><div class="row">${btn(t('Do it (−{n} Energy)', { n: tpl.cost.energy }), 'req-do', { id: r.id, cls: 'small', disabled: s.stage !== 'plan' })}${btn(t('Push back'), 'req-push', { id: r.id, cls: 'small', disabled: s.stage !== 'plan' || r.pushed, title: t('Confidence and trust vs. their toxicity') })}${btn(t('Decline'), 'req-decline', { id: r.id, cls: 'small', disabled: s.stage !== 'plan' })}</div></div>`;
+    return `<div class="request"><div class="meta"><span>${esc(lastName(s.advisor.name))} · ${esc(t(r.kind))}</span><span class="${due <= 0 ? 'overdue' : ''}">${due <= 0 ? t('due before you continue') : t('due in {n} wk', { n: due })}</span></div><p>${esc(requestText(s, r))}</p><div class="row">${btn(t('Do it (−{n} Energy)', { n: tpl.cost.energy }), 'req-do', { id: r.id, cls: 'small', disabled: s.stage !== 'plan' || s.player.stats.energy < (tpl.cost.energy || 0) })}${btn(t('Push back'), 'req-push', { id: r.id, cls: 'small', disabled: s.stage !== 'plan' || r.pushed, title: t('Confidence and trust vs. their toxicity') })}${btn(t('Decline'), 'req-decline', { id: r.id, cls: 'small', disabled: s.stage !== 'plan' })}</div></div>`;
   }).join('');
 }
 
@@ -504,55 +425,6 @@ export function quickAsks(s, limit = 4) {
   const list = asks.filter(a => !(a.conditions?.maxEnergy !== undefined && s.player.stats.energy > a.conditions.maxEnergy)).slice(0, limit);
   return `<div class="asks">${list.map(a => btn(esc(a.name), 'ask', { id: a.id, cls: 'small', disabled: s.stage !== 'plan' || (s.askCooldowns[a.id] || 0) > now, title: a.desc + ((s.askCooldowns[a.id] || 0) > now ? ` (${t('asked recently ({n} wk)', { n: s.askCooldowns[a.id] - now })})` : '') })).join('')}${btn(t('More…'), 'open', { app: 'chat', cls: 'small link' })}</div>`;
 }
-
-// The one thing on this screen that nothing points at.
-//
-// Nobody in a PhD is ever told when to stop collecting results and start deciding what the story
-// is. There is no form, no meeting, no email — the proposal asks eighteen months later and by then
-// the papers have answered for you. So this gets no callout, no icon, no tag, no place in the
-// next-step box, and it never becomes the objective line. It is a sentence at the bottom of the
-// Projects group, in the muted colour, and a player who never presses it can still finish. Later.
-function quietDecision(s) {
-  if (!canDecideThesis(s)) return '';
-  return `<p class="quiet-decision"><button data-action="decide-thesis" ${s.stage !== 'plan' ? 'disabled' : ''}>${t('Decide what the thesis is')}</button></p>`;
-}
-
-export function managerApp(s, ui) {
-  const tempo = s.tempo, crunch = s.crunch;
-  const selected = focusOptions(s).find(f => f.id === s.focus && !f.disabled);
-  const suggestion = selected ? null : recommendedPlan(s);
-  const displayedPlan = selected || suggestion?.plan;
-  const open = s.requests.filter(r => r.status === 'open');
-  const next = managerNextStep(s);
-  const timeline = timelinePanel(s), internship = internPanel(s), letters = lettersPanel(s);
-  const detail = (id, title, body) => `<details class="manager-detail" data-detail="manager-${id}"><summary>${title}</summary><div class="manager-detail-body">${body}</div></details>`;
-  const tempoNote = tempo === 'day' ? t('Days pass one at a time now. Everything counts and nothing is enough.') : tempo === 'week' ? t('Deadline weeks pass one at a time.') : tempo === 'season' ? t('Calm seasons pass three months at a time.') : t('Calm months pass in one step.');
-  const planStatus = s.stage !== 'plan' ? t('Respond to what is on screen.') : selected ? t('{plan} selected', { plan: selected.name }) : t('Choose a plan to enable Continue.');
-  return `<div class="manager">
-  <div class="topstrip raised manager-header"><div><h1>${dateLabel(s.month)} ${tempo === 'day' ? `<span class="tag info">${esc(dayName(s))} · ${t('week {n}', { n: Math.min(4, s.week + 1) })}</span>` : tempo === 'week' ? `<span class="tag info">${t('Week {n} of 4', { n: Math.min(4, s.week + 1) })}</span>` : ''} ${crunch ? tag(crunchLabel(crunch), 'crunch') : ''}</h1><div class="sub">${esc(semester(s.month))} · ${t('Year {n}', { n: phdYear(s.month) })}</div><p class="manager-plan-status" id="manager-plan-status">${esc(planStatus)}</p></div><div class="stack right">${btn(continueLabel(s), 'continue', { cls: 'continue primary', disabled: s.stage !== 'plan' || !selected, title: s.stage !== 'plan' ? t('Answer what is on screen first.') : !selected ? t('Choose a plan to enable Continue.') : t('Enter'), attrs: 'aria-describedby="manager-plan-status"' })}<span class="tiny muted">${tempoNote}</span>${paceControl(s)}</div></div>
-  ${next ? `<div class="next-step manager-next"><span class="ns-mark">${icon('arrow', 18)}</span><div><span class="manager-kicker">${t('Next action')}</span><b>${esc(next.title)}</b><span class="muted small">${esc(next.detail)}</span></div><span class="ns-cta">${next.cta}</span></div>` : ''}
-  ${standingBanner(s)}
-  <div class="manager-grid">
-    <section class="manager-planning" aria-label="${esc(t('Choose a plan'))}">
-      ${group(tempo === 'day' ? t('Today goes to') : tempo === 'week' ? t('This week goes to') : t('Plan for the month'), `${displayedPlan ? `<div class="manager-plan-summary"><span class="manager-kicker">${selected ? t('Selected plan') : t('Suggested plan')}</span><h2>${icon(displayedPlan.icon, 20)} ${esc(displayedPlan.name)}</h2><p class="small">${esc(displayedPlan.desc)}</p>${selected ? `<p class="small muted">${t('Ready when you are. Continue moves time forward.')}</p>` : `<p class="small muted">${esc(suggestion.reason)}</p>${btn(t('Choose {plan}', { plan: displayedPlan.name }), 'plan', { id: displayedPlan.id, cls: 'primary', disabled: s.stage !== 'plan', attrs: 'data-plan-suggestion="1"' })}`}</div>` : ''}<details id="manager-plans" class="manager-detail" data-detail="manager-plans-choice" tabindex="-1"><summary>${selected ? t('Change plan') : t('All activities')}</summary><div class="manager-detail-body">${planList(s)}</div></details>`)}
-      ${tempo === 'day' ? group(t('Today'), dayStrip(s)) : ''}
-    </section>
-    <div class="manager-current">
-      ${s.thesis && !s.thesis.deposited ? `<section id="manager-revisions" tabindex="-1">${group(t('Almost'), revisionPanel(s))}</section>` : ''}
-      ${open.length ? `<section id="manager-requests" tabindex="-1">${group(`${t('Advisor requests')} ${tag(String(open.length), 'warn')}`, requestList(s))}</section>` : ''}
-      <section id="manager-projects" tabindex="-1">${group(t('Projects'), projectList(s) + `<div class="row" style="margin-top:6px">${btn(t('Start main project'), 'start-project', { cls: 'small', disabled: s.stage !== 'plan' || !canStartMain(s), title: canStartMain(s) ? t('A new main project') : t('The current main project is still alive') })}${btn(t('Start side project'), 'start-side', { cls: 'small', disabled: s.stage !== 'plan' || !canStartSide(s), title: t('Month 5+, main project past 40%, one at a time. −5 Energy.') })}${s.milestones?.proposal === 'pass' && !s.milestones.thesisStarted ? btn(t('Start the dissertation'), 'start-thesis', { cls: 'small accent', disabled: s.stage !== 'plan' || s.month < thesisFloor(s), title: t('From {month}, a decent interval after the proposal. Accepted papers become chapters, and the ones you aimed at it become better ones.', { month: dateLabel(thesisFloor(s)) }) }) : ''}${s.projects.some(x => x.kind === 'thesis' && x.status === 'Ready') && (s.milestones.defenseMonth === null || s.milestones.defenseMonth === undefined) ? btn(t('Schedule the defense'), 'schedule-defense', { cls: 'small accent', disabled: s.stage !== 'plan' }) : ''}${btn(t('Open Overgrief'), 'open', { app: 'browser', cls: 'small link', attrs: 'data-page="overgrief"' })}</div>${quietDecision(s)}`)}</section>
-      ${crunch?.kind ? group(t('Agenda'), readinessWidget(s) + agenda(s)) : ''}
-      ${!s.thesis && timeline ? group(t('The timeline'), timeline) : ''}${internship ? group(t('Summer'), internship) : ''}${letters ? group(t('Letters'), letters) : ''}
-    </div>
-  </div>
-  <div class="manager-optional"><p class="small muted">${t('More at your desk — open only what you need.')}</p>
-    ${detail('calendar', t('Calendar & milestones'), journeyBar(s) + (crunch?.kind ? '' : readinessWidget(s) + agenda(s)))}
-    ${detail('support', t('Stuck?'), stuckPanel(s))}
-    ${detail('advisor', t('Advisor'), advisorCard(s) + `<div style="margin-top:8px">${quickAsks(s, 3)}</div>`)}
-    ${detail('notes', t('Field notes'), `<p class="small muted">${esc(seasonalFlavor(s.month, s.seed + s.month))}</p><div class="notes-box">${voiced(noticeText(s))}</div>`)}
-  </div></div>`;
-}
-
 
 // How the month went, before the tables. A face, four bars that move, and the events as icons —
 // so the shape of the month is visible in about a second and the prose is there if you want it.

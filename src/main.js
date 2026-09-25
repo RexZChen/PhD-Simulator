@@ -270,8 +270,9 @@ function afterDispatch(before, after) {
   const newReq = after.requests.filter(r => r.status === 'open' && !before.requests.some(x => x.id === r.id));
   // Routine mail/chat already have unread badges. One notice is enough for something actionable.
   const newConds = (after.conditions || []).filter(c => !(before.conditions || []).some(x => x.id === c.id));
-  if (newConds.length) balloon(t('Your body, calling'), t(conditionNames[newConds[0].id] || newConds[0].id), 'warn', 'error');
-  else if (newReq.length) balloon(t('Request from Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), requestText(after, newReq[0]), 'chat', 'notify');
+  const onDesk = ui.app === 'dashboard' && (!ui.deskTab || ui.deskTab === 'now') && !ui.minimized;
+  if (!onDesk && newConds.length) balloon(t('Your body, calling'), t(conditionNames[newConds[0].id] || newConds[0].id), 'warn', 'error');
+  else if (!onDesk && newReq.length) balloon(t('Request from Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), requestText(after, newReq[0]), 'chat', 'notify');
   if (after.phase === 'ending' && before.phase !== 'ending') play(after.ending.id === 'pass' ? 'accept' : 'reject');
   const acc = after.counts?.accepted || 0, bef = before.counts?.accepted || 0;
   if (acc > bef) play('accept'); else if ((after.counts?.rejected || 0) > (before.counts?.rejected || 0)) play('reject');
@@ -280,6 +281,16 @@ function perform(action, options = {}) {
   try {
     const before = run;
     run = dispatch(run, action);
+    if (ui.pendingTurn && ['REQUEST_DO', 'REQUEST_DECLINE', 'REQUEST_PUSH'].includes(action.type)
+      && run.stage === 'plan' && !run.requests.some(r => r.status === 'open')) {
+      const intention = ui.pendingTurn; ui.pendingTurn = null;
+      run = dispatch(run, { type: 'PLAY_TURN', id: intention });
+    }
+    if (run.simplePlay && run.stage === 'report' && !run.event) {
+      run = dispatch(run, { type: 'DISMISS_REPORT' });
+      ui.app = 'dashboard'; ui.deskTab = 'now';
+      options = { ...options, preserveScroll: false };
+    }
     if (before.phase !== run.phase) ui.gaTab = null;
     if (before.phase === 'playing' || run.phase === 'playing') afterDispatch(before, run);
     // Anything that arrived in the channel you are currently looking at has been seen. Without
@@ -298,7 +309,7 @@ function startRun(seed, answers) {
   run = prepareRun(createRun(seed, answers));
   run.seenBefore = { ...meta.eventCounts };
   meta.runs = (meta.runs || 0) + 1;
-  ui = { ...ui, screen: 'game', app: 'dashboard', confirm: null, startMenu: false, minimized: false, wizardStep: 0, selectedMail: null, guideOff: false };
+  ui = { ...ui, screen: 'game', app: 'dashboard', confirm: null, startMenu: false, minimized: false, wizardStep: 0, selectedMail: null, guideOff: false, deskTab: 'now', pendingTurn: null, gaDirectory: false, gaSchool: null, applicationStyle: 'balanced' };
   persist(); play('submit'); render();
 }
 function submitProfile() {
@@ -340,7 +351,14 @@ root.addEventListener('keydown', e => {
 document.addEventListener('keydown', e => {
   if (e.target.matches('input, select, textarea, #typing-zone')) return;
   if (/^[1-6]$/.test(e.key)) { const b = document.querySelector(`[data-hotkey="${e.key}"]:not(:disabled)`); if (b) { e.preventDefault(); b.click(); } return; }
-  if (e.key === 'Enter') { const d = document.querySelector('.modal [data-default="1"]:not(:disabled)') || document.querySelector('.wizard-buttons [data-default="1"]:not(:disabled)') || (!document.querySelector('.modal') && document.querySelector('[data-action="continue"]:not(:disabled)')); if (d) { e.preventDefault(); d.click(); } return; }
+  if (e.key === 'Enter') {
+    // A focused control owns Enter. Global shortcuts must not steal its native activation.
+    if (e.target.closest('button, a, summary')) return;
+    const d = document.querySelector('.modal [data-default="1"]:not(:disabled)')
+      || document.querySelector('.wizard-buttons [data-default="1"]:not(:disabled)')
+      || (!document.querySelector('.modal') && document.querySelector('.turn-choice.suggested:not(:disabled), [data-action="continue"]:not(:disabled)'));
+    if (d) { e.preventDefault(); d.click(); } return;
+  }
   if (e.key === ' ' && lectureRunning()) { e.preventDefault(); toggleWork(); return; }
   if (e.key === ' ' && benchRunning()) { e.preventDefault(); strike(); return; }
   if (e.key === 'Escape') { if (ui.startMenu || ui.dialog || ui.confirm || ui.thread) { ui.startMenu = false; ui.dialog = null; ui.confirm = null; ui.thread = null; render(); } }
@@ -426,7 +444,8 @@ root.addEventListener('click', event => {
       // whatever tab you last left it on, which is not what the button said.
       const page = target.dataset.page;
       if (page) {
-        if (ui.app === 'browser') ui.browserTab = page;
+        if (ui.app === 'dashboard') ui.deskTab = page;
+        else if (ui.app === 'browser') ui.browserTab = page;
         else if (ui.app === 'chat') ui.chatChannel = page;
         else if (ui.app === 'life') ui.lifeTab = page;
         else if (ui.app === 'portal') ui.portalTab = page;
@@ -692,22 +711,16 @@ root.addEventListener('click', event => {
     case 'read-mail': closeCompose(); ui.selectedMail = id; perform({ type: 'READ_MAIL', id }); return;
     case 'apply': perform({ type: 'APPLY', schoolId: id, effort: ui.effort || 'generic', contact: !!ui.contact, poiId: target.dataset.target }); return;
     case 'ga-tab': ui.gaTab = id; render({ preserveScroll: false }); return;
-    case 'ga-school': {
-      // The faculty panel renders below a grid of thirty-two school buttons, roughly five hundred
-      // pixels under the fold. A first-time player clicked MITT three times and reported that
-      // clicking a school did nothing — it is the gateway to researching a program and emailing a
-      // professor, which the tutorial tells you to do. Selecting a school now brings it into view.
-      const opening = ui.gaSchool !== id;
-      ui.gaSchool = opening ? id : null;
-      render();
-      if (opening) requestAnimationFrame(() => document.querySelector('.faculty-panel')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
-      return;
-    }
+    case 'ga-school': ui.gaSchool = ui.gaSchool === id ? null : id; render({ preserveScroll: false }); return;
     case 'ga-filter': ui.gaFilter = id; render(); return;
     case 'ga-poi': ui.poi = { ...(ui.poi || {}), [id]: target.dataset.target }; render(); return;
     case 'ga-thread': ui.thread = id; render(); return;
     case 'close-thread': ui.thread = null; render(); return;
     case 'prep': perform({ type: 'PREP', id, target: target.dataset.target }); return;
+    case 'prep-statement': perform({ type: 'PREP_STATEMENT', id }); return;
+    case 'application-style': ui.applicationStyle = id; render(); return;
+    case 'application-directory': ui.gaSchool = null; ui.gaDirectory = id !== 'shortlist'; render({ preserveScroll: false }); return;
+    case 'apply-slate': perform({ type: 'APPLY_SLATE', id }); return;
     case 'email': perform({ type: 'EMAIL', advisorId: target.dataset.target, id }); return;
     case 'student': perform({ type: 'STUDENT', advisorId: target.dataset.target, id }); return;
     case 'interview': perform({ type: 'INTERVIEW', schoolId: target.dataset.target, id }); return;
@@ -716,6 +729,18 @@ root.addEventListener('click', event => {
     case 'wait-april': perform({ type: 'WAIT_APRIL' }); return;
     case 'wizard': { const p = run.projects.find(x => x.id === run.activeProjectId); perform({ type: 'WIZARD', venueId: p?.wizardStep === 0 ? id : undefined }); return; }
     case 'continue': play('click'); perform({ type: 'CONTINUE' }); return;
+    case 'desk-tab': ui.deskTab = id; render({ preserveScroll: false }); return;
+    case 'play-turn': {
+      if (run.requests.some(r => r.status === 'open')) {
+        ui.pendingTurn = id; render({ preserveScroll: false }); return;
+      }
+      ui.pendingTurn = null; play('click'); perform({ type: 'PLAY_TURN', id }); return;
+    }
+    case 'cancel-turn': ui.pendingTurn = null; render(); return;
+    case 'desk-action': {
+      if (target.dataset.project) run = dispatch(run, { type: 'SELECT_PROJECT', id: target.dataset.project });
+      perform({ type: target.dataset.type, id }); return;
+    }
     case 'dismiss-report': play('chime'); perform({ type: 'DISMISS_REPORT' }); return;
     case 'choice': stopSceneTimer(); play('click'); perform({ type: 'CHOICE', id }); if (run?.lastRoll) showRoll(run.lastRoll); return;
     case 'pushback': stopSceneTimer(); play('click'); perform({ type: 'PUSHBACK', id }); return;

@@ -186,6 +186,12 @@ function playSeed(seed) {
         { const th = s.projects.find(p => p.kind === 'thesis');
           if (th && th.status === 'Drafting' && th.draft >= 90) { s = try_(s, { type: 'SELECT_PROJECT', id: th.id }); s = try_(s, { type: 'SEND_ADVISOR' }); }
           if (th && th.status === 'Ready' && s.milestones.defenseMonth == null) s = try_(s, { type: 'SCHEDULE_DEFENSE' }); }
+        // Sending/submitting above can lock the selected manuscript. Re-plan like the UI
+        // requires, rather than measuring a player repeatedly trying a disabled activity.
+        if (s.stage === 'plan' && !focusOptions(s).some(f => f.id === s.focus && !f.disabled)) {
+          const option = focusOptions(s).find(f => !f.disabled);
+          if (option) s = try_(s, { type: 'PLAN', id: option.id });
+        }
         if (s.stage === 'plan') { try { s = act(s, { type: 'CONTINUE' }); } catch { row.stopped = 'CONTINUE refused'; break; } }
       }
       if (s.stage === 'report') s = act(s, { type: 'DISMISS_REPORT' });

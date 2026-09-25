@@ -70,7 +70,7 @@ export const seasonalFlavor = (index, pickIndex = 0) => { const options = FLAVOR
 export function focusAvailability(index) {
   const teaching = isTeachingTerm(index);
   return {
-    coursework: teaching ? null : t('No classes in summer. Read on your own time, which is all of it.'),
+    coursework: teaching ? null : t('Classes are on break. Read on your own time, which is all of it.'),
     teach: teaching ? null : t('No sections to teach until the semester resumes.'),
   };
 }

@@ -252,6 +252,11 @@ export async function run(seed, style) {
       { const th = s.projects.find(x => x.kind === 'thesis');
         if (th && th.status === 'Drafting' && th.draft >= 90) { try { s = act(s, { type: 'SELECT_PROJECT', id: th.id }); s = act(s, { type: 'SEND_ADVISOR' }); } catch {} }
         if (th && th.status === 'Ready' && (s.milestones.defenseMonth === null || s.milestones.defenseMonth === undefined)) { try { s = act(s, { type: 'SCHEDULE_DEFENSE' }); } catch {} } }
+      // Approval/submission can make the plan selected above unavailable mid-turn.
+      if (s.stage === 'plan' && !focusOptions(s).some(f => f.id === s.focus && !f.disabled)) {
+        const option = focusOptions(s).find(f => !f.disabled);
+        if (option) s = act(s, { type: 'PLAN', id: option.id });
+      }
       try { s = act(s, { type: 'CONTINUE' }); } catch { break; }
     }
     if (s.stage === 'report') s = act(s, { type: 'DISMISS_REPORT' });

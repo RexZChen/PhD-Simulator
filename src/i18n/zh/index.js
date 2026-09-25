@@ -1,6 +1,7 @@
 import { ui } from './ui.js';
 import guidance from './guidance.js';
 import applicationGuidance from './application-guidance.js';
+import playZh from './play.js';
 import { events } from './events.js';
 import { meetings } from './meetings.js';
 import { misc } from './misc.js';
@@ -10,4 +11,4 @@ import { stuckZh, hintsZh } from './stuck.js';
 import { examZh, deskZh, rollZh, rechargeZh, menuZh, draftZh, preEnrolZh } from './exams.js';
 import { decisionZh, priorZh, savesZh, housingZh } from './decisions.js';
 // The minigame prose is its own file for size; it lives in the same flat ui dictionary.
-export const zh = { ui: { ...ui, ...minigames, ...campusZh, ...stuckZh, ...hintsZh, ...examZh, ...deskZh, ...rollZh, ...rechargeZh, ...menuZh, ...draftZh, ...preEnrolZh, ...decisionZh, ...priorZh, ...savesZh, ...housingZh, ...guidance, ...applicationGuidance }, events, meetings, ...misc };
+export const zh = { ui: { ...ui, ...minigames, ...campusZh, ...stuckZh, ...hintsZh, ...examZh, ...deskZh, ...rollZh, ...rechargeZh, ...menuZh, ...draftZh, ...preEnrolZh, ...decisionZh, ...priorZh, ...savesZh, ...housingZh, ...guidance, ...applicationGuidance, ...playZh }, events, meetings, ...misc };

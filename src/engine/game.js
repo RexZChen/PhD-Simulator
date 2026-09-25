@@ -1,5 +1,5 @@
 import { schools, focuses } from '../data/catalog.js';
-import { t } from '../i18n/index.js';
+import { t, provenanceOf } from '../i18n/index.js';
 import { monthOf, isSummer, nextIndexFor, dateLabel as calLabel } from '../data/calendar.js';
 import { chatphdLines, chatphdReplies, advisorPings, logLines } from '../data/chatter.js';
 import { repliesFor } from '../data/replies.js';
@@ -8,7 +8,8 @@ import { clamp, random, roll, pick, pickFresh } from './probability.js';
 import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS, vars, activeLabmates, seedPriorWork } from './state.js';
 import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
 import { lectureLines } from '../data/minigames.js';
-import { createProject, createThesis, benchSession, clusterSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
+import { createProject, createThesis, benchSession, clusterSession, canStartMain, canStartSide, syncProject, write, writeBudget, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
+import { turnChoices } from './play.js';
 import { patentMonth, openPatent, doPatentMeeting, answerOfficeAction, nextPatentMeeting } from './patent.js';
 import { networkMonth, netTalk, netCollab, doCollab, askNetLetter, netIntro, meetContact } from './network.js';
 import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, expireRequests, doRequest, pushbackRequest, declineRequest, ask, updatePressure, advisorPing, shiftCadence, revealHint, reviewLatencyWeeks, advisorResponds, newAdvisor } from './advisor.js';
@@ -585,6 +586,7 @@ export function dispatch(state, action) {
   if (s.phase === 'prep') {
     if (!s.prep) applyEngine.initPrep(s);
     if (a.type === 'PREP') applyEngine.prepAction(s, a.id, a.target);
+    else if (a.type === 'PREP_STATEMENT') applyEngine.prepareStatement(s, a.id === 'thorough');
     else if (a.type === 'EMAIL') applyEngine.email(s, a.advisorId, a.id);
     else if (a.type === 'STUDENT') applyEngine.askStudentThread(s, a.advisorId, a.id);
     else throw new Error(t('Finish preparing first. December is coming.'));
@@ -592,6 +594,8 @@ export function dispatch(state, action) {
   }
   if (s.phase === 'application') {
     if (a.type === 'APPLY') applyEngine.apply(s, a);
+    else if (a.type === 'PREP' && a.id === 'research') applyEngine.prepAction(s, a.id, a.target);
+    else if (a.type === 'APPLY_SLATE') applyEngine.applySlate(s, a.id);
     else if (a.type === 'ADMISSIONS') applyEngine.submitAll(s);
     else if (a.type === 'EMAIL') applyEngine.email(s, a.advisorId, a.id);
     else if (a.type === 'STUDENT') applyEngine.askStudentThread(s, a.advisorId, a.id);
@@ -616,6 +620,7 @@ export function dispatch(state, action) {
   }
   if (s.phase === 'admissions') {
     if (a.type === 'ENROLL') enroll(s, a.id);
+    else if (a.type === 'PREP' && a.id === 'research') applyEngine.prepAction(s, a.id, a.target);
     else if (a.type === 'ASK_STUDENT') applyEngine.askStudentVisit(s, a.id);
     else if (a.type === 'VISIT') applyEngine.visit(s, a.advisorId, a.id);
     else if (a.type === 'WAIT_APRIL') applyEngine.waitForApril(s);
@@ -683,7 +688,19 @@ export function dispatch(state, action) {
     return s;
   }
   if (a.type === 'SELECT_PROJECT') { if (!s.projects.some(p => p.id === a.id)) throw new Error(t('No such project.')); s.activeProjectId = a.id; return s; }
-  if (a.type === 'DISMISS_REPORT') { dismissReport(s); return s; }
+  if (a.type === 'DISMISS_REPORT') {
+    if (s.stage === 'report' && s.report?.before?.stats) {
+      const b = s.report.before;
+      s.lastTurn = { month: s.month, focus: s.report.focus || t('A month, week by week'),
+        i18nFocus: provenanceOf(s.report.focus),
+        energy: Math.round(s.player.stats.energy - b.stats.energy), hope: Math.round(s.player.stats.hope - b.stats.hope),
+        health: Math.round(s.player.stats.health - (b.stats.health ?? s.player.stats.health)),
+        projects: s.projects.map(p => ({ title: p.title, progress: Math.round(p.progress - (b.projects?.[p.id]?.progress || 0)), draft: Math.round(p.draft - (b.projects?.[p.id]?.draft || 0)) })),
+        events: (s.report.events || []).map(e => ({ title: e.title, choice: e.choice, result: e.result, i18n: e.i18n })),
+      };
+    }
+    dismissReport(s); return s;
+  }
   if (a.type === 'FIXTURE') { useFixture(s, a.id); return s; }
   if (a.type === 'SUMMONS') {
     if (s.stage !== 'summons') throw new Error(t('There is nothing in the calendar.'));
@@ -706,6 +723,19 @@ export function dispatch(state, action) {
   }
   if (a.type === 'PRELIM' || a.type === 'MILESTONE') { if (s.stage !== 'milestone') throw new Error(t('The committee is not assembled yet.')); if (a.id === 'master' && s.coursework < 55) throw new Error(t('The MS exit requires 55 coursework progress.')); milestone(s, s.milestoneKind, a.id); if (s.phase === 'playing' && s.stage === 'plan' && s.needsBegin) beginTurn(s); return s; }
   if (s.stage !== 'plan') throw new Error(s.stage === 'report' ? t('Close the monthly report first.') : t('Finish what is on screen first.'));
+  if (a.type === 'PLAY_TURN') {
+    const choice = turnChoices(s).find(c => c.id === a.id);
+    if (!choice) throw new Error(t('That is not an option right now.'));
+    s.simplePlay = true;
+    if (choice.projectId) s.activeProjectId = choice.projectId;
+    if (choice.id === 'work' && canStartMain(s) && !choice.projectId) createProject(s);
+    s.focus = choice.focus;
+    const project = activeProject(s);
+    if (['write', 'writing'].includes(choice.focus) && project && ['Prototype', 'Experiments', 'Drafting'].includes(project.status)
+      && project.progress >= 35 && project.draft < 100 && (s.typed || 0) < writeBudget(s)) write(s, writeBudget(s));
+    // Use the same interrupt and time-advance rules as a manually planned turn.
+    return dispatch(s, { type: 'CONTINUE' });
+  }
   if (a.type === 'PLAN') { const f = focusById(s, a.id); if (!f) throw new Error(t('That is not an option right now.')); if (f.disabled) throw new Error(f.disabled); s.focus = a.id; return s; }
   if (a.type === 'CONTINUE') {
     // The interrupt is raised after the plan is chosen and before the turn resolves, which is the
@@ -770,6 +800,14 @@ export function dispatch(state, action) {
       p.wizardStep++; break;
     }
     case 'SUBMIT': submit(s); break;
+    case 'SUBMIT_PAPER': {
+      const venue = venueById[a.id];
+      if (p?.status !== 'Ready' || p.kind === 'thesis' || !venue || !venuesForTopic(p.topic).includes(venue) || !canSubmitNow(s, venue))
+        throw new Error(t('Choose an open venue for an approved paper.'));
+      p.venueId = venue.id; p.wizardStep = 4;
+      log(s, t('Metadata, authors, manuscript, confirmation. Four boxes checked. The research is unchanged.'));
+      submit(s); break;
+    }
     case 'REBUT': rebut(s, a.id); break;
     case 'RECYCLE': recycle(s, a.id); break;
     case 'PREPRINT': preprint(s); break;
