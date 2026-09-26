@@ -6,7 +6,9 @@
 
 **[▶ Play it in your browser](https://rexzchen.github.io/PhD-Simulator/)** · no install · no account · nothing leaves your machine
 
-<img src="docs/screens/desktop.png" width="820" alt="The PhD Manager desktop: a monthly plan, an advisor card, a Stuck? panel, and a plant on the desk.">
+<img src="docs/screens/desktop.png" width="820" alt="Academic OS v1.12: a connected workspace sidebar, weekly deadline plans, research projects, advisor status, and a plant on the desk.">
+
+*Screenshots from the browser release, v1.12.0.*
 
 </div>
 
@@ -50,11 +52,32 @@ Then it keeps going, because a PhD does not end at graduation and neither does y
 
 ### Room 214 is an hour, not a dice roll
 
-<img src="docs/screens/room214.png" width="760" alt="The preliminary examination: a slide deck with a clock, a committee, and a composure meter.">
+<img src="docs/screens/room214.png" width="760" alt="The preliminary examination in self-paced mode: a slide deck, composure and talk-budget meters, and choices to move on or explain a slide.">
 
 *Forty minutes of talking while four people decide what to ask you. Then fifteen minutes of being asked it. Then five minutes in a corridor with one chair while they decide, out loud, without you.*
 
 </div>
+
+---
+
+<details>
+<summary><b>Inside the workspace — LabChat, ChatPHD, and Gaggle Scholar</b></summary>
+
+<br>
+
+**LabChat** — Lab channels, direct messages, and the careful wording of a message to your advisor.
+
+<img src="docs/screens/labchat.png" width="820" alt="LabChat with lab channels, advisor and labmate conversations, and an expanded menu of check-in and meeting messages with energy costs.">
+
+**ChatPHD** — Research tools beside a conversation that is occasionally helpful.
+
+<img src="docs/screens/chatphd.png" width="820" alt="ChatPHD showing the active research project, visible research tools, and a conversation about how to talk to an advisor.">
+
+**Gaggle Scholar** — Your publications, citation counts, and an invitation to compare yourself with everyone else.
+
+<img src="docs/screens/scholar.png" width="820" alt="Gaggle Scholar with a researcher profile, indexed publications, citation metrics, and a link to people you know.">
+
+</details>
 
 ---
 
