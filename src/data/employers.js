@@ -403,12 +403,12 @@ export const employers = [
     hook: 'If you are not a US citizen the company has to be able to fire you — a work petition needs a real employer — so your co-founders take the board seats and the formal power to do it, everyone signs on a Tuesday, and then you all go to lunch.' },
 
   { id: 'nightjar_systems', track: 'founder', name: 'Nightjar Systems',
-    kind: 'university research spinout', where: 'the campus incubator, two floors below the lab you just left',
+    kind: 'university research spinout', where: 'an established team in a campus incubator',
     prestige: 3, difficulty: 4, permanence: 0, ceiling: 5, salary: [115000, 150000], months: 12, equity: 'lottery',
     gate: 'topVenue', sponsors: true, cap: 1, slots: 1, applicants: [1, 1],
     wants: { publications: 70, citations: 58, awards: 19, people: 72 }, letterMatters: 2, networkMatters: 1.6,
-    catch: 'The university owns the patent and licenses it back to you for equity and a royalty, and the negotiation takes fourteen months during which you cannot hire anyone. The university takes its share before anyone else does and the number is not negotiable by you.',
-    hook: 'Your advisor is a co-founder, sits on the board, and still writes your letters. You have not left the lab; you have incorporated it.' },
+    catch: 'This existing spinout is recruiting a technical cofounder. Its license and ownership terms belong to its own research, not your dissertation. The offer requires a careful reading of the equity agreement; the title does not tell you how much control comes with it.',
+    hook: 'The founding team has a customer demo and a vacant technical leadership role. Joining this company is separate from any company proposal around your own research. Your advisor does not gain a board seat because you accept the job.' },
 
   // ── OTHER ─────────────────────────────────────────────────────────────────
   { id: 'independent', track: 'unplaced', name: 'your own name, in the affiliation field',
@@ -424,6 +424,6 @@ export const employers = [
     prestige: 1, difficulty: 1, permanence: 0, ceiling: 5, salary: [0, 46000], months: 12, equity: 'none',
     gate: 'none', sponsors: false, cap: 0, slots: 0, applicants: [0, 0], noSelection: true,
     wants: {},
-    catch: 'The catch is the calendar, not you: hiring runs on a cycle that does not care that you defended in April. Most of your cohort had nothing in May either — you will only ever hear from the ones who did, and they will post about it.',
-    hook: 'You keep the spreadsheet open in a pinned tab. In August someone you met once at a poster session forwards a posting with the subject line “not sure if this is you,” and it is.' },
+    catch: 'The hiring calendar does not move when you finish. You have a degree and no signed position. The announcements in your feed come from the people with announcements to make.',
+    hook: 'The spreadsheet stays open. A posting is a lead, not an offer; you can keep looking without signing up for unpaid founding.' },
 ];

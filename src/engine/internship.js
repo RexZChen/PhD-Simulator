@@ -6,7 +6,7 @@ import { firstNames, surnames } from '../data/names.js';
 import { monthOf, nextIndexFor, dateLabel } from '../data/calendar.js';
 import { venueById, venuesForTopic, nextDeadline } from '../data/venues.js';
 import { random, roll, clamp, pick, shuffle } from './probability.js';
-import { effects, log, message, chat, award, activeProject, lastName, firstName, fill, vars, joined, newName } from './state.js';
+import { effects, log, message, chat, award, activeProject, lastName, firstName, fill, vars, joined, newName, TOTAL_MONTHS, activePeers } from './state.js';
 import { milestoneOf } from './time.js';
 
 export const ensureIntern = s => (s.intern = s.intern || { season: null, offers: [], talk: null, history: [], applied: false });
@@ -189,7 +189,7 @@ export function playInternMove(s, id) {
 
   if (id === 'ask_labmate') {
     const fair = internObjectionIsFair(s, offer);
-    const who = s.labmates.find(l => l.status === 'active') || s.peers[0];
+    const who = s.labmates.find(l => l.status === 'active') || activePeers(s)[0];
     const verdict = t(pick(s, fair ? labmateVerdicts.fair : labmateVerdicts.unfair));
     talk.knowsTruth = fair ? 'fair' : 'unfair';
     const line = joined(vars(t(move.line), { labmate: firstName(who?.name || t('a labmate')) }), ' ', verdict);
@@ -217,10 +217,30 @@ export function playInternMove(s, id) {
   return { id, line, outcome: talk.settled ? talk.outcome : 'open', won };
 }
 
+// A referral from the departing advisor is already an offer, not another application lottery.
+// Completion runs at end + 1, so leave a month inside the simulation for the return.
+export const advisorInternshipAvailable = s => s.phase === 'playing' && !s.internship
+  && nextIndexFor(6, s.month + 1) + 3 < TOTAL_MONTHS;
+
+export function acceptAdvisorInternship(s, { advisorId, advisorName, company }) {
+  if (!advisorInternshipAvailable(s) || !advisorId || !advisorName || !company) return false;
+  const start = nextIndexFor(6, s.month + 1);
+  const intern = ensureIntern(s);
+  intern.talk = null;
+  intern.offers = [];
+  accept(s, { start, end: start + 2, employer: company, typeId: 'research',
+    mentor: advisorName, mentorAdvisorId: advisorId, salary: internTypes.research.salary });
+  return true;
+}
+
 function accept(s, offer) {
-  const ty = internTypes[offer.typeId];
-  s.internship = { start: offer.start, end: offer.end, company: offer.employer, typeId: offer.typeId, mentor: offer.mentor, salary: offer.salary };
-  if (s.player.profile.international) s.scheduled.push({ id: 'cpt', week: (s.month + 1) * 4 });
+  s.internship = { start: offer.start, end: offer.end, company: offer.employer, typeId: offer.typeId, mentor: offer.mentor,
+    ...(offer.mentorAdvisorId ? { mentorAdvisorId: offer.mentorAdvisorId } : {}), salary: offer.salary };
+  if (s.player.profile.international && !s.scheduled.some(x => ['cpt', 'cpt_late'].includes(x.id))
+      && !['cpt', 'cpt_late'].includes(s.event)
+      && !(s.eventQueue || []).some(id => ['cpt', 'cpt_late'].includes(id))) {
+    s.scheduled.push({ id: 'cpt', week: (s.month + 1) * 4 });
+  }
   log(s, t('Internship confirmed at {company} for {from}–{to}. Summer has a salary now.', { company: offer.employer, from: dateLabel(offer.start), to: dateLabel(offer.end) }));
 }
 
@@ -240,8 +260,9 @@ export function endInternship(s) {
   s.flags.internDone = true; s.flags.internCompany = spent.company;
   s.counts.internships = (s.counts.internships || 0) + 1;
   s.intern = s.intern || {};
-  s.intern.history = [...(s.intern.history || []), { typeId: spent.typeId, employer: spent.company, how, paper, returned }];
-  s.lastInternship = { company: spent.company, end: spent.end };
+  const mentor = { mentor: spent.mentor || null, ...(spent.mentorAdvisorId ? { mentorAdvisorId: spent.mentorAdvisorId } : {}) };
+  s.intern.history = [...(s.intern.history || []), { typeId: spent.typeId, employer: spent.company, how, paper, returned, ...mentor }];
+  s.lastInternship = { company: spent.company, end: spent.end, ...mentor };
   const rough = !returned && ['sde', 'quant', 'startup'].includes(spent.typeId) && roll(s, .3);
   const key = rough ? 'rough' : how === 'forbidden' ? 'forbidden' : how === 'hijacked' ? (paper ? 'hijackedPaper' : 'hijackedNothing') : (paper ? 'blessedPaper' : 'blessedNothing');
   const line = t(returnLines[key]);

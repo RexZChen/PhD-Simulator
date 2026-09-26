@@ -6,8 +6,9 @@ import { CLUSTER_ENERGY, clusterGrades } from '../data/cluster.js';
 import { rebuttals, topics } from '../data/catalog.js';
 import { monthOf, dateLabel } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, chat, award, activeProject, absWeek, lastName, editable, joined, fill } from './state.js';
+import { effects, log, message, chat, award, activeProject, absWeek, lastName, editable, joined, fill, TOTAL_MONTHS } from './state.js';
 import { pushEvent, hooks } from './events.js';
+import { turnWeeks } from './time.js';
 
 const TITLES = {
   ml: ['Small Models, Unreasonably Large Claims', 'Attention Is Not All We Had', 'Scaling Laws for Diminishing Returns', 'Emergent Behavior in a Model We Do Not Understand'],
@@ -144,6 +145,7 @@ export function benchSession(s, tally = { crit: 0, hit: 0, miss: 0 }) {
 }
 
 export function writeBudget(s) {
+  if (s.crunch?.type === 'zoom') return (s.focus === 'write' ? 50 : 20) * turnWeeks(s) / 4;
   if (s.tempo === 'week') return s.focus === 'writing' ? 25 : 8;
   return s.focus === 'write' ? 50 : 20;
 }
@@ -158,13 +160,15 @@ export function write(s, amount = 5) {
 }
 
 // Target a deadline. mode: true (nearest reasonable), 'top' (tier-1 nearest), 'soon' (nearest of any tier), or a venue id.
+export const canSetTarget = p => !!p && !['Submitted', 'Rebuttal', 'Accepted', 'Abandoned'].includes(p.status);
 export function setTarget(s, p, mode = true) {
-  if (!p || ['Submitted', 'Rebuttal', 'Accepted', 'Abandoned'].includes(p.status)) return null;
+  if (!canSetTarget(p)) return null;
   const from = s.month + (s.week >= 2 ? 1 : 0);
   let candidates = venuesForTopic(p.topic).filter(v => !v.rolling);
   if (typeof mode === 'string' && venueById[mode]) candidates = [venueById[mode]];
   else if (mode === 'top') candidates = candidates.filter(v => v.tier === 1);
-  const ranked = candidates.map(v => ({ v, at: nextDeadline(v, from, monthOf) })).filter(x => x.at < 24).sort((a, b) => a.at - b.at || a.v.tier - b.v.tier);
+  // Deadlines are absolute run months, so later research years need the full funding window.
+  const ranked = candidates.map(v => ({ v, at: nextDeadline(v, from, monthOf) })).filter(x => x.at < TOTAL_MONTHS).sort((a, b) => a.at - b.at || a.v.tier - b.v.tier);
   const choice = (mode === true ? ranked.filter(x => x.v.tier <= 2 && x.at - s.month <= 5)[0] : ranked[0]) || ranked[0];
   if (!choice) return null;
   p.targetVenueId = choice.v.id; p.targetMonth = choice.at; p.targetVenue = choice.v.name;
@@ -187,9 +191,11 @@ export function sendAdvisor(s, latencyWeeks) {
   log(s, t('Sent the draft to {advisor}. Estimated reply: {n} week(s). Estimates are a genre.', { advisor: lastName(s.advisor.name), n: latencyWeeks }));
   chat(s, 'advisor', s.player.name, t('Draft attached. Comments welcome (a normal amount).'), { mine: true });
 }
+export const canSkipApproval = s => (['week', 'day'].includes(s.tempo) && s.week >= 2) || ['checkedOut', 'traveling'].includes(s.advisorMode?.id);
 export function skipApproval(s) {
   const p = activeProject(s);
   if (!p || p.status !== 'Advisor Review') throw new Error(t('There is no pending advisor review.'));
+  if (!canSkipApproval(s)) throw new Error(t('You can only skip the advisor’s read late in a crunch, or when they are unreachable.'));
   p.status = 'Ready'; p.reviewDueWeek = null; p.approvedWithout = true;
   const quiet = ['checkedOut', 'traveling'].includes(s.advisorMode?.id);
   effects(s, quiet ? { satisfaction: -2, stress: 4 } : { satisfaction: -9, trust: -4, stress: 6 });
@@ -208,12 +214,30 @@ export function canSubmitNow(s, venue) {
   if (acceptsThisMonth(venue, s.month, monthOf)) return true;
   return s.flags.extensionFor === venue.id && s.flags.extensionMonth === s.month;
 }
+// Old saves recorded review effects globally. Recover an identifiable live submission once;
+// never let an unowned flag penalize or help some future paper indefinitely.
+function scopeLegacyReviewFlags(s) {
+  for (const flag of ['rebuttalBonus', 'marginRisk']) {
+    if (!s.flags[flag]) continue;
+    const candidates = s.projects.filter(p => flag === 'marginRisk'
+      ? p.status === 'Submitted'
+      : p.status === 'Rebuttal' || (p.status === 'Submitted' && p.afterRebuttal));
+    const owner = candidates.find(p => p.id === s.activeProjectId)
+      || (candidates.length === 1 ? candidates[0] : null);
+    if (owner) owner[flag] = true;
+    delete s.flags[flag];
+  }
+}
+
 export function submit(s) {
   s.lastOutputMonth = s.month;
   const p = activeProject(s), venue = venueById[p?.venueId];
   if (!p || p.status !== 'Ready' || p.wizardStep !== 4 || !venue) throw new Error(t('Complete all four submission checks first.'));
   if (!canSubmitNow(s, venue)) throw new Error(t('{venue} is not accepting submissions this month. Next deadline: {month}.', { venue: venue.name, month: dateLabel(nextDeadline(venue, s.month, monthOf)) }));
+  scopeLegacyReviewFlags(s);
   p.status = 'Submitted'; p.reviewers = []; p.wizardStep = 0; p.rebuttalDone = false; p.phaseOneDone = false;
+  // A revision keeps its history, not the previous submission's response or penalty.
+  p.afterRebuttal = false; p.pendingBonus = 0; p.rebuttalBonus = false; p.marginRisk = false;
   p.timeline = timelineFor(venue, s.month, monthOf);
   p.submissionHistory.push({ venueId: venue.id, venue: venue.name, month: s.month, date: dateLabel(s.month), outcome: 'Under review', reviewers: [], quality: paperQuality(p), diamonds: diamonds(p) });
   if (p.targetVenueId) { s.counts.deadlinesMade++; if (s.report?.before && p.draft >= 100 && (s.report.before.projects?.[p.id]?.draft ?? 100) < 100) award(s, 'deadlineGoblin'); }
@@ -274,7 +298,7 @@ const REVIEW_TEXT = {
     empirical: ['The authors should evaluate on the other four benchmarks, at the larger scale, with the ablation. I recognise this is roughly six months of compute.', 'Why not just use a bigger model?', 'The comparison is against a baseline the authors implemented themselves. I would want the authors’ numbers checked against the original.'],
     theory: ['I am unconvinced this problem needs to exist.', 'The assumption in Section 2 removes the difficulty, and the rest of the paper solves what is left.', 'This is a special case of a result from 2016 that is not cited.'],
     repro: ['The code link is a 404, which is itself a result.', 'Nothing here can be checked, and the authors appear comfortable with that.'],
-    mild: ['The authors should consider whether this is a paper.', 'The contribution is not commensurate with the venue. I would encourage submission to a workshop.', 'I have read the rebuttal. The authors did not address my concern.'],
+    mild: ['The authors should consider whether this is a paper.', 'The contribution is not commensurate with the venue. I would encourage submission to a workshop.', 'The paper does not resolve my central concern. I would need a direct comparison to assess the claimed improvement.'],
   },
 };
 const bandOf = score => (score >= 7 ? 'warm' : score >= 5 ? 'borderline' : 'hostile');
@@ -297,15 +321,56 @@ function makeReviewers(s, p) {
     r.score = Math.round(clamp(weighted / 10 + (random(s) - .5) * 4 * noisy - (r.harshness - .5) * 3 - (r.harshness > .55 ? overclaim * 12 : 0), 1, 10));
     const band = REVIEW_TEXT[bandOf(r.score)];
     const lens = r.empirical > .65 ? 'empirical' : r.theory > .65 ? 'theory' : r.reproducibility > .6 ? 'repro' : 'mild';
-    r.text = t(pick(s, band[lens] || band.mild));
+    r.concern = lens;
+    r.textSource = pick(s, band[lens] || band.mild);
+    r.text = t(r.textSource);
     r.confidence = 3 + Math.round(random(s) * 2);
     return r;
   });
 }
+// Stable source keys allow saved reviews to follow the current language without rerolling.
+// Legacy reviews retain their literal text unless it matches a known authored review.
+export function reviewView(r, index) {
+  let source = null, concern = null;
+  for (const band of Object.values(REVIEW_TEXT)) for (const [lens, texts] of Object.entries(band)) {
+    const match = texts.find(text => text === r.textSource || text === r.text || t(text) === r.text);
+    if (match) { source = match; concern = lens; }
+  }
+  return { name: t('Reviewer {n}', { n: index + 1 }), text: source ? t(source) : r.text || '', concern };
+}
+
+export function responseDraft(p, id) {
+  if (!p || p.status !== 'Rebuttal' || !rebuttals.some(r => r.id === id)) return '';
+  const openings = {
+    careful: t('Thank you for the detailed feedback. Our responses follow.'),
+    weakest: t('We prioritize the review with the most serious reservations in the space available.'),
+    experiments: t('We will focus the remaining response period on the requested checks and report both supporting and negative findings.'),
+    confident: t('We appreciate the scrutiny. Our response focuses on the scope of the contribution and the evidence required to support it.'),
+    panic: t('Thank you for your comments. We address the points below and apologize for the brevity.'),
+    advisor: t('Thank you for the careful reading. We respond below to the main points about the contribution and its limitations.'),
+  };
+  const replies = {
+    empirical: t('We will clarify which comparisons support the result and which evaluations remain outstanding. The claims should be limited to the settings actually evaluated.'),
+    theory: t('We will make the assumptions and scope of the argument more explicit, and distinguish the contribution from the related results.'),
+    repro: t('We will check the reported reproducibility issue against the code, configuration and instructions, and clarify any missing information.'),
+    mild: t('We will sharpen the statement of contribution and its relationship to prior work, and make the limitations more explicit.'),
+  };
+  const reviews = (p.reviewers || []).map((review, index) => ({ review, index }));
+  const addressed = id === 'weakest' ? reviews.slice().sort((a, b) => a.review.score - b.review.score).slice(0, 1) : reviews;
+  const paragraphs = addressed.map(({ review, index }) => {
+    const view = reviewView(review, index);
+    const response = review.score >= 7 ? t('Thank you for the encouraging assessment and for taking the time to examine the work.')
+      : replies[view.concern] || t('Thank you for raising this point. We will clarify the relevant claims and distinguish current evidence from proposed follow-up work.');
+    return t('{reviewer}: {response}', { reviewer: view.name, response });
+  });
+  if (!paragraphs.length) paragraphs.push(t('No individual reviews are recorded for this manuscript. We cannot draft reviewer-specific answers from missing comments.'));
+  return [t('Response for “{title}”', { title: p.title }), openings[id], ...paragraphs].join('\n\n');
+}
 export function decide(s, p, bonus) {
   const v = venueById[p.venueId];
   if (!p.reviewers.length) { p.reviewers = makeReviewers(s, p); p.submissionHistory.at(-1).reviewers = structuredClone(p.reviewers); }
-  if (s.flags.rebuttalBonus) { bonus += .05; s.flags.rebuttalBonus = false; }
+  scopeLegacyReviewFlags(s);
+  if (p.rebuttalBonus) { bonus += .05; p.rebuttalBonus = false; }
   if (!roll(s, acceptanceChance(p, v, p.reviewers, bonus))) { reject(s, p, 'Reject'); return; }
   const distinction = random(s);
   const result = distinction > .985 ? 'Award nomination' : distinction > .94 ? 'Oral' : distinction > .8 ? 'Spotlight' : 'Accept';
@@ -359,6 +424,7 @@ export function recycle(s, id) {
 
 // Advance every paper according to the calendar. Called at the start of each turn.
 export function processPapers(s) {
+  scopeLegacyReviewFlags(s);
   const now = absWeek(s);
   for (const p of s.projects) {
     if (p.status === 'Advisor Review' && p.reviewDueWeek !== null && now >= p.reviewDueWeek) {
@@ -375,21 +441,23 @@ export function processPapers(s) {
         chat(s, 'advisor', s.advisor.name, pick(s, [t('Looks good. Submit.'), t('Fine to submit. Fix the typos in Section 3 first (all of it).')]));
       }
       log(s, p.status === 'Ready' ? t('Advisor approved the manuscript.') : t('Advisor requested a revision. “Small,” apparently.'));
+      p.advisorFeedback = { month: s.month, cycle: p.reviewCycle, advisorId: s.advisor.id, outcome: p.status };
     }
     if (p.status !== 'Submitted' || !p.timeline) continue;
     const v = venueById[p.venueId];
     if (p.timeline.phaseOne !== null && !p.phaseOneDone && s.month >= p.timeline.phaseOne) {
       p.phaseOneDone = true;
-      if (roll(s, .12 + (55 - paperQuality(p)) * .003 + (s.flags.marginRisk ? .05 : 0))) { reject(s, p, 'Phase-One Reject'); continue; }
+      if (roll(s, .12 + (55 - paperQuality(p)) * .003 + (p.marginRisk ? .05 : 0))) { reject(s, p, 'Phase-One Reject'); continue; }
     }
     if (!p.reviewers.length && s.month >= (p.timeline.rebuttal ?? p.timeline.decision) && s.week === 0 && !p.afterRebuttal) {
-      if (roll(s, .04 + Math.max(0, p.hype - v.hypeTolerance) * .008 + (s.flags.marginRisk ? .04 : 0))) { reject(s, p, 'Desk Reject'); continue; }
+      if (roll(s, .04 + Math.max(0, p.hype - v.hypeTolerance) * .008 + (p.marginRisk ? .04 : 0))) { reject(s, p, 'Desk Reject'); continue; }
       p.reviewers = makeReviewers(s, p);
       p.submissionHistory.at(-1).reviewers = structuredClone(p.reviewers);
       if (paperQuality(p) >= 65 && p.reviewers.some(r => r.score <= 4)) award(s, 'reviewer2');
       if (p.timeline.rebuttal !== null && s.month <= p.timeline.rebuttal) {
         p.status = 'Rebuttal';
-        message(s, 'OpenRegret', t('Reviews are available: {venue}', { venue: v.name }), t('Three people have read the same paper and reached different conclusions. The rebuttal window closes at the end of the month.'), 'browser', 'inbox', 'reviewsIn');
+        message(s, 'OpenRegret', t('Reviews are available: {venue}', { venue: v.name }), t('{n} reviewers have read this paper. The rebuttal window closes at the end of the month.', { n: p.reviewers.length }), 'browser', 'inbox', 'reviewsIn');
+        Object.assign(s.inbox[0], { projectId: p.id, submissionMonth: p.timeline.submitted, submissionAttempt: p.submissionHistory.length });
         log(s, t('Reviews arrived: {scores}. Rebuttal window open this month.', { scores: p.reviewers.map(r => r.score).join(' / ') }));
         continue;
       }

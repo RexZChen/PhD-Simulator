@@ -1,10 +1,18 @@
-import { esc, btn, hotkey, effectPills, money, voiced, stamp } from './helpers.js';
+import { activityControls } from './activity.js';
+import { meetingContext, meetingRoom } from './meeting.js';
+import { relocationTerms } from './relocation.js';
+import { medicalRecoveryTerms } from './recovery.js';
+import { retirementTerms, retirementChoiceTerms } from './supervision.js';
+import { tenureSceneNotice } from './tenure.js';
+import { ventureSceneTerms } from './venture.js';
+import { TENURE_EVENTS } from '../engine/tenure.js';
+import { esc, btn, hotkey, effectPills, sceneEffectPills, scenePaperEffectNote, money, voiced, stamp } from './helpers.js';
 import { icon } from './icons.js';
 import { avatar, crest } from './avatars.js';
 import { memeFor, memeCard } from '../data/memes.js';
 import { dateLabel } from '../data/calendar.js';
 import { schools } from '../data/catalog.js';
-import { templateById, eventText } from '../engine/events.js';
+import { templateById, eventText, choiceUnavailable } from '../engine/events.js';
 import { fill, lastName, labmateById, activeProject } from '../engine/state.js';
 import { prelimChance, proposalChance, defenseChance } from '../engine/game.js';
 import { pushbacks, lectureLines } from '../data/minigames.js';
@@ -41,7 +49,7 @@ const seasonOf = m => { const mo = ((m + 8) % 12) + 1; return mo <= 2 || mo === 
 
 function strip(scene, s, e) {
   const advisor = e.speaker === 'advisor' || e.category === 'meeting';
-  const caption = advisor ? `${t('PROF.')} ${esc(s.advisor?.name.toUpperCase() || t('ADVISOR'))}` : { lab: t('THE LAB · SOME TIME AFTER COFFEE'), home: t('HOME · SUCH AS IT IS'), life: t('HOME · SUCH AS IT IS'), campus: t('CAMPUS'), party: t('LAB SOCIAL · NOBODY IS WORKING'), portal: t('STUDENT PORTAL · NOTICE'), conference: t('CONFERENCE · HALLWAY TRACK'), winter: t('DECEMBER'), office: t('OFFICE') }[scene] || t('SOMEWHERE');
+  const caption = advisor ? `${t('PROF.')} ${esc(s.advisor?.name.toUpperCase() || t('ADVISOR'))}` : { lab: t('THE LAB · SOME TIME AFTER COFFEE'), home: t('HOME · SUCH AS IT IS'), life: t('HOME · SUCH AS IT IS'), campus: t('CAMPUS'), party: t('LAB SOCIAL · NOBODY IS WORKING'), portal: t('STUDENT PORTAL · NOTICE'), conference: t('CONFERENCE · HALLWAY TRACK'), winter: esc(dateLabel(s.month)), office: t('OFFICE') }[scene] || t('SOMEWHERE');
   const p = activeProject(s);
   const cups = Math.min(5, (s.caffeine?.month || 0) + (s.caffeine?.day || 0));
   const board = Math.round(Math.min(100, p?.progress || 0));
@@ -66,6 +74,17 @@ function strip(scene, s, e) {
   return `<div class="scene-strip ${scene} t-${time} sn-${season} ${mood}">${common}${inner}<span class="scene-caption">${caption}</span>${memeCard(memeFor(e))}</div>`;
 }
 
+function sceneContext(s) {
+  const n = s.eventQueue?.length || 0;
+  const queued = n === 0 ? t('No other scenes queued') : n === 1 ? t('1 more scene queued') : t('{n} more scenes queued', { n });
+  return `<div class="scene-context"><span>${esc(queued)}</span>${btn(t('Pause'), 'pause-scene', { cls: 'small' })}</div>`;
+}
+
+export function scenePauseDialog(s) {
+  const e = templateById[s.event];
+  return `<div class="modal"><section class="dialog narrow" role="dialog" aria-modal="true" aria-labelledby="pause-title"><div class="titlebar"><span id="pause-title">${t('Paused')}</span></div><div class="body"><h2>${t('Take a break')}</h2><p>${t('Your current choice is waiting. Conversation timers are stopped.')}</p>${e ? `<p class="small"><b>${esc(fill(s, e.title))}</b></p>` : ''}<p>${t('Resume when you are ready, or open Saved runs to save a slot or download a backup.')}</p></div><div class="buttons">${btn(t('Saved runs'), 'saves')}${btn(t('Resume conversation'), 'close-dialog', { cls: 'primary' })}</div></section></div>`;
+}
+
 export function sceneDialog(s) {
   const e = templateById[s.event]; if (!e) return '';
   const scene = e.scene || (e.category === 'meeting' ? 'office' : 'life');
@@ -75,14 +94,21 @@ export function sceneDialog(s) {
   const ic = advisor ? 'chat' : scene === 'portal' ? 'portal' : scene === 'party' ? 'gift' : scene === 'conference' ? 'plane' : scene === 'winter' ? 'snow' : scene === 'lab' ? 'research' : 'home';
   const speaker = advisor ? t('Prof. {name}', { name: lastName(s.advisor.name) }) : actor ? actor.name : e.category === 'crunch' ? t('The deadline') : t('Narrator');
   const mode = s.advisorMode?.id;
-  const timed = e.category === 'meeting' && (mode === 'pressed' || s.crunch || s.advisor.toxicity > 55 || s.relationship.conflict > 45);
-  const seconds = s.crunch ? 11 : 15;
-  return `<div class="modal"><section class="dialog ${timed ? 'timed-scene' : ''}" role="dialog" aria-modal="true" aria-labelledby="scene-title"><div class="titlebar"><span class="tb-title">${icon(ic, 16)}<span>${title}</span></span><span class="tb-right">${esc(stamp(s))}${s.tempo === 'week' ? ` · ${t('week {n}', { n: Math.min(4, s.week + 1) })}` : ''}</span></div><div class="body">${strip(scene, s, e)}<h2 id="scene-title" style="margin:0 0 6px">${esc(fill(s, e.title))}</h2><div class="scene-text"><span class="speaker">${esc(speaker)}</span>${voiced(eventText(s, e))}</div><div class="choices">${e.choices.map((c, i) => `<button class="btn choice" data-action="choice" data-id="${c.id}" data-hotkey="${i + 1}" ${(c.requiresCoursework && s.coursework < c.requiresCoursework) || (c.requiresMoney && s.player.stats.money < c.requiresMoney) ? 'disabled' : ''}><span>${hotkey(i + 1)}</span><span><b>${esc(fill(s, c.text))}</b><small>${effectPills(c.effects, c, 5)}<span class="muted">${esc(fill(s, c.hint))}${c.requiresCoursework ? ` · ${t('needs {n} coursework', { n: c.requiresCoursework })}` : ''}</span></small></span><span class="arrow">→</span></button>`).join('')}</div>${timed ? timedFooter(seconds) : ''}<div class="dialog-footer"><span>${timed ? t('They are waiting for an answer, visibly.') : e.category === 'meeting' ? t('A meeting. It will end with a list.') : t('Some consequences take time.')}</span><span>${e.choices.some(c => c.check) ? t('Some options roll against your skills or your advisor’s traits.') : ''}</span></div></div></section></div>`;
+  const meeting = meetingContext(s, e);
+  const cancelled = e.category === 'meeting' && e.conditions?.cancelled;
+  const timed = e.category === 'meeting' && meeting && meeting.tone !== 'supportive' && e.tone !== 'routine' && (mode === 'pressed' || (s.crunch && s.crunch.type !== 'zoom') || s.advisor.toxicity > 55 || s.relationship.conflict > 45);
+  const seconds = s.crunch && s.crunch.type !== 'zoom' ? 11 : 15;
+  const waiting = meeting?.cameraOff ? t('The call is still open.') : t('They are waiting for an answer, visibly.');
+  const transfer = e.choices.some(c => c.relocate) ? relocationTerms(s) : '';
+  const recovery = e.choices.some(c => c.medicalRecovery) ? medicalRecoveryTerms(s) : '';
+  const retirement = e.choices.some(c => c.retirement) ? retirementTerms(s) : '';
+  const room = transfer || recovery || retirement || TENURE_EVENTS.has(e.id) ? '' : cancelled ? `<div class="meeting-cancelled">${icon('calendar', 26)}<div><b>${t('Meeting not held')}</b><span>${t('No conversation took place.')}</span></div></div>` : meeting ? `<div class="meeting-controls"><b>${esc(t(meeting.group ? 'Lab meeting' : 'One-on-one'))}</b><button class="btn small" data-action="skip-meeting-arrival" hidden>${t('Skip entrance')}</button></div>${meetingRoom(s, e, meeting)}` : strip(scene, s, e);
+  return `<div class="modal"><section class="dialog ${timed ? 'timed-scene' : ''}" ${meeting ? 'data-meeting' : cancelled ? 'data-meeting-missed' : ''} role="dialog" aria-modal="true" aria-labelledby="scene-title"><div class="titlebar"><span class="tb-title">${icon(ic, 16)}<span>${title}</span></span><span class="tb-right">${esc(stamp(s))}${s.tempo === 'week' ? ` · ${t('week {n}', { n: Math.min(4, s.week + 1) })}` : ''}</span></div><div class="body">${sceneContext(s)}${room}<h2 id="scene-title" style="margin:0 0 6px">${esc(fill(s, e.title))}</h2><div class="scene-text"><span class="speaker">${esc(speaker)}</span>${voiced(eventText(s, e))}</div>${transfer}${recovery}${retirement}${tenureSceneNotice(s)}${ventureSceneTerms(s)}${timed ? '' : `<div class="row">${btn(t('Reading & comfort'), 'accessibility', { cls: 'small' })}</div>`}${scenePaperEffectNote(s, e.choices)}<div class="choices">${e.choices.map((c, i) => `<button class="btn choice" data-action="choice" data-id="${c.id}" data-hotkey="${i + 1}" ${choiceUnavailable(s, c) ? 'disabled' : ''}><span>${hotkey(i + 1)}</span><span><b>${esc(fill(s, c.text))}</b><small>${sceneEffectPills(s, c, 5)}<span class="muted">${esc(fill(s, c.hint))}${choiceUnavailable(s, c) ? ` · ${esc(choiceUnavailable(s, c))}` : ''}</span>${retirementChoiceTerms(s, c)}</small></span><span class="arrow">→</span></button>`).join('')}</div>${timed ? timedFooter(seconds) : ''}<div class="dialog-footer"><span>${timed ? waiting : cancelled ? t('Choose what to do with the time.') : e.category === 'meeting' ? t('A meeting. It will end with a list.') : t('Some consequences take time.')}</span><span>${e.choices.some(c => c.check) ? t('Some options roll against your skills or your advisor’s traits.') : ''}</span></div></div></section></div>`;
 }
 
 // A meeting under a clock. The bar is honest: when it runs out, the moment closes.
 export function timedFooter(seconds) {
-  return `<div class="timer-bar meeting" data-scene-timer="${seconds}"><i data-scene-bar></i></div><p class="tiny muted timer-note">${t('They are waiting. {n} seconds.', { n: seconds })}</p>`;
+  return `<div class="timer-bar meeting" data-scene-timer="${seconds}"><i data-scene-bar></i></div><p class="tiny muted timer-note">${t('They are waiting. {n} seconds.', { n: seconds })}</p>${btn(t('Reading & comfort'), 'accessibility', { cls: 'small' })}`;
 }
 
 // The second beat: your advisor did not accept the first answer.
@@ -90,7 +116,7 @@ export function pushbackDialog(s) {
   const pb = pushbacks.find(x => x.id === s.pushback?.id);
   if (!pb) return '';
   const seconds = s.pushback.seconds || 12;
-  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="pb-title"><div class="titlebar"><span class="tb-title">${icon('chat', 16)}<span>${t('MeetMe — Prof. {name}', { name: s.advisor?.name })}</span></span><span class="tb-right">${esc(stamp(s))}</span></div><div class="body pushback">
+  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="pb-title"><div class="titlebar"><span class="tb-title">${icon('chat', 16)}<span>${t('MeetMe — Prof. {name}', { name: s.advisor?.name })}</span></span><span class="tb-right">${esc(stamp(s))}</span></div><div class="body pushback">${sceneContext(s)}
     <div class="pb-mark">${t('They are not finished.')}</div>
     <h2 id="pb-title">${esc(fill(s, t(pb.text)))}</h2>
     <div class="choices">${pb.options.map((o, i) => `<button class="btn choice" data-action="pushback" data-id="${o.id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(o.label))}</b><small>${effectPills(o.effects, o, 4)}</small></span><span class="arrow">→</span></button>`).join('')}</div>
@@ -99,10 +125,10 @@ export function pushbackDialog(s) {
 }
 
 // The lecture. Real time, and the only enemy is a person with a whiteboard marker.
-export function lectureDialog(s) {
-  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="lec-title"><div class="titlebar"><span class="tb-title">${icon('book', 16)}<span>${t('Lecture hall 1B')}</span></span><span class="tb-right">${esc(stamp(s))}</span></div><div class="body">
+export function lectureDialog(s, settings = {}) {
+  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="lec-title"><div class="titlebar"><span class="tb-title">${icon('book', 16)}<span>${t('Lecture hall 1B')}</span></span><span class="tb-right">${esc(stamp(s))}</span></div>${activityControls()}<div class="body">
     <h2 id="lec-title">${t('Two hours of a required course')}</h2>
-    <p class="small muted">${esc(t(lectureLines.intro))}</p>
+    <p class="small muted">${esc(settings.selfPaced ? t('Eight parts of a lecture. Choose between listening and writing, then continue when ready.') : t(lectureLines.intro))}</p>
     <div class="lecture" data-lec>
       <div class="lec-front"><span class="lec-prof" data-lec-eye>✎</span><span class="lec-board" data-lec-board></span></div>
       <div class="lec-room">${Array.from({ length: 18 }, (_, i) => `<i class="${i === 9 ? 'you' : ''}"></i>`).join('')}</div>
@@ -119,10 +145,10 @@ export function lectureDialog(s) {
 
 // The reading session. Same shape as the lecture: a dialog whose innards are painted by its own
 // interval, so a re-render never restarts it.
-export function benchDialog(s) {
-  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="bq-title"><div class="titlebar"><span class="tb-title">${icon('book', 16)}<span>${t('Reading session')}</span></span></div><div class="body">
+export function benchDialog(s, settings = {}) {
+  return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="bq-title"><div class="titlebar"><span class="tb-title">${icon('book', 16)}<span>${t('Reading session')}</span></span></div>${activityControls()}<div class="body">
     <h2 id="bq-title">${t('An afternoon in the literature')}</h2>
-    <p class="small muted">${esc(t(benchNote))}</p>
+    <p class="small muted">${esc(settings.selfPaced ? t('Choose how to read each paper. Careful reading is safer; connecting ideas can lead to a breakthrough or a dead end. No timer.') : t(benchNote))}</p>
     <div class="bench">
       <b class="bq-label" data-bq-label></b>
       <p class="bq-stage" data-bq-stage></p>
@@ -170,8 +196,8 @@ export function milestoneDialog(s) {
       : [['balanced', t('Present the evidence carefully'), t('Let the work speak.')], ['honest', t('Explain the limitations honestly'), t('A small bonus for intellectual clarity.')], ['bold', s.player.stats.confidence > 65 ? t('Defend the big idea') : t('Try to sound certain'), t('Confidence can help; overconfidence can hurt.')], ['master', t('Choose the MS exit'), t('Requires 55 coursework progress. A degree, not an apology.')]];
   const subtitle = { prelim: t('PRELIMINARY EXAMINATION'), proposal: t('THESIS PROPOSAL'), defense: t('DISSERTATION DEFENSE'), graduation: t('COMMENCEMENT') }[kind];
   return `<div class="modal"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="milestone-title"><div class="titlebar"><span class="tb-title">${icon('portal', 16)}<span>${title}</span></span><span class="tb-right">${esc(stamp(s))}</span></div><div class="body"><div class="scene-strip committee"><div class="s-screen">${esc(kind === 'defense' && thesis ? thesis.title : best?.title || t('A Work in Progress'))}<small>${subtitle} · ${esc(s.player.name.toUpperCase())}</small></div><div class="portrait" style="right:6%;--shirt:#637ab0"><i></i></div><div class="portrait p2" style="right:20%"><i></i></div><div class="portrait p3" style="right:34%"><i></i></div><div class="s-table"></div><span class="scene-caption">${t('COMMITTEE')}: ${s.committee.map(c => esc(c.toUpperCase())).join(' · ')}</span></div>
-  <h2 id="milestone-title">${heading}</h2><div class="scene-text"><span class="speaker">${kind === 'graduation' ? t('The dean, allegedly') : t('The committee')}</span>${body}</div>
-  <div class="choices">${choices.map(([id, label, h], i) => `<button class="btn choice" data-action="${kind === 'graduation' ? 'graduate' : 'milestone'}" data-id="${id}" data-hotkey="${i + 1}" ${id === 'master' && s.coursework < 55 ? 'disabled' : ''}><span><kbd>${i + 1}</kbd></span><span><b>${esc(label)}</b><small>${esc(h)}</small></span><span class="arrow">→</span></button>`).join('')}</div></div></section></div>`;
+  <h2 id="milestone-title">${heading}</h2><div class="scene-text"><span class="speaker">${kind === 'graduation' ? t('The dean, allegedly') : t('The committee')}</span>${body}</div>${s.relocationHistory?.some(move => move.status === 'completed') ? `<p class="small">${esc(t('Your continuing committee includes members from your previous program. Completed exams remain complete.'))}</p>` : ''}
+  <div class="row">${btn(t('Reading & comfort'), 'accessibility', { cls: 'small' })}</div><div class="choices">${choices.map(([id, label, h], i) => `<button class="btn choice" data-action="${kind === 'graduation' ? 'graduate' : 'milestone'}" data-id="${id}" data-hotkey="${i + 1}" ${id === 'master' && s.coursework < 55 ? 'disabled' : ''}><span><kbd>${i + 1}</kbd></span><span><b>${esc(label)}</b><small>${esc(h)}</small></span><span class="arrow">→</span></button>`).join('')}</div></div></section></div>`;
 }
 export const prelimDialog = milestoneDialog;
 
@@ -185,8 +211,9 @@ export function vivaDialog(s) {
   const talk = Object.values(talkMoves);
   // One dialog, four rooms. Which panel is showing is driven by data-phase, set by the runner, so
   // the whole timetable stays inside one modal and one interval.
-  return `<div class="modal"><section class="dialog viva exam" role="dialog" aria-modal="true" aria-labelledby="vv-title"><div class="titlebar"><span class="tb-title">${icon('flag', 16)}<span>${esc(title)}</span></span><span class="tiny tb-right">${esc(t(ex.total))}</span></div><div class="body" data-vv data-phase="talk">
+  return `<div class="modal"><section class="dialog viva exam" role="dialog" aria-modal="true" aria-labelledby="vv-title"><div class="titlebar"><span class="tb-title">${icon('flag', 16)}<span>${esc(title)}</span></span><span class="tiny tb-right">${esc(t(ex.total))}</span></div>${activityControls()}<div class="body" data-vv data-phase="talk">
     <div class="ex-timeline" data-vv-progress></div>
+    ${ex.note ? `<details data-disclosure="exam-setting-${kind}"><summary>${t('The room')}</summary><p class="small">${esc(t(ex.note))}</p></details>` : ''}
     <div class="ex-segbar"><b class="tiny" data-vv-seg></b><span class="tiny muted" data-vv-segsub></span></div>
     <div class="vv-head">
       <div><h2 id="vv-title" data-vv-who></h2><p class="tiny muted" data-vv-note></p></div>
@@ -311,14 +338,14 @@ export function photoDialog(s) {
 
 // 04:12. A wall of output and a reservation that is running out. The log itself is painted by
 // cluster.js; this is the frame around it.
-export function clusterDialog() {
-  return `<div class="modal"><section class="dialog cluster" role="dialog" aria-modal="true" aria-labelledby="cl-title"><div class="titlebar"><span class="tb-title">${icon('computer', 16)}<span>${t('gpu-0417')}</span></span></div><div class="body" data-cl>
+export function clusterDialog(settings = {}) {
+  return `<div class="modal"><section class="dialog cluster" role="dialog" aria-modal="true" aria-labelledby="cl-title"><div class="titlebar"><span class="tb-title">${icon('computer', 16)}<span>${t('gpu-0417')}</span></span></div>${activityControls()}<div class="body" data-cl>
     <div class="vv-head"><h2 id="cl-title" data-cl-title></h2><b class="tiny muted" data-cl-count></b></div>
     <p class="tiny muted" data-cl-hint></p>
     <div class="vv-meters"><span class="tiny muted" data-cl-left></span><div class="vv-track"><i data-cl-clock class="vv-fill"></i></div></div>
     <div class="cl-log" data-cl-log></div>
     <p class="vv-flash hidden" data-cl-flash></p>
-    <p class="tiny muted">${esc(t(clusterNote))}</p>
+    <p class="tiny muted">${esc(settings.selfPaced ? t('Find the line that caused each failure. Read at your own pace; wrong choices use your error allowance.') : t(clusterNote))}</p>
   </div></section></div>`;
 }
 

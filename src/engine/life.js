@@ -1,12 +1,16 @@
 // Health, money, and the parts of a PhD that are not the PhD.
 // Everything here is deterministic given the seed; nothing here calls the UI.
 import { t } from '../i18n/index.js';
-import { crises, crisisMoves, afterCrisis, CRISIS_HEALTH, CRISIS_COOLDOWN } from '../data/crisis.js';
+import { crises, crisisMoves, CRISIS_HEALTH, CRISIS_COOLDOWN } from '../data/crisis.js';
 import { HARD_TA, raLostText, raBackText, raExtendText } from '../data/hardta.js';
 import { conditions as conditionDefs, clinicById, clinics, budgets, lifeActionById, COFFEE } from '../data/life.js';
 import { monthOf } from '../data/calendar.js';
+import { transferSupportActive } from './relocation.js';
+import { handoverSupportActive } from './supervision.js';
+import { crisisAftermath } from './crisis-aftermath.js';
+import { leaveCoversTurn, tempoOf, focusOptions } from './time.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, chat, award, absWeek, activeProject, lastName, fill, joined, activeLabmates } from './state.js';
+import { effects, log, message, chat, award, absWeek, activeProject, lastName, fill, joined, activeLabmates, activePeers, hasPartner } from './state.js';
 
 export const PLAN_YEAR_MONTH = 9; // insurance resets in September, like everything else
 
@@ -168,10 +172,10 @@ export function setBudget(s, id) {
 // interrupts the turn rather than applying a drag you can absorb. The point is not the punishment;
 // it is that afterwards the calendar has not moved and nobody adjusts anything.
 export function crisisDue(s) {
-  if (s.phase !== 'playing' || s.crisis) return null;
+  if (s.phase !== 'playing' || (s.crisis && !s.crisis.resolved)) return null;
   if (s.month - (s.lastCrisisMonth ?? -99) < CRISIS_COOLDOWN) return null;
   const st = s.player.stats, hid = s.player.hidden;
-  const worst = activeConditions(s).find(c => (c.severity || 1) >= 2);
+  const worst = activeConditions(s).find(c => c.def.clinic === 'urgent');
   if (st.health <= CRISIS_HEALTH) return worst?.def?.clinic === 'urgent' ? 'infection' : 'collapse';
   if (hid.stress >= 88 && st.energy <= 18) return 'breakdown';
   if (worst && st.health < 40 && roll(s, .35)) return 'infection';
@@ -182,6 +186,7 @@ export function openCrisis(s, id) {
   const def = crises[id];
   if (!def) return null;
   s.crisis = { id, month: s.month, resolved: false };
+  s.counts.crises = (s.counts.crises || 0) + 1;
   s.lastCrisisMonth = s.month;
   s.stage = 'crisis';
   log(s, t(pick(s, def.text)));
@@ -190,41 +195,82 @@ export function openCrisis(s, id) {
 
 export function resolveCrisis(s, moveId) {
   const c = s.crisis;
-  if (!c) throw new Error(t('There is nothing to deal with.'));
+  if (!c || c.resolved) throw new Error(t('There is nothing to deal with.'));
   const def = crises[c.id], move = crisisMoves[moveId];
   if (!move) throw new Error(t('That is not one of the options.'));
   const weeks = moveId === 'treat' ? def.weeks : moveId === 'minimum' ? Math.max(1, def.weeks - 1) : 0;
   const bill = moveId === 'ignore' ? 0 : outOfPocket(s, def.cost);
   if (bill) charge(s, bill, 'care');
+  if (moveId !== 'ignore') {
+    if (s.insurance) s.insurance.deductibleLeft = Math.max(0, s.insurance.deductibleLeft - def.cost);
+    delete s.flags.signedOut;
+  }
   effects(s, { ...move.effects, energy: (move.effects.energy || 0) - weeks * 3 });
   if (weeks) s.leaveWeeks = (s.leaveWeeks || 0) + weeks;
+  s.tempo = tempoOf(s);
+  if (leaveCoversTurn(s)) s.focus = 'recovery';
+  else if (!focusOptions(s).some(f => f.id === s.focus)) s.focus = null;
   // Doing the minimum, or nothing, buys the same crisis back at a worse price.
   if (moveId === 'ignore') s.counts.crisisIgnored = (s.counts.crisisIgnored || 0) + 1;
   if (moveId === 'treat') s.counts.crisisTreated = (s.counts.crisisTreated || 0) + 1;
   if (move.recurs) s.lastCrisisMonth = s.month - Math.floor(CRISIS_COOLDOWN * (move.worse ? .3 : .55));
   if (move.worse) { const w = activeConditions(s)[0]; if (w?.def?.worsens) addCondition(s, w.def.worsens); }
   s.crisis = { ...c, resolved: true, move: moveId, weeks, bill };
+  (s.crisisHistory ||= []).push({ ...s.crisis });
   s.stage = 'plan';
   s.flags.afterCrisis = true;
   log(s, joined(t(move.line), bill ? ' ' : '', bill ? t('The visit cost you ${n} after insurance.', { n: bill }) : ''));
   // What comes next is the point: the deadline did not move.
-  chat(s, 'advisor', s.advisor.name, t(pick(s, afterCrisis.advisor)));
-  { const here = activeLabmates(s); if (here.length) chat(s, 'general', pick(s, here).name, fill(s, t(pick(s, afterCrisis.lab)))); }
-  log(s, t(pick(s, afterCrisis.self)));
+  s.crisis.aftermath = crisisAftermath(s, weeks);
+  s.crisisHistory[s.crisisHistory.length - 1].aftermath = { ...s.crisis.aftermath };
   award(s, 'thebody');
   if ((s.counts.crisisTreated || 0) >= 2) award(s, 'twocrisestreated');
   return s.crisis;
 }
 export const crisisMoveList = s => s.crisis && !s.crisis.resolved ? Object.values(crisisMoves) : [];
 
-// The month's money, itemised. Called once per month from game.js.
-export function monthlyLedger(s) {
+export const medicalRecoveryQuote = s => ({ weeks: 4, bill: outOfPocket(s, 240) });
+
+// A deliberate recovery arrangement is a continuing run, not an ending in disguise.
+export function arrangeMedicalRecovery(s) {
+  const { weeks, bill } = medicalRecoveryQuote(s);
+  charge(s, bill, 'care');
+  if (s.insurance) s.insurance.deductibleLeft = Math.max(0, s.insurance.deductibleLeft - 240);
+  effects(s, { health: 30, energy: 12, hope: 8, stress: -24 });
+  s.leaveWeeks = Math.max(s.leaveWeeks || 0, weeks);
+  s.tempo = tempoOf(s);
+  if (leaveCoversTurn(s)) s.focus = 'recovery';
+  s.counts.medicalLeaves = (s.counts.medicalLeaves || 0) + 1;
+  s.counts.lowHealthStreak = 0;
+  s.counts.highStressStreak = 0;
+  delete s.flags.signedOut;
+  s.flags.afterCrisis = true;
+  s.lastCrisisMonth = s.month;
+  s.burnoutMonths = 0;
+  // Current lab requests can move. Conference deadlines still belong to the venue.
+  let moved = 0;
+  for (const r of s.requests || []) if (r.status === 'open') {
+    r.dueWeek = Math.max(r.dueWeek, absWeek(s)) + weeks;
+    moved++;
+  }
+  s.medicalLeave = { month: s.month, weeks, bill, requestsMoved: moved };
+  if (s.crisis && !s.crisis.resolved) {
+    s.crisis = { ...s.crisis, resolved: true, move: 'recovery_plan', weeks, bill };
+    (s.crisisHistory ||= []).push({ ...s.crisis });
+  }
+  log(s, t('Four weeks of medical leave arranged. Care costs ${bill}; open advisor requests move back four weeks. The run continues, and external deadlines keep their dates.', { bill }));
+  return s.medicalLeave;
+}
+
+// Shared pure quote: payroll and UI use the same known income and recurring charges.
+export function monthlyBudget(s) {
+  const transferCovered = transferSupportActive(s) || handoverSupportActive(s);
   const interning = s.internship && s.month >= s.internship.start && s.month <= s.internship.end;
   const m = monthOf(s.month);
-  const summerGap = [6, 7, 8].includes(m) && s.ta && s.month >= 12 && !interning && !s.flags.summerTA && !s.flags.summerCovered;
+  const summerGap = !transferCovered && [6, 7, 8].includes(m) && s.ta && s.month >= 12 && !interning && !s.flags.summerTA && !s.flags.summerCovered;
   const stipend = interning
     ? Math.round(s.internship.salary || s.program.stipend * 1.75)   // what the offer actually said, which is sometimes worse
-    : Math.round(s.program.stipend * (summerGap ? .4 : 1) * (s.flags.fundingGap ? .7 : 1)) + (s.flags.raise ? 150 : 0);
+    : Math.round(s.program.stipend * (summerGap ? .4 : 1) * (!transferCovered && s.flags.fundingGap ? .7 : 1)) + (s.flags.raise ? 150 : 0);
   // The offer letter said a gross number. Nobody discovers this from the letter; everybody
   // discovers it at a payroll window in September, having already signed a lease against the
   // number on the letter. An internship is withheld harder, because the salary is higher.
@@ -241,6 +287,14 @@ export function monthlyLedger(s) {
   const support = s.flags.hardship ? 400 : 0;
   const other = Math.round(145 + (s.housing.commute || 0) * 22);   // phone, transit, laundry, the thing that broke
 
+  const refund = m === 4 ? Math.round(((s.withheld || 0) + tax) * (s.player.profile.international ? .52 : .44)) : 0;
+  return { month: s.month, stipend, tax, net, refund, support, rent, food, premium, fees, visa, remit, interest, other, summerGap, interning, transferCovered };
+}
+
+// The month's money, itemised. Called once per month from game.js.
+export function monthlyLedger(s) {
+  const { stipend, tax, net, refund, support, rent, food, premium, fees, visa, remit, interest, other, summerGap, interning, transferCovered } = monthlyBudget(s);
+  const m = monthOf(s.month);
   if (m === PLAN_YEAR_MONTH && s.insurance) { s.insurance.deductibleLeft = s.insurance.deductible; s.insurance.planYear++; }
 
   // April, and the other half of the truth.
@@ -256,11 +310,7 @@ export function monthlyLedger(s) {
   // doing you. It is your own money, held for a year, returned without interest, and it arrives
   // in April feeling like a windfall, which is the joke.
   s.withheld = (s.withheld || 0) + tax;
-  let refund = 0;
-  if (m === 4 && s.withheld > 0) {
-    refund = Math.round(s.withheld * (s.player.profile.international ? .52 : .44));
-    s.withheld = 0;
-  }
+  if (m === 4 && s.withheld > 0) s.withheld = 0;
 
   s.player.stats.money = Math.round(s.player.stats.money + net + support + refund);
   s.debt = Math.round((s.debt || 0) + interest);
@@ -282,7 +332,7 @@ export function monthlyLedger(s) {
     : firstPayslip ? t('The offer letter said {gross}. The offer letter was gross. Withholding takes {tax} and nobody mentioned it, because from inside the payroll office there is nothing to mention.', { gross: `$${stipend.toLocaleString('en-US')}`, tax: `$${tax.toLocaleString('en-US')}` })
     : interning ? (stipend < s.program.stipend ? t('Internship salary this month. It is less than the stipend, which you knew and took anyway.') : t('Internship salary this month. The company pays like the company.'))
     : summerGap ? t('Summer TA gap: the stipend is 40% of itself until September.')
-      : s.flags.fundingGap ? t('Year-six funding gap: the stipend is 70% of itself.')
+      : !transferCovered && s.flags.fundingGap ? t('Year-six funding gap: the stipend is 70% of itself.')
         : fees ? t('Term fees. Your tuition is waived; the fees are not tuition, which is how they survive.')
           : null;
   s.ledger = { month: s.month, stipend, tax, net, refund, support, rent, food, premium, fees, visa, remit, interest, other, repaid, debt: Math.round(s.debt || 0), note };
@@ -375,7 +425,7 @@ export function vitalsDrift(s, weeks) {
   const bonds = [...activeLabmates(s), ...s.peers];
   const avgBond = bonds.length ? bonds.reduce((a, x) => a + x.bond, 0) / bonds.length : 40;
   lonely -= avgBond > 60 ? .7 : avgBond > 45 ? .35 : 0;
-  lonely -= s.flags.partner ? .8 : 0;
+  lonely -= hasPartner(s) ? .8 : 0;
   lonely -= s.flags.social ? .4 : 0;
   lonely -= s.flags.cat ? .25 : 0;
   lonely += s.tempo === 'week' || s.tempo === 'day' ? .5 : 0;
@@ -419,7 +469,7 @@ export function doLifeAction(s, id) {
   effects(s, { energy: -(a.cost?.energy || 0), ...rest });
   if (money) s.player.stats.money = Math.round(s.player.stats.money + money);
   if (loneliness) s.player.hidden.loneliness = clamp((s.player.hidden.loneliness || 0) + loneliness);
-  if (a.peerBond) for (const p of s.peers) p.bond = clamp(p.bond + a.peerBond);
+  if (a.peerBond) for (const p of activePeers(s)) p.bond = clamp(p.bond + a.peerBond);
   if (a.housing) log(s, t('The lease is signed. The rent line on your ledger is a different number from next month.'), true);
   if (a.personality) s.player.personality[a.personality]++;
   for (const [k, v] of Object.entries(a.flags || {})) s.flags[k] = v;
@@ -448,15 +498,17 @@ export function monthlyLife(s) {
   // not one bad month but thirty of them with nobody counting.
   if (s.player.stats.health < 32) s.counts.lowHealthMonths = (s.counts.lowHealthMonths || 0) + 1;
   if (s.player.hidden.stress > 72) s.counts.highStressMonths = (s.counts.highStressMonths || 0) + 1;
+  s.counts.lowHealthStreak = s.player.stats.health < 32 ? (s.counts.lowHealthStreak || 0) + 1 : 0;
+  s.counts.highStressStreak = s.player.hidden.stress > 72 ? (s.counts.highStressStreak || 0) + 1 : 0;
 }
 
 // ── The year the money went ──────────────────────────────────────────────────────────────────
 // Rare, and it happens to somebody in every cohort. The package is intact — that is the whole
 // point of it — and the research year is gone, and only the first of those appears in a document.
-export const onHardTA = s => !!s.raLost && s.month < s.raLost.until;
+export const onHardTA = s => !transferSupportActive(s) && !handoverSupportActive(s) && !!s.raLost && s.month < s.raLost.until;
 
 export function hardTaMonth(s) {
-  if (s.phase !== 'playing') return;
+  if (s.phase !== 'playing' || transferSupportActive(s) || handoverSupportActive(s)) return;
   if (s.raLost) {
     if (s.month >= s.raLost.until) {
       // Either the money came back, or it did not and the year runs again.

@@ -5,6 +5,7 @@ import { firstNames, surnames, labmateRoles, labmateTraits, companies } from '..
 import { dateLabel as calendarLabel, phdYear } from '../data/calendar.js';
 import { venueById } from '../data/venues.js';
 import { random, pick, jitter, clamp, shuffle, pickWeighted } from './probability.js';
+import { nextChatTime } from './conversation.js';
 
 export const VERSION = 3;
 export const WEEKS = 4;
@@ -221,6 +222,9 @@ export function cadenceFor(a) {
 export const meetingsPerMonth = cadence => ({ weekly: 4, biweekly: 2, monthly: 1, whenever: 0 }[cadence] ?? 0);
 
 export const activeProject = s => s.projects.find(p => p.id === s.activeProjectId) || null;
+// A stated household is real history, including in saves made before relationship flags.
+// An explicit later breakup takes precedence over that starting biography.
+export const hasPartner = s => s.flags.partner ?? ['partner', 'partnerFar', 'kids'].includes(s.player.profile.household);
 export const editable = p => p && !['Submitted', 'Rebuttal', 'Accepted', 'Abandoned', 'Advisor Review'].includes(p.status);
 // Who is actually still in the lab.
 //
@@ -229,6 +233,13 @@ export const editable = p => p && !['Submitted', 'Rebuttal', 'Accepted', 'Abando
 // only name in the #general sidebar, with a live green dot next to it. Everything that means "the
 // people in this lab, now" goes through here.
 export const activeLabmates = s => (s.labmates || []).filter(l => l.status === 'active');
+// Local campus participants; legacy peers without schoolId belong to the current campus.
+export const activePeers = s => (s.peers || []).filter(p => p.status === 'active' && (!p.schoolId || p.schoolId === s.program?.id));
+export const peerAffiliation = (s, p) => {
+  const school = schools.find(x => x.id === p.schoolId)?.name || (p.schoolId ? p.schoolId : s.program?.name || '');
+  return [school, p.status === 'remote' ? t('Remote') : ''].filter(Boolean).join(' · ');
+};
+
 export const labmateById = (s, id) => s.labmates.find(l => l.id === id) || s.peers.find(p => p.id === id) || null;
 
 // `routine` marks per-turn bookkeeping lines so the ending transcript can drop them
@@ -287,7 +298,7 @@ export function say(s, text, meta) {
       // the field notes, in English as well as Chinese.
       const tail = meta.r === 'success' ? c.successText : meta.r === 'failure' ? c.failureText
         : meta.r === 'result' ? c.result : say(s, '', meta.rt) || '';
-      return t('{title} — {choice}. {result}', { title: fill(s, e.title), choice: fill(s, c.text), result: fill(s, tail || '') }).trim();
+      return t('{title} — {choice}. {result}', { title: fill(s, e.title, meta.b), choice: fill(s, c.text, meta.b), result: fill(s, tail || '', meta.b) }).trim();
     }
   }
   // A line built by concatenating translated pieces: rebuild it piece by piece.
@@ -296,7 +307,7 @@ export function say(s, text, meta) {
   if (meta.s) out = t(meta.s, meta.v ? Object.fromEntries(Object.entries(meta.v).map(([k, v]) => [k, v && v.r ? say(s, '', v.r) : v])) : undefined);
   else if (meta.p) out = readSlot(meta.p);
   if (out === null || out === undefined) return text ?? '';
-  if (meta.f) out = fill(s, out);
+  if (meta.f) out = fill(s, out, meta.b);
   if (meta.m) for (const [k, v] of Object.entries(meta.m)) out = out.split(`{${k}}`).join(String(v && v.r ? say(s, '', v.r) : v));
   if (meta.x) out += say(s, '', meta.x);   // a translated suffix appended at build time
   return out;
@@ -342,7 +353,7 @@ export function draftMail(s, to, subject, body) {
 export function chat(s, channel, sender, body, extra = {}) {
   const hour = 8 + Math.floor(random(s) * 12), minute = Math.floor(random(s) * 60);
   const i18n = src(body);
-  s.chatMessages.push({ id: `chat-${s.chatMessages.length}`, channel, month: s.month, week: s.week, phase: s.phase, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, sender, body, read: false, ...(i18n ? { i18n } : {}), ...extra });
+  s.chatMessages.push({ id: `chat-${s.chatMessages.length}`, channel, month: s.month, week: s.week, dayIndex: s.dayIndex ?? 0, phase: s.phase, time: nextChatTime(s, hour, minute), sender, body, read: false, ...(sender === s.advisor?.name ? { senderId: s.advisor.id } : {}), ...(i18n ? { i18n } : {}), ...extra });
 }
 export function award(s, id) { if (!s.achievements.includes(id)) { s.achievements.push(id); log(s, t('Achievement unlocked: {id}.', { id }), true); } }
 
@@ -376,6 +387,7 @@ export function effects(s, delta = {}, actor = null) {
     else if (key === 'rentDelta' || key === 'commute') s.housing[key] += value;
     else if (key === 'bond') { const who = actor || s.eventActor; const target = who && labmateById(s, who.id); if (target) target.bond = clamp(target.bond + value); }
     else if (key === 'labBond') for (const l of activeLabmates(s)) l.bond = clamp(l.bond + value);
+    else if (key === 'peerBond') for (const peer of activePeers(s)) peer.bond = clamp(peer.bond + value);
     else if (key === 'leaveWeeks') s.leaveWeeks = Math.max(0, s.leaveWeeks + value);
     else if (key === 'skill') for (const [skill, amount] of Object.entries(value)) s.player.skills[skill] = clamp(s.player.skills[skill] + amount);
     else if (p && key in p && typeof p[key] === 'number' && editable(p)) p[key] = clamp(p[key] + value);
@@ -399,18 +411,17 @@ export function personality(s) {
 }
 
 // Replace {tokens} in event text with names from the current run.
-export function fill(s, text) {
-  if (!text) return '';
+function fillMap(s) {
   const actor = s.eventActor ? labmateById(s, s.eventActor.id) : null;
   const p = activeProject(s);
-  const map = {
+  return {
     advisor: s.advisor ? t('Prof. {name}', { name: lastName(s.advisor.name) }) : t('your advisor'),
     advisorFirst: s.advisor ? firstName(s.advisor.name) : t('your advisor'),
     labmate: actor?.name || activeLabmates(s)[0]?.name || t('a labmate'),
     fired: s.fired?.name || actor?.name || t('the one who left'),
     firedFirst: firstName(s.fired?.name || actor?.name || t('the one who left')),
     labmateFirst: firstName(actor?.name || activeLabmates(s)[0]?.name || t('a labmate')),
-    peer: actor?.name || s.peers[0]?.name || t('a friend from the cohort'),
+    peer: actor?.name || activePeers(s)[0]?.name || t('a friend from the cohort'),
     peerLab: actor?.labOf ? t('Prof. {name}', { name: lastName(actor.labOf) }) : t('another lab'),
     school: s.program?.name || t('the department'),
     company: s.company || t('a company'),
@@ -419,8 +430,29 @@ export function fill(s, text) {
     name: s.player.name,
     first: firstName(s.player.name),
   };
-  const out = text.replace(/\{(\w+)\}/g, (m, k) => map[k] ?? m);
-  // A filled string is still translatable: keep the source and re-fill after translating.
-  if (out !== text) { const p = provenanceOf(text); if (p) rememberSource(out, { ...p, f: 1 }); }
-  return out;
+}
+
+// A story remembers its cast, while titles such as "Prof." remain translatable.
+export function textBindings(s) {
+  return Object.fromEntries(Object.entries(fillMap(s)).map(([key, value]) => {
+    const ref = provenanceOf(value);
+    return [key, ref ? { r: ref } : value];
+  }));
+}
+export function fill(s, text, bindings = null) {
+  if (!text) return '';
+  const map = bindings ? Object.fromEntries(Object.entries(bindings).map(([key, value]) =>
+    [key, value?.r ? say(s, '', value.r) : value])) : fillMap(s);
+  return vars(text, map);
+}
+
+// Old saves used live fill() references. Freeze those before a change of advisor or campus.
+export function preserveStoryCast(s) {
+  const bindings = textBindings(s);
+  const visit = value => {
+    if (!value || typeof value !== 'object') return;
+    if ((value.f || (value.ev && value.ch)) && !value.b) value.b = bindings;
+    for (const [key, child] of Object.entries(value)) if (key !== 'b') visit(child);
+  };
+  for (const key of ['history', 'inbox', 'chatMessages', 'requests', 'report', 'noticeI18n']) visit(s[key]);
 }

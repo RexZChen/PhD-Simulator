@@ -5,10 +5,51 @@ import { LETTERS_REQUIRED, writerKinds, askLines, packetVerdicts, darkHorseLines
 import { ACADEMIC } from '../data/tracks.js';
 import { random, roll, clamp, pick } from './probability.js';
 import { effects, log, message, award, lastName, firstName, joined, activeLabmates } from './state.js';
+import { supervisionActive } from './supervision.js';
 
-export const ensureLetters = s => (s.letters = s.letters || { asked: [], closed: false });
+const advisorWriterId = id => `w-advisor-${id}`;
+const personKey = name => String(name || '').replace(/^(?:professor|prof\.?|dr\.?)\s*/i, '').replace(/教授/g, '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+const internshipRecords = s => [s.lastInternship, ...(s.intern?.history || [])].filter(Boolean);
+const recentInternship = s => {
+  const latest = s.intern?.history?.at(-1);
+  const last = s.lastInternship;
+  if (!last) return latest;
+  if (latest && latest.employer === last.company) return { ...latest, ...last, mentor: last.mentor || latest.mentor };
+  return last;
+};
+const mentorWriterId = mentor => mentor?.mentorAdvisorId ? `w-mentor-advisor-${mentor.mentorAdvisorId}`
+  : mentor?.mentor ? `w-mentor-person-${encodeURIComponent(personKey(mentor.mentor))}` : 'w-mentor';
+
+export function ensureLetters(s) {
+  s.letters ||= { asked: [], closed: false };
+  const advisors = [...(s.formerAdvisors || []), s.advisor].filter(Boolean);
+  for (const letter of s.letters.asked) {
+    if (letter.kind === 'advisor') {
+      if (!letter.advisorId) {
+        const key = personKey(letter.name);
+        const matches = advisors.filter(a => key && [personKey(a.name), personKey(lastName(a.name))].includes(key));
+        const identities = [...new Set(matches.map(a => a.id).filter(Boolean))];
+        if (identities.length === 1) letter.advisorId = identities[0];
+      }
+      // Unknown legacy writers keep their existing record. A successor must not inherit it.
+      if (letter.advisorId) letter.id = advisorWriterId(letter.advisorId);
+    } else if (letter.kind === 'mentor' && letter.id === 'w-mentor') {
+      const matches = internshipRecords(s).filter(mentor => [mentor.employer, mentor.company, mentor.mentor]
+        .some(name => name && personKey(name) === personKey(letter.name)));
+      const identities = [...new Set(matches.map(mentorWriterId))];
+      if (identities.length === 1 && identities[0] !== 'w-mentor') {
+        letter.id = identities[0];
+        if (!letter.advisorId && matches[0].mentorAdvisorId) letter.advisorId = matches[0].mentorAdvisorId;
+      }
+    }
+  }
+  return s.letters;
+}
 export const letterCount = s => (s.letters?.asked || []).filter(l => l.status === 'yes').length;
-export const hasAdvisorLetter = s => (s.letters?.asked || []).some(l => l.kind === 'advisor' && l.status === 'yes');
+export const hasAdvisorLetter = s => {
+  const advisors = new Set([s.advisor?.id, ...(s.formerAdvisors || []).map(a => a.id)].filter(Boolean));
+  return ensureLetters(s).asked.some(l => l.status === 'yes' && (l.kind === 'advisor' || (l.advisorId && advisors.has(l.advisorId))));
+};
 export const lettersReady = s => letterCount(s) >= LETTERS_REQUIRED && hasAdvisorLetter(s);
 export const needsLetters = track => ACADEMIC.includes(track) || track === 'postdoc' || track === 'national_lab';
 
@@ -16,15 +57,22 @@ export const needsLetters = track => ACADEMIC.includes(track) || track === 'post
 export function availableWriters(s) {
   ensureLetters(s);
   const taken = new Set(s.letters.asked.map(l => l.id));
+  const peopleAsked = new Set(s.letters.asked.map(l => l.advisorId).filter(Boolean));
   const out = [];
   // Spread the archetype first: it carries its own `id`, and ours must win.
-  const add = (id, kind, name, extra = {}) => { if (!taken.has(id)) out.push({ ...writerKinds[kind], ...extra, id, kind, name }); };
+  const add = (id, kind, name, extra = {}) => { if (!taken.has(id) && !(extra.advisorId && peopleAsked.has(extra.advisorId))) out.push({ ...writerKinds[kind], ...extra, id, kind, name }); };
 
-  add('w-advisor', 'advisor', t('Prof. {name}', { name: lastName(s.advisor.name) }));
+  add(advisorWriterId(s.advisor.id), 'advisor', t('Prof. {name}', { name: lastName(s.advisor.name) }), { advisorId: s.advisor.id });
+  if (supervisionActive(s) && s.supervision.kind === 'coadvised') {
+    const mentor = s.supervision.mentor;
+    add(advisorWriterId(mentor.id), 'advisor', t('Prof. {name}', { name: lastName(mentor.name) }),
+      { advisorId: mentor.id, relationship: mentor.relationship, blurb: t('Your emeritus co-advisor') });
+  }
   (s.committee || []).forEach((c, i) => add(`w-comm-${i}`, 'committee', c));
   if (s.flags.collabOffer) add('w-collab', 'collaborator', s.collabFrom || t('your collaborator'));
-  const mentor = s.lastInternship || (s.intern?.history || [])[0];
-  if (mentor) add('w-mentor', 'mentor', (s.intern?.history || [])[0]?.employer || s.lastInternship?.company || t('your internship mentor'));
+  const mentor = recentInternship(s);
+  const mentorIdentity = mentor?.mentorAdvisorId;
+  if (mentor && mentorIdentity !== s.advisor.id) add(mentorWriterId(mentor), 'mentor', mentor.mentor || mentor.employer || mentor.company || t('your internship mentor'), mentorIdentity ? { advisorId: mentorIdentity } : {});
   if ((s.conferenceConnections || 0) >= 4) add('w-senior', 'senior', t('Prof. {name}', { name: lastName(s.peers[0]?.labOf || s.advisor.name) }));
   const pd = activeLabmates(s).find(l => l.role === 'postdoc');
   if (pd) add('w-postdoc', 'postdocmate', pd.name);
@@ -34,8 +82,9 @@ export function availableWriters(s) {
 
 // How good the letter actually is — a number the player never sees.
 function trueQuality(s, w) {
+  const relationship = w.relationship || s.relationship;
   const base = {
-    advisor: 40 + (s.relationship.trust - 50) * .55 + (s.relationship.satisfaction - 50) * .35 - (s.letterDrag || 0) * 7,
+    advisor: 40 + (relationship.trust - 50) * .55 + (relationship.satisfaction - 50) * .35 - (w.advisorId === s.advisor.id ? (s.letterDrag || 0) * 7 : 0),
     committee: 44 + (s.readiness - 50) * .25 + (s.counts.accepted || 0) * 4,
     collaborator: 58 + (s.conferenceConnections || 0) * 1.2,
     mentor: 56 + (s.player.skills.coding - 50) * .2,
@@ -52,7 +101,9 @@ function trueQuality(s, w) {
 export function askLetter(s, writerId) {
   ensureLetters(s);
   if (s.letters.closed) throw new Error(t('The packet is closed. The letters are in, for better or worse.'));
-  const w = availableWriters(s).find(x => x.id === writerId);
+  const resolvedId = writerId === 'w-advisor' ? advisorWriterId(s.advisor.id)
+    : writerId === 'w-mentor' ? mentorWriterId(recentInternship(s)) : writerId;
+  const w = availableWriters(s).find(x => x.id === resolvedId);
   if (!w) throw new Error(t('You cannot ask that person.'));
   if (s.player.stats.energy < 4) throw new Error(t('Not enough Energy to write the email properly, and this is not an email to write badly.'));
   effects(s, { energy: -4 });
@@ -61,7 +112,7 @@ export function askLetter(s, writerId) {
   const declines = w.kind === 'advisor' ? .02 : clamp(.30 - q / 260 - known * .12, .03, .40);
   if (roll(s, declines)) {
     const line = t(pick(s, askLines.refused));
-    s.letters.asked.push({ id: w.id, kind: w.kind, name: w.name, status: 'no', quality: 0, reach: w.reach, line });
+    s.letters.asked.push({ id: w.id, kind: w.kind, name: w.name, ...(w.advisorId ? { advisorId: w.advisorId } : {}), status: 'no', quality: 0, reach: w.reach, line });
     log(s, joined(t('You asked {who} for a letter.', { who: w.name }), ' ', line));
     effects(s, { hope: -3 });
     if (w.kind === 'senior') award(s, 'saidno');
@@ -69,11 +120,11 @@ export function askLetter(s, writerId) {
   }
 
   // A big name who barely knows you is how you acquire a dark horse.
-  const darkHorse = roll(s, clamp(.05 + (1 - known) * .38 + (60 - q) / 400 + (w.kind === 'advisor' ? (s.letterDrag || 0) * .06 : 0), .02, .55));
+  const darkHorse = roll(s, clamp(.05 + (1 - known) * .38 + (60 - q) / 400 + (w.kind === 'advisor' && w.advisorId === s.advisor.id ? (s.letterDrag || 0) * .06 : 0), .02, .55));
   const register = q > 68 && known > .6 ? 'warm' : q > 48 ? 'dutiful' : 'hedged';
   const line = t(pick(s, askLines[register]));
   s.letters.asked.push({
-    id: w.id, kind: w.kind, name: w.name, status: 'yes', reach: w.reach,
+    id: w.id, kind: w.kind, name: w.name, ...(w.advisorId ? { advisorId: w.advisorId } : {}), status: 'yes', reach: w.reach,
     quality: Math.round(darkHorse ? Math.min(q, 26 + random(s) * 12) : q),
     darkHorse, register, line,
     hint: darkHorse ? t(pick(s, darkHorseLines)) : null,   // stored, never shown before the outcome

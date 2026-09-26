@@ -36,18 +36,33 @@ export const isSummer = index => [6, 7, 8].includes(monthOf(index));
 export const HOLIDAYS = {
   9: [{ day: 4, name: 'Labor Day', note: 'Campus closed. The semester starts a day later than everyone thinks.' }],
   10: [{ day: 31, name: 'Halloween', note: 'The lab party has a costume theme nobody agreed on.' }],
-  11: [{ day: 23, name: 'Thanksgiving', note: 'Four days without meetings. Allegedly.' }],
-  12: [{ day: 15, name: 'Finals week', note: 'The undergrads are panicking. So are the TAs.' }, { day: 24, name: 'Winter break', note: 'Campus closes for a week. Your inbox does not.' }],
+  11: [{ day: 23, id: 'thanksgiving', name: 'Thanksgiving', note: 'Four days without meetings. Allegedly.' }],
+  12: [{ day: 15, name: 'Finals week', note: 'The undergrads are panicking. So are the TAs.' }, { day: 24, id: 'winter_break', name: 'Winter break', note: 'Campus closes for a week. Your inbox does not.' }],
   1: [{ day: 1, name: 'New Year', note: 'Resolutions are due. So is the ICMLater deadline.' }, { day: 15, name: 'MLK Day', note: 'A Monday off in the coldest week of the year.' }],
   2: [{ day: 14, name: 'Valentine’s Day', note: 'The lab has opinions about this.' }, { day: 19, name: 'Presidents’ Day', note: 'A Monday off you will spend in the lab.' }],
-  3: [{ day: 11, name: 'Spring break', note: 'Undergraduates leave. Graduate students notice the parking.' }],
-  4: [{ day: 15, name: 'Tax Day', note: 'Form 1042-S is not a typo.' }, { day: 5, name: 'Visit days', note: 'Prospective students ask you how it is going. Honestly.' }],
+  3: [{ day: 11, id: 'spring_break', name: 'Spring break', note: 'Undergraduates leave. Graduate students notice the parking.' }],
+  4: [{ day: 15, name: 'Tax paperwork', note: 'Campus reminder to check your forms and filing deadline.' }, { day: 5, name: 'Visit days', note: 'Prospective students ask you how it is going. Honestly.' }],
   5: [{ day: 12, name: 'Commencement', note: 'People in robes. Some of them are your friends.' }, { day: 27, name: 'Memorial Day', note: 'The lab is open. It is always open.' }],
   6: [{ day: 19, name: 'Juneteenth', note: 'A holiday. The cluster is still running.' }],
   7: [{ day: 4, name: 'Independence Day', note: 'Fireworks. Someone brings a grill to the lab roof.' }],
   8: [{ day: 1, name: 'Lease turnover', note: 'Half the city moves on the same day.' }, { day: 26, name: 'New students arrive', note: 'They look young. They are.' }],
 };
-export const holidays = index => HOLIDAYS[monthOf(index)] || [];
+// Catalog positions stay stable across translations. Rules are separate because the
+// translated catalog replaces whole arrays; never identify a rule by a display name.
+// [entry index, weekday (Sunday=0), ordinal; -1 means last]. OPM source in docs/holiday-calendar-review.md.
+const MOVABLE = { 1: [1, 1, 3], 2: [1, 1, 3], 5: [1, 1, -1], 9: [0, 1, 1], 11: [0, 4, 4] };
+export function holidays(index) {
+  const { year, month } = calendarOf(index);
+  const rule = MOVABLE[month];
+  return (HOLIDAYS[month] || []).map((holiday, position) => {
+    if (!rule || position !== rule[0]) return { ...holiday };
+    const [, weekday, ordinal] = rule;
+    const day = ordinal === -1
+      ? daysIn(index) - (new Date(Date.UTC(year, month, 0)).getUTCDay() - weekday + 7) % 7
+      : 1 + (weekday - firstWeekday(index) + 7) % 7 + 7 * (ordinal - 1);
+    return { ...holiday, day };
+  });
+}
 
 // Short seasonal flavor for month headings. Kept dry on purpose.
 export const FLAVOR = {
@@ -70,7 +85,11 @@ export const seasonalFlavor = (index, pickIndex = 0) => { const options = FLAVOR
 export function focusAvailability(index) {
   const teaching = isTeachingTerm(index);
   return {
-    coursework: teaching ? null : t('No classes in summer. Read on your own time, which is all of it.'),
+    coursework: teaching ? null : isSummer(index)
+      ? t('No classes in summer. Read on your own time, which is all of it.')
+      : monthOf(index) === 12
+        ? t('Regular classes have ended for finals and winter break. Coursework resumes in January.')
+        : t('Regular classes have ended for finals and commencement. Coursework resumes in September.'),
     teach: teaching ? null : t('No sections to teach until the semester resumes.'),
   };
 }

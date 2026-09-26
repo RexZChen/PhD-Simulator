@@ -1,9 +1,10 @@
-import { esc, btn, group, tag } from '../helpers.js';
+import { esc } from '../helpers.js';
 import { icon } from '../icons.js';
 import { avatar } from '../avatars.js';
 import { myProfile, otherProfiles, comparison } from '../../engine/scholar.js';
 import { diamondBar } from '../../engine/paper.js';
 import { calendarOf } from '../../data/calendar.js';
+import { topics } from '../../data/catalog.js';
 import { t } from '../../i18n/index.js';
 
 // Citations per year, as bars, because that is how the real one hooks you.
@@ -32,32 +33,53 @@ export function scholarApp(s, ui) {
   const startYear = calendarOf(0).year;
   const tab = ui.scholarTab || 'me';
 
-  const meCard = `<div class="sch-head">
-    ${avatar(s.player.name, 64)}
-    <div><h2>${esc(s.player.name)}</h2><p class="muted small">${esc(me.affiliation)} · ${t('PhD student')}${s.milestones?.proposal === 'pass' ? ` · ${t('PhD candidate')}` : ''}</p>
-    <p class="tiny muted">${esc(s.player.profile.topic ? t('Verified email at {school}', { school: (me.affiliation || 'university').toLowerCase().replace(/\s+/g, '') + '.edu' }) : '')}</p></div>
-    <table class="sch-metrics"><tr><th></th><th>${t('All')}</th><th>${t('Since {y}', { y: thisYear - 4 })}</th></tr>
-      <tr><td>${t('Citations')}</td><td><b>${me.total}</b></td><td>${Object.entries(me.byYear).filter(([y]) => Number(y) >= thisYear - 4).reduce((a, [, n]) => a + n, 0)}</td></tr>
-      <tr><td>${t('h-index')}</td><td><b>${me.h}</b></td><td>${me.h}</td></tr>
-      <tr><td>${t('i10-index')}</td><td><b>${me.i10}</b></td><td>${me.i10}</td></tr>
-    </table>
-  </div>
-  ${yearChart(me.byYear, startYear, Math.max(startYear + 3, thisYear))}
-  ${me.papers.length ? `<div class="listview sch-list"><div class="lv-head"><span>${t('Title')}</span><span>${t('Cited by')}</span><span>${t('Year')}</span></div>
-    ${(() => { const pt = patentEntry(s); return pt ? `<div class="lv-row patent-row"><span><b>${esc(pt.title)}</b><br><span class="muted tiny">${esc(pt.venue)} · ${esc(pt.inventors)}</span></span><span class="num"><b>${pt.n}</b></span><span class="num">${pt.year}</span></div>` : ''; })()}
-    ${me.papers.map(p => `<div class="lv-row"><span><b>${esc(p.title)}</b><br><span class="muted tiny">${esc(p.venue)} · ${diamondBar(p.diamonds)}${p.status === 'Accepted' ? '' : ` · ${t('preprint')}`}</span></span><span class="num"><b>${p.n}</b></span><span class="num">${p.year}</span></div>`).join('')}</div>`
-    : `<p class="muted small">${t('No indexed work yet. The page exists. That is all it does.')}</p>`}
-  <p class="small muted" style="margin-top:8px">${esc(comparison(s))}</p>`;
+  const patent = patentEntry(s);
+  const recent = Object.entries(me.byYear).filter(([y]) => Number(y) >= thisYear - 4).reduce((a, [, n]) => a + n, 0);
+  const metrics = `<aside class="sch-citations" aria-label="${esc(t('Citation overview'))}">
+    <h3>${t('Cited by')}</h3>
+    <table class="sch-metrics"><thead><tr><th></th><th scope="col">${t('All')}</th><th scope="col">${t('Since {y}', { y: thisYear - 4 })}</th></tr></thead><tbody>
+      <tr><th scope="row">${t('Citations')}</th><td>${me.total}</td><td>${recent}</td></tr>
+      <tr><th scope="row">${t('h-index')}</th><td>${me.h}</td><td>${me.h}</td></tr>
+      <tr><th scope="row">${t('i10-index')}</th><td>${me.i10}</td><td>${me.i10}</td></tr>
+    </tbody></table>
+    ${yearChart(me.byYear, startYear, Math.max(startYear + 3, thisYear))}
+  </aside>`;
 
-  const leaderboard = `<div class="listview sch-list sch-board"><div class="lv-head"><span>${t('Name')}</span><span>${t('Role')}</span><span>${t('Cited by')}</span><span>${t('h')}</span></div>
-    ${[{ name: s.player.name, role: t('you'), total: me.total, h: me.h, kind: 'me' }, ...others].sort((a, b) => b.total - a.total).map(o => `<div class="lv-row ${o.kind === 'me' ? 'me' : ''}"><span>${esc(o.name)}</span><span class="small muted">${esc(o.role)}</span><span class="num"><b>${o.total}</b></span><span class="num">${o.h}</span></div>`).join('')}</div>
-    <p class="tiny muted">${t('Every number on this page is a proxy for something that does not have a number. You know this. You are still here.')}</p>`;
+  const meCard = `<div class="sch-profile-layout"><section class="sch-publications">
+    <header class="sch-head">
+      ${avatar(s.player.name, 72)}
+      <div><h2>${esc(s.player.name)}</h2>
+        <p>${esc(me.affiliation)}</p>
+        <p class="sch-secondary">${s.milestones?.proposal === 'pass' ? t('PhD candidate') : t('PhD student')}</p>
+        <p class="sch-verified">${esc(t('Verified email at {school}', { school: (me.affiliation || 'university').toLowerCase().replace(/\s+/g, '') + '.edu' }))}</p>
+        <p class="sch-interest">${esc(t(topics[s.player.profile.topic] || ''))}</p>
+      </div>
+    </header>
+    <div class="sch-section-title"><h3>${t('Indexed publications')}</h3><button class="sch-text-link" data-action="open" data-app="browser" data-page="openregret">OpenRegret →</button></div>
+    ${me.papers.length || patent ? `<div class="sch-paper-list">
+      <div class="sch-paper-heading"><span>${t('Title')}</span><span>${t('Cited by')}</span><span>${t('Year')}</span></div>
+      ${patent ? `<article class="sch-paper sch-patent"><div><h4>${esc(patent.title)}</h4><p class="sch-metadata">${esc(patent.inventors)}</p><p class="sch-secondary">${esc(patent.venue)}</p></div><span class="sch-cite-count">${patent.n}</span><span class="sch-year">${patent.year}</span></article>` : ''}
+      ${me.papers.map(p => {
+        const project = s.projects.find(x => x.id === p.id);
+        const authors = [s.player.name, ...(project?.collaborators || [])].join(', ');
+        return `<article class="sch-paper"><details class="sch-paper-detail"><summary><h4>${esc(p.title)}</h4><span class="sch-detail-hint">${t('Publication details')}</span></summary>
+          <div class="sch-paper-expanded"><p>${esc(authors)}</p><p>${esc(p.venue)} · ${p.year}</p><p>${diamondBar(p.diamonds)}${p.status === 'Accepted' ? '' : ` · ${t('preprint')}`}</p><p>${t('Cited by')} ${p.n}</p></div>
+        </details><span class="sch-cite-count" aria-label="${esc(t('Cited by'))}">${p.n}</span><span class="sch-year">${p.year}</span>
+        <p class="sch-metadata">${esc(authors)}</p><p class="sch-secondary sch-paper-venue">${esc(p.venue)}${p.status === 'Accepted' ? '' : ` · ${t('preprint')}`}</p></article>`;
+      }).join('')}</div>` : `<div class="sch-empty"><p>${t('No indexed work yet. The page exists. That is all it does.')}</p></div>`}
+    <p class="sch-comparison">${esc(comparison(s))}</p>
+  </section>${metrics}</div>`;
+
+  const people = [{ name: s.player.name, role: t('you'), total: me.total, h: me.h, kind: 'me' }, ...others].sort((a, b) => b.total - a.total);
+  const leaderboard = `<section class="sch-people"><h2>${t('People you know')}</h2>
+    ${people.map(o => `<article class="sch-person ${o.kind === 'me' ? 'sch-person-me' : ''}">${avatar(o.name, 48)}<div><h3>${esc(o.name)}</h3><p class="sch-metadata">${esc(o.role)}</p><p class="sch-person-counts">${t('Cited by')} <b>${o.total}</b><span>${t('h-index')} <b>${o.h}</b></span></p></div></article>`).join('')}
+    <p class="sch-comparison">${t('Every number on this page is a proxy for something that does not have a number. You know this. You are still here.')}</p></section>`;
 
   return `<div class="scholar">
-    <div class="sch-bar"><span class="sch-logo">${icon('book', 18)} <b>Gaggle</b> ${t('Scholar')}</span>
-      <span class="sch-search">${esc(s.player.name.split(' ').at(-1))} ${esc(s.player.profile.topic)}</span>
-      <span class="tiny muted">${t('About {n} results ({s} sec)', { n: 40000 + s.month * 137, s: '0.' + (31 + (s.month % 40)) })}</span></div>
-    <div class="tabs">${[['me', t('My profile')], ['everyone', t('People you know')]].map(([id, label]) => `<button class="btn tab ${tab === id ? 'active' : ''}" data-action="scholar-tab" data-id="${id}">${esc(label)}</button>`).join('')}</div>
-    <div class="sch-body">${tab === 'me' ? meCard : leaderboard}</div>
+    <header class="sch-bar"><div class="sch-logo"><b><span>G</span><span>a</span><span>g</span><span>g</span><span>l</span><span>e</span></b><span>${t('Scholar')}</span></div>
+      <div class="sch-search">${icon('people', 18)}<span>${esc(s.player.name)}</span></div></header>
+    <div class="sch-layout"><nav class="sch-nav" aria-label="${esc(t('Scholar'))}">
+      ${[['me', t('My profile')], ['everyone', t('People you know')]].map(([id, label]) => `<button class="sch-nav-link ${tab === id ? 'active' : ''}" data-action="scholar-tab" data-id="${id}" aria-current="${tab === id ? 'page' : 'false'}">${esc(label)}</button>`).join('')}
+    </nav><div class="sch-body">${tab === 'me' ? meCard : leaderboard}</div></div>
   </div>`;
 }

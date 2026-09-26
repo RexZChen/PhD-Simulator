@@ -115,12 +115,12 @@ export const focuses = [
 export const internshipFocus = { id: 'internship', name: 'Internship', icon: 'case', desc: 'A summer of real salaries and fake urgency.', effects: { energy: -6, stress: 2, career: 14, academicCapital: 4, progress: -4, hope: 4 }, skill: 'coding' };
 
 export const rebuttals = [
-  { id: 'careful', draft: "Dear reviewers,\n\nThank you for the careful reads. We answer each point in turn.\n\nR1 (baselines): we agree the comparison was thin and have added the missing baseline; the gap narrows but the ordering holds.\nR2 (motivation): the problem occurs in practice; Section 2 now cites three deployed systems where it does.\nR3 (Table 4): the discrepancy was a seed. All numbers are now averaged over five runs, with variance reported.", name: 'Carefully address everyone', desc: 'Writing helps. Costs 10 Energy.', energy: 10 },
-  { id: 'weakest', draft: "Dear reviewers,\n\nWe focus our limited space on the concern that most affects the contribution: the evaluation.\n\nWe have rerun every experiment with five seeds and added the requested baseline. The effect is smaller than reported but remains significant. The remaining points are addressed in the appendix.", name: 'Focus on the weakest review', desc: 'A focused argument; the other concerns remain.', energy: 6 },
-  { id: 'experiments', draft: "Dear reviewers,\n\nRather than argue, we ran it.\n\nThe requested experiment is attached as Table 6. It supports the claim in the regime we discuss and, honestly, does not support it outside that regime — which we now say plainly in the limitations.", name: 'Add experiments', desc: 'Stronger evidence. Costs 18 Energy.', energy: 18 },
-  { id: 'confident', draft: "Dear reviewers,\n\nWe believe the criticisms rest on a misreading of the setting.\n\nThe method is not proposed as a general solution and never claims to be; Section 1 is explicit. Within the stated assumptions the results stand, and we would rather defend a narrow claim well than a broad one badly.", name: 'Argue confidently', desc: 'Conviction can persuade or antagonize.', energy: 5 },
-  { id: 'panic', draft: "Dear reviewers thank you for the reviews we appreciate the time.\n\nRegarding R2 — we can add that experiment. Regarding R1 the baseline is in the appendix (we will move it to the main paper). Regarding R3 we will fix Table 4.\n\nWe are happy to make any further changes the reviewers consider necessary.", name: 'Panic-write', desc: 'Fast, exhausting, occasionally inspired.', energy: 14 },
-  { id: 'advisor', draft: "Dear reviewers,\n\nWe thank the reviewers for their engagement with the work.\n\nThe central concern — whether the contribution is sufficient in isolation — mistakes the scope of the claim. As we note in Section 3, and as the concurrent literature confirms, the relevant comparison is not the one R2 proposes.\n\n(Your advisor wrote most of this. It is sharper than yours and slightly ruder.)", name: 'Ask advisor to lead', desc: 'Depends on availability and trust.', energy: 3 },
+  { id: 'careful', name: 'Carefully address everyone', desc: 'Writing helps. Costs 10 Energy.', energy: 10 },
+  { id: 'weakest', name: 'Focus on the weakest review', desc: 'A focused argument; the other concerns remain.', energy: 6 },
+  { id: 'experiments', name: 'Add experiments', desc: 'Stronger evidence. Costs 18 Energy.', energy: 18 },
+  { id: 'confident', name: 'Argue confidently', desc: 'Conviction can persuade or antagonize.', energy: 5 },
+  { id: 'panic', name: 'Panic-write', desc: 'Fast, exhausting, occasionally inspired.', energy: 14 },
+  { id: 'advisor', name: 'Ask advisor to lead', desc: 'Depends on availability and trust.', energy: 3 },
 ];
 
 export const achievements = {
@@ -191,7 +191,7 @@ export const achievements = {
   furniture: { name: 'Longer Than The Carpet', desc: 'Still be in the building after the sixth year, and be asked whether you are staff.' },
   heirapparent: { name: 'Name On The Door', desc: 'Be called home to run the family firm. The training transferred; just not the topic.' },
   saidnotomoney: { name: 'Declined The Inheritance', desc: 'Turn down a business that was doing well. That conversation does not actually end.' },
-  ninerest: { name: 'Nine Rested Months', desc: 'Choose Rest nine times in one run. The option everyone can see and nobody picks.' },
+  ninerest: { name: 'Nine Rested Months', desc: 'Spend nine months on Rest plans in one run. Shorter turns count toward the total.' },
   twocrisestreated: { name: 'Went Both Times', desc: 'Have two health crises and go to the clinic for both. This is harder than it sounds.' },
 
   // ── Being here on paper ────────────────────────────────────────────────────────────────────
@@ -205,7 +205,7 @@ export const achievements = {
   // ── When the person one lap ahead falls off ────────────────────────────────────────────────
   orphaned: { name: 'Advisor Of Record: Pending', desc: 'Lose your advisor mid-degree and find another one. The relationship starts over, which is both halves of the news.' },
   wentwiththem: { name: 'Packed The Lab', desc: 'Follow your advisor to another institution. New city, same whiteboard.' },
-  finishedforthem: { name: 'The Acknowledgement First', desc: 'Finish the paper after your advisor died. You wrote that section before the abstract.' },
+  finishedforthem: { name: 'The Acknowledgement First', desc: 'Commit to continuing the work after your advisor dies. The acknowledgement comes before the abstract.' },
   keptemeritus: { name: 'Advisor Of Record, Emeritus', desc: 'Keep a retiring advisor to the end by finding someone to sign the form.' },
   labinheritor: { name: 'Where Everything Is Kept', desc: 'Take on the lab\u2019s unfinished work. A form of power and a form of sentence.' },
 

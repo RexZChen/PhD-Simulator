@@ -16,6 +16,12 @@ export const reactionById = id => reactions.find(r => r.id === id) || null;
 // A reply to one specific message, rather than to the channel. Most messages get none of these,
 // which is the point: you choose the ones worth answering.
 export const replyKinds = {
+  crisis_ack: {
+    id: 'crisis_ack', label: 'Thank them; no work update', energy: 0,
+    drafts: ['Thank you. I do not have a work update to add right now.'],
+    effects: {}, quietReply: true,
+    replies: ['No need to answer again now.'],
+  },
   support: {
     id: 'support', label: 'Say something kind', energy: 1,
     drafts: [
@@ -84,10 +90,18 @@ export function repliesFor(text = '') {
 // Direct messages with people who are not your advisor.
 export const dmOpeners = {
   senior: [
-    { id: 'how_did_you', label: 'Ask how they got through the qualifier', energy: 2,
+    { id: 'how_did_you', stage: 'qualifier', label: 'Ask how they got through the qualifier', energy: 2,
       draft: 'can i ask you something about the qualifier that i do not want to ask in the channel',
       reply: '“I failed the first one. Nobody tells you that because nobody says it out loud. Here is the folder I used.” They send a folder.',
       effects: { readiness: 8, labBond: 6, hope: 4 } },
+    { id: 'proposal_scope', stage: 'proposal', label: 'Ask what belongs in the proposal', energy: 2,
+      draft: 'the qualifier is behind me. how do i stop the proposal becoming a list of every project i might ever do?',
+      reply: '“Put the claim on one slide. Put what you will not do on the next. They will spend twenty minutes discussing the second slide. Those are twenty useful minutes.” They send an outline with three crossed-out chapters.',
+      effects: { readiness: 6, labBond: 5, confidence: 3 } },
+    { id: 'defense_edges', stage: 'defense', label: 'Ask how to handle the defense questions', energy: 2,
+      draft: 'the proposal passed. what should i rehearse for the defense besides explaining the results?',
+      reply: '“Where the result stops being true. Say that before they ask. My committee spent half an hour on an assumption I had put in a footnote. It is no longer a footnote.” You practice saying “that is outside the claim” without apologizing.',
+      effects: { readiness: 6, labBond: 5, confidence: 4 } },
     { id: 'advisor_read', label: 'Ask how to read your advisor', energy: 2,
       draft: 'you have worked with them for four years. how do i tell when they actually mean something?',
       reply: '“When they say ‘interesting’ they mean no. When they say nothing for a week they are thinking about it. When they forward you a paper at 2am, drop everything.”',

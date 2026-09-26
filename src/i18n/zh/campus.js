@@ -1,5 +1,13 @@
 // 校园气质（简体中文）。学校名与校训保持英文——那些名字本身就是英文双关。
 export const campusZh = {
+  'The paper deadline is this month. They have had an idea. It sounds promising, which is the problem, and substantial, which is the other problem.': '论文截止日期就在本月。导师有了个想法。听起来很有前景，这是一个问题；工作量也很大，这是另一个问题。',
+  '“One more experiment.” There is already a paper deadline on your calendar. They sound as though they are helping.': '“再补一个实验。”你的日历上已经有一个论文截止日期。他们的语气仿佛是在帮忙。',
+  'You leave with one concrete check to consider and an agreement about what can wait. The meeting took time. At least the task is smaller now.': '离开时，你有了一项具体的核查建议，也明确了哪些事可以等一等。会占用了时间，但至少任务范围缩小了。',
+  'The meeting ends with a longer list of possible experiments. The deadline has not moved. You have less time to decide which ones matter.': '会结束了，可能要做的实验清单更长了。截止日期没有变，你用来判断哪些实验值得做的时间却更少了。',
+  'They ask if you have a minute in a tone that means it is not a minute. You had a plan for this time. The plan is suddenly less important.': '他们问你有没有一分钟，语气表明绝不止一分钟。你原本为这段时间排好了计划，那份计划突然没那么重要了。',
+  'Go, and ask to keep it short': '去，但请求简短一些',
+  'You say you cannot stay today. They say of course. You will think about the stairwell in about a fortnight.': '你说今天没法留下。他们说当然没关系。大约两周后，你还会想起那个楼梯间。',
+  'Could this wait until I finish the work I have already planned?': '能否等我做完已经安排好的工作后再处理这件事？',
   'Mascot': '吉祥物',
   'The yell': '助威口号',
   'Campus lore': '校园传说',

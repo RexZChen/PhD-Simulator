@@ -19,7 +19,7 @@ import { createRun } from '../src/engine/state.js';
 import { dispatch, focusOptions, canStartMain } from '../src/engine/game.js';
 import { schools } from '../src/data/catalog.js';
 import { interviewStep } from '../src/engine/apply.js';
-import { templateById } from '../src/engine/events.js';
+import { templateById, choiceUnavailable } from '../src/engine/events.js';
 import { pushbacks } from '../src/data/minigames.js';
 import { questioners } from '../src/data/conference.js';
 import { currentBeat } from '../src/engine/epilogue.js';
@@ -37,8 +37,25 @@ import { officeAction } from '../src/data/patent.js';
 import { pathToFileURL } from 'node:url';
 
 const SEEDS = Number(process.argv[2] || 40);
-const resolveAll = s => { let n = 0; while (s.event && n++ < 40) { const e = templateById[s.event]; const ok = e.choices.find(c => !c.ending && !c.minigame && !(c.requiresCoursework && s.coursework < c.requiresCoursework)) || e.choices[0]; s = dispatch(s, { type: 'CHOICE', id: ok.id }); if (s.stage === 'minigame') s = dispatch(s, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 }); } return s; };
+const resolveAll = s => { let n = 0; while (s.event && n++ < 40) { const e = templateById[s.event]; const available = e.choices.filter(c => !choiceUnavailable(s, c)); const ok = available.find(c => !c.ending && !c.minigame) || available[0]; if (!ok) throw new Error(`No available choice: ${e.id}`); s = dispatch(s, { type: 'CHOICE', id: ok.id }); if (s.stage === 'minigame') s = dispatch(s, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 }); } return s; };
 const act = (s, a) => resolveAll(dispatch(s, a));
+// A diligent player treats the defended dissertation as unfinished work before optional
+// networking. Previously every contact spent their Energy first, so six undeposited runs
+// made zero revision attempts. This changes the agent policy, not game difficulty: the
+// atmosphere-final baseline is diagnostic evidence, not a before/after balance comparison.
+function finishRevisions(s) {
+  if (!s.thesis || s.thesis.deposited) return s;
+  for (let i = 0; i < 6 && s.stage === 'plan'; i++) {
+    const next = s.thesis.items.find(x => x.done < x.effort);
+    if (!next || s.player.stats.energy < 6) break;
+    try { s = act(s, { type: 'REVISE', id: next.id }); } catch { break; }
+  }
+  for (let i = 0; i < 3 && s.stage === 'plan' && s.thesis.done >= s.thesis.needed; i++) {
+    try { s = act(s, { type: 'DEPOSIT' }); } catch { break; }
+  }
+  return s;
+}
+
 
 function advance(s) {
   // A crisis interrupts the turn and must be answered. Diligent does what it is told; the
@@ -107,6 +124,10 @@ export async function run(seed, style) {
   while (['playing', 'epilogue'].includes(s.phase) && guard++ < 1400) {
     const before = s.stage + ':' + s.month + ':' + s.week + ':' + (s.dayIndex || 0);
     if (s.stage === 'plan') {
+      if (style === 'diligent') {
+        s = finishRevisions(s);
+        if (s.stage !== 'plan') { s = resolveAll(advance(s)); continue; }
+      }
       // The people outside the lab. Diligent keeps in touch and delivers; the grinder takes the
       // work and never writes; lazy lets every one of them fade.
       if (style !== 'lazy') {
@@ -208,7 +229,7 @@ export async function run(seed, style) {
         if (!s.intern.talk.settled) { try { s = act(s, { type: 'INTERN_MOVE', id: style === 'grinder' ? 'go' : 'decline' }); } catch {} }
       }
       // Defending is not finishing: work the committee's list, then deposit.
-      if (s.thesis && !s.thesis.deposited) {
+      if (style !== 'diligent' && s.thesis && !s.thesis.deposited) {
         for (let i = 0; i < 6; i++) {
           const next = s.thesis.items.find(x => x.done < x.effort);
           if (!next || s.player.stats.energy < 8) break;
@@ -220,6 +241,13 @@ export async function run(seed, style) {
       if (style === 'diligent' && s.player.stats.health < 55 && s.conditions?.length && s.player.stats.money > 900) { try { s = act(s, { type: 'CLINIC', id: 'primary' }); clinics++; } catch {} }
       if (s.tempo === 'day' && s.player.stats.energy < 45) { const cups = style === 'grinder' ? 4 : 1; for (let i = 0; i < cups; i++) { try { s = act(s, { type: 'COFFEE' }); coffees++; } catch { break; } } }
       if (style === 'grinder' && s.tempo === 'day') { try { s = act(s, { type: 'SKIP_MEAL' }); } catch {} }
+      // Deadline/rebuttal scenes temporarily select their paper. A diligent player returns
+      // to the dissertation during calm work periods instead of forgetting it until draft90.
+      // Other styles retain their existing policy; this is not an automatic engine selection.
+      if (style === 'diligent' && !s.crunch && !(s.internship && s.month >= s.internship.start && s.month <= s.internship.end)) {
+        const dissertation = s.projects.find(p => p.kind === 'thesis' && p.status === 'Drafting');
+        if (dissertation && s.activeProjectId !== dissertation.id) s = act(s, { type: 'SELECT_PROJECT', id: dissertation.id });
+      }
       if (!s.focus) {
         const opts = focusOptions(s).filter(f => !f.disabled);
         const p0 = s.projects.find(x => x.id === s.activeProjectId);
@@ -252,6 +280,13 @@ export async function run(seed, style) {
       { const th = s.projects.find(x => x.kind === 'thesis');
         if (th && th.status === 'Drafting' && th.draft >= 90) { try { s = act(s, { type: 'SELECT_PROJECT', id: th.id }); s = act(s, { type: 'SEND_ADVISOR' }); } catch {} }
         if (th && th.status === 'Ready' && (s.milestones.defenseMonth === null || s.milestones.defenseMonth === undefined)) { try { s = act(s, { type: 'SCHEDULE_DEFENSE' }); } catch {} } }
+      // Sending a draft or a rebuttal above can invalidate the plan chosen earlier this turn.
+      // Follow the same enabled choices the player sees instead of abandoning the run here.
+      const legalPlans = focusOptions(s).filter(f => !f.disabled);
+      if (!legalPlans.some(f => f.id === s.focus)) {
+        const fallback = legalPlans.find(f => ['research', 'experiments', 'writing', 'write'].includes(f.id)) || legalPlans[0];
+        if (fallback) s = act(s, { type: 'PLAN', id: fallback.id });
+      }
       try { s = act(s, { type: 'CONTINUE' }); } catch { break; }
     }
     if (s.stage === 'report') s = act(s, { type: 'DISMISS_REPORT' });
@@ -271,7 +306,7 @@ export async function run(seed, style) {
     thesisStatus: (s.projects.find(p => p.kind === 'thesis') || {}).status || 'none',
     thesisDraft: Math.round((s.projects.find(p => p.kind === 'thesis') || {}).draft || 0),
     defenseMonth: s.milestones.defenseMonth ?? null,
-  } : null, endMoney: Math.round(s.player.stats.money), endDebt: Math.round(s.debt || 0), intl: s.player.profile.international ? 1 : 0, ledger: s.ledger, tripCost: s.lastTrip ? 1 : 0, ending: s.ending?.id || `stuck:${s.stage}`, month: s.month, minHealth: Math.round(minHealth), maxDebt, clinics, trips, coffees, accepted: s.counts.accepted, cites: Object.values(s.citations || {}).reduce((a, b) => a + b, 0), warnings: s.warnings || 0, quit: Math.round(s.quitPressure || 0), standing: Math.round(s.standing ?? 60), conds: (s.conditions || []).length, crises: s.lastCrisisMonth !== undefined ? 1 : 0, interns: s.counts.internships || 0, drought: outputDrought(s), letters: letterCount(s), packet: Math.round(packetStrength(s).score), sent: funnel(s).sent, screens: funnel(s).screens, jobOffers: funnel(s).offers, silent: funnel(s).silent, found: s.jobs?.secret?.discovered ? 1 : 0, dark: packetStrength(s).darkHorse ? 1 : 0, internHow: (s.intern?.history || []).map(h => h.how).join('+') || 'none', internType: (s.intern?.history || []).map(h => h.typeId).join('+') || 'none', research: Math.round(s.player.skills.research), net: activeContacts(s).length, netDone: (s.contacts||[]).reduce((a,c)=>a+c.done,0), netFaded: (s.contacts||[]).filter(c=>c.status!=='active').length };
+  } : null, endMoney: Math.round(s.player.stats.money), endDebt: Math.round(s.debt || 0), intl: s.player.profile.international ? 1 : 0, ledger: s.ledger, tripCost: s.lastTrip ? 1 : 0, ending: s.ending?.id || `stuck:${s.stage}`, month: s.month, minHealth: Math.round(minHealth), maxDebt, clinics, trips, coffees, accepted: s.counts.accepted, cites: Object.values(s.citations || {}).reduce((a, b) => a + b, 0), warnings: s.warnings || 0, quit: Math.round(s.quitPressure || 0), standing: Math.round(s.standing ?? 60), conds: (s.conditions || []).length, crises: s.counts.crises ?? (s.lastCrisisMonth !== undefined ? 1 : 0), interns: s.counts.internships || 0, drought: outputDrought(s), letters: letterCount(s), packet: Math.round(packetStrength(s).score), sent: funnel(s).sent, screens: funnel(s).screens, jobOffers: funnel(s).offers, silent: funnel(s).silent, found: s.jobs?.secret?.discovered ? 1 : 0, dark: packetStrength(s).darkHorse ? 1 : 0, internHow: (s.intern?.history || []).map(h => h.how).join('+') || 'none', internType: (s.intern?.history || []).map(h => h.typeId).join('+') || 'none', research: Math.round(s.player.skills.research), net: activeContacts(s).length, netDone: (s.contacts||[]).reduce((a,c)=>a+c.done,0), netFaded: (s.contacts||[]).filter(c=>c.status!=='active').length };
 }
 
 // Imported by scripts/reach.mjs, which wants run() without the report.

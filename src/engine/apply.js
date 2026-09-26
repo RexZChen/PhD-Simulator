@@ -6,7 +6,7 @@ import { recommenderPools, LETTERS_EXPECTED } from '../data/recommenders.js';
 import { insiderNotes, poolsFor, NOTE_SOURCES } from '../data/insider.js';
 import { firstNames, surnames } from '../data/names.js';
 import { random, roll, clamp, pick, pickWeighted, jitter } from './probability.js';
-import { effects, log, message, finish, lastName, firstName, fill, newName } from './state.js';
+import { effects, log, message, finish, lastName, firstName, fill, newName, cadenceFor, joined } from './state.js';
 import { openNext } from './events.js';
 
 // ---- Preparation (fall 2027) ----
@@ -114,13 +114,13 @@ export function nextStep(s) {
     if (!p.sopSteps.includes('draft'))
       return { title: t('Start by drafting your statement of purpose'), detail: t('It is the one document every program reads. Everything else on this screen improves it or supports it.'), action: 'prep', id: 'sop_draft', label: t('Draft the statement (−6 Energy)') };
     if (!p.letters.some(l => l.asked))
-      return { title: t('Ask someone for a recommendation letter'), detail: t('Programs want three. Pick people who actually remember your work — the note under each name is a real hint.'), action: null, label: t('Use the “Ask for a letter” buttons on the right') };
+      return { title: t('Ask someone for a recommendation letter'), detail: t('Programs want three. Pick people who actually remember your work — the note under each name is a real hint.'), action: 'prep-section', id: 'letters', label: t('Recommendation letters') };
     if (Object.keys(p.researched).length < 3)
-      return { title: t('Research a few programs before you write about them'), detail: t('One Energy each, and it tells you what people who are actually there say. It also makes your statement specific, which is worth more than anything else you can do to it.'), action: null, label: t('Pick a school on the right, then “Research this program”') };
+      return { title: t('Research a few programs before you write about them'), detail: t('One Energy each, and it tells you what people who are actually there say. It also makes your statement specific, which is worth more than anything else you can do to it.'), action: 'prep-section', id: 'advisors', label: t('Prospective advisors') };
     if (!p.sopSteps.includes('specific'))
       return { title: t('Name the actual research question in your statement'), detail: t('You have read enough programs to aim it now. This is the single largest improvement left.'), action: 'prep', id: 'sop_specific', label: t('Name the question (−5 Energy)') };
     if (p.letters.filter(l => l.asked).length < LETTERS_EXPECTED)
-      return { title: t('You are short of letters'), detail: t('Most programs want three. Two is a file with a hole in it.'), action: null, label: t('Ask another recommender on the right') };
+      return { title: t('You are short of letters'), detail: t('Most programs want three. Two is a file with a hole in it.'), action: 'prep-section', id: 'letters', label: t('Recommendation letters') };
     if (p.gre === null)
       return { title: t('Decide about the GRE'), detail: t('“Optional” is a word with a range of meanings. Exam-style programs still peek at it; everyone else genuinely does not care.'), action: null, label: t('Take it or skip it, in the middle column') };
     if (s.player.stats.energy > 12)
@@ -137,7 +137,7 @@ export function nextStep(s) {
   if (s.phase === 'interviews') {
     const pending = s.applications.filter(a => a.interview && !a.interview.done);
     if (pending.length)
-      return { title: t('You have {n} interview(s) waiting', { n: pending.length }), detail: t('A short video call with your professor of interest: three questions. Answer honestly — they are better at spotting a rehearsed answer than you are at giving one.'), action: null, label: t('Press “Join the call” on a row below') };
+      return { title: t('You have {n} interview(s) waiting', { n: pending.length }), detail: t('A short video call with your professor of interest: four questions. Answer honestly — they are better at spotting a rehearsed answer than you are at giving one.'), action: null, label: t('Press “Join the call” on a row below') };
     return { title: t('Nothing to do but wait'), detail: t('Decisions arrive in March. Waitlists move in April. The portal has one button and it is Refresh.'), action: 'decisions', id: null, label: t('Refresh the portal →') };
   }
   if (s.phase === 'admissions') {
@@ -153,7 +153,9 @@ const openingsLine = a => a.openings === 0 ? t('I am not taking students this ye
 const fundingWord = a => a.funding > 70 ? t('not a concern') : a.funding > 45 ? t('fine for the first two years') : t('tight; first-years usually TA');
 function hintFor(s, a, trait) {
   const lines = { caring: a.caring > 60 ? t('they cover for students when life happens') : a.caring < 40 ? t('they do not ask how you are doing, and they mean it') : t('they are fine; fine is underrated'), availability: a.availability > 65 ? t('they read drafts the same day') : a.availability < 35 ? t('email is a void; catch them in the hallway') : t('they are reachable if you know which app'), toxicity: a.toxicity > 55 ? t('two students left last year and nobody says why') : a.toxicity < 25 ? t('nobody has left the lab angry') : t('they have moods; learn the calendar'), management: a.management > 65 ? t('every project has a date by which it is cut or shipped') : a.management < 35 ? t('they have never finished a project on the original plan') : t('about half the meetings have an agenda'), funding: a.funding > 65 ? t('summer is covered and nobody has to ask') : a.funding < 35 ? t('the third year is a teaching year, for everyone, every time') : t('there is money for two of the three things you will want'), ambition: a.ambition > 65 ? t('they aim everything at the top venue and take the rejections personally') : a.ambition < 35 ? t('they would rather it be right than be first, which costs you a year and buys you a chapter') : t('they pick the venue by who is reviewing that cycle') };
-  const pool = (trait && lines[trait] ? [lines[trait]] : Object.values(lines)).filter(Boolean);
+  const cadence = cadenceFor(a);
+  const pool = (trait === 'meetings' ? [t('one-on-ones are {oneOnOne}; group meetings are {group}. That is the calendar, at least', { oneOnOne: t(cadence.oneOnOne), group: t(cadence.group) })]
+    : trait && lines[trait] ? [lines[trait]] : Object.values(lines)).filter(Boolean);
   const line = pick(s, pool);
   if (!line) return '';
   a.known = [...(a.known || []), line].filter((x, i, arr) => arr.indexOf(x) === i);
@@ -201,7 +203,7 @@ export function askStudentThread(s, advisorId, questionId) {
   const truthful = random(s) < .8;
   const line = truthful ? hintFor(s, a, q.reveal) : pick(s, [tr('it depends on the year, honestly'), tr('the lab moves extremely fast'), tr('you need to be very independent')]);
   t.messages.push({ from: 'you', text: q.label });
-  t.messages.push({ from: 'them', text: `${pick(s, studentFlavor)}${line}.` });
+  t.messages.push({ from: 'them', text: joined(pick(s, studentFlavor), line, '.') });
   if (t.asked.length >= 3) t.done = true;
   log(s, tr('A student in {name}’s lab said: {line}.', { name: lastName(a.name), line }));
   return t;
@@ -244,14 +246,19 @@ export function apply(s, a) {
   effects(s, { money: -cost.money, energy: -cost.energy });
   s.applications.push({ schoolId: school.id, effort: a.effort, contact: !!a.contact, poiId: poi.id, status: 'submitted' });
   log(s, t('Applied to {school} (POI: {poi}).', { school: school.name, poi: lastName(poi.name) }));
-  const next = { 1: 'fee', 3: 'letter' }[s.applications.length];
+  let next = { 1: 'fee', 3: 'letter' }[s.applications.length];
+  if (next === 'letter') {
+    const outstanding = s.prep.letters.find(l => l.asked && l.status === 'pending');
+    s.applicationLetterId = outstanding?.id || null;
+    if (!outstanding) next = null;
+  }
   if (next && !s.prep.waivers) { s.eventQueue.push(next); s.eventReturn = 'plan'; openNext(s); }
   else if (next === 'letter') { s.eventQueue.push(next); s.eventReturn = 'plan'; openNext(s); }
 }
 export function submitAll(s) {
   if (!s.applications.length) throw new Error(t('Apply to at least one program first.'));
   // Letters arrive (or not) at the deadline.
-  for (const l of s.prep.letters) if (l.asked) { l.status = roll(s, l.reliability / 100) ? 'on time' : 'late'; if (l.status === 'late') l.strength = clamp(l.strength - 15); }
+  for (const l of s.prep.letters) if (l.asked && !['on time', 'late'].includes(l.status)) { l.status = roll(s, l.reliability / 100) ? 'on time' : 'late'; if (l.status === 'late') l.strength = clamp(l.strength - 15); }
   const late = s.prep.letters.filter(l => l.status === 'late');
   if (late.length) log(s, t('{names} submitted late. The portal accepted it with a red timestamp.', { names: late.map(l => l.name).join(t(' and ')) }));
   for (const app of s.applications) {

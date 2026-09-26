@@ -26,14 +26,14 @@ export const summonsKinds = {
     bad: 'It is ninety minutes. It is about a grant report you are not on, a figure you did not make, and a conference you are not attending. You take one note and it is a date.',
   },
   advisor_panic: {
-    id: 'advisor_panic', from: 'advisor', weight: 2, crunchOnly: true,
+    id: 'advisor_panic', from: 'advisor', weight: 2, crunchOnly: true, crunchTypes: ['deadline', 'rebuttal'],
     title: 'They have had an idea about your paper',
     text: [
-      'Four days before the deadline. They have had an idea. The idea is good, which is the problem, and it is two days of work, which is the other problem.',
-      '“One more experiment.” The deadline is Friday. It is Tuesday. They are not wrong that it would strengthen the paper.',
+      'The paper deadline is this month. They have had an idea. It sounds promising, which is the problem, and substantial, which is the other problem.',
+      '“One more experiment.” There is already a paper deadline on your calendar. They sound as though they are helping.',
     ],
-    good: 'You do it and it does strengthen the paper, and you find out in March that a reviewer specifically mentioned it, and you never tell anybody how close that was.',
-    bad: 'Two days, a worse night\'s sleep, and a result that goes in the appendix. The paper is one per cent better and you are eleven per cent worse.',
+    good: 'You leave with one concrete check to consider and an agreement about what can wait. The meeting took time. At least the task is smaller now.',
+    bad: 'The meeting ends with a longer list of possible experiments. The deadline has not moved. You have less time to decide which ones matter.',
   },
   collab_deadline: {
     id: 'collab_deadline', from: 'contact', weight: 2, needsContact: true,
@@ -59,7 +59,7 @@ export const summonsKinds = {
     id: 'labmate_crisis', from: 'labmate', weight: 2,
     title: '{labmateFirst} is not okay',
     text: [
-      'They ask if you have a minute in a tone that means it is not a minute. You have a deadline. You have always got a deadline.',
+      'They ask if you have a minute in a tone that means it is not a minute. You had a plan for this time. The plan is suddenly less important.',
       '{labmateFirst} is sitting in the stairwell. You were on your way to somewhere and now you are not.',
     ],
     good: 'An hour and a half in a stairwell. It is the most important thing you do that week and it will appear on no record of any kind.',
@@ -73,7 +73,7 @@ export const summonsMoves = {
     hint: 'It takes what it takes',
   },
   late: {
-    id: 'late', label: 'Go, and say you have four days to a deadline',
+    id: 'late', label: 'Go, and ask to keep it short',
     hint: 'Sometimes it shortens the meeting. Sometimes it is heard as a complaint.',
   },
   decline: {
@@ -86,7 +86,7 @@ export const summonsDeclined = {
   advisor: '“No problem — tomorrow then.” It is not tomorrow. It is nine days, and the thing it was about has moved on without you in it.',
   contact: 'They say of course, immediately, and solve it themselves at one in the morning. Nothing is said about it and something is slightly different afterwards.',
   department: 'You do not go. Four weeks later a different email notes that your record is incomplete, and there is a make-up session, and it is three hours.',
-  labmate: 'You say you have a deadline, which is true. They say of course, which is also true. You will think about the stairwell in about a fortnight.',
+  labmate: 'You say you cannot stay today. They say of course. You will think about the stairwell in about a fortnight.',
 };
 
 export const summonsNote = 'An unscheduled ninety minutes does not cost you ninety minutes. It costs the afternoon either side of it and the thread you were holding.';

@@ -237,7 +237,9 @@ export function answerQuestion(s, choiceId) {
   const qid = trip.qa?.[trip.qaIndex];
   const q = questioners.find(x => x.id === qid);
   if (!q) throw new Error(t('There is no question on the floor.'));
-  const opt = q.options[choiceId];
+  const opt = choiceId === 'timeout'
+    ? { effects: { confidence: -3, stress: 4 }, line: 'The chair moves on. You find the first sentence just after the microphone leaves.' }
+    : q.options[choiceId];
   if (!opt) throw new Error(t('That is not one of the things you could say.'));
   const hyped = (trip.talk?.hype || 0) >= 2;
   const scale = hyped && q.tone === 'harsh' ? 1.4 : 1;
@@ -277,7 +279,7 @@ export function spendTripDay(s, id) {
   if (act.skill) s.player.skills[act.skill] = clamp(s.player.skills[act.skill] + 1);
   if (act.personality) s.player.personality[act.personality]++;
   if (id === 'coffee' && roll(s, .35)) {
-    const who = pick(s, s.peers);
+    const who = pick(s, s.peers.filter(p => ['active', 'remote'].includes(p.status)));
     if (who) { who.bond = clamp(who.bond + 8); note += ' ' + t('{name} is here too, holding two coffees, one of which turns out to be for you.', { name: firstName(who.name) }); }
   }
   if (id === 'banquet' && roll(s, .3)) { trip.cites += 1; note += ' ' + t('You end up at a table with someone whose paper you have cited nine times. They have read yours.'); }

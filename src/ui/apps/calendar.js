@@ -3,6 +3,7 @@ import { dateLabel, monthOf, daysIn, firstWeekday, holidays, semester } from '..
 import { venueById, venuesForTopic, nextDeadline } from '../../data/venues.js';
 import { lastName } from '../../engine/state.js';
 import { t } from '../../i18n/index.js';
+import { relocationPanel } from '../relocation.js';
 export function calendarApp(s, ui) {
   const offset = firstWeekday(s.month), days = daysIn(s.month), m = monthOf(s.month);
   const marks = {};
@@ -27,6 +28,7 @@ export function calendarApp(s, ui) {
   const upcoming = venuesForTopic(s.player.profile.topic).filter(v => !v.rolling).map(v => ({ v, at: nextDeadline(v, s.month + 1, monthOf) })).filter(x => x.at < 72 && x.at - s.month <= 4).sort((a, b) => a.at - b.at);
   const weekdays = [t('SUN'), t('MON'), t('TUE'), t('WED'), t('THU'), t('FRI'), t('SAT')];
   return `<div class="row between" style="margin-bottom:8px"><h1 style="margin:0">${dateLabel(s.month)}</h1><span class="muted small">${esc(semester(s.month))} · ${s.tempo === 'week' ? t('week {n} of 4', { n: Math.min(4, s.week + 1) }) : s.tempo === 'season' ? t('season view') : t('month view')}</span></div>
+  ${relocationPanel(s)}
   <div class="calendar-grid">${weekdays.map(x => `<b>${x}</b>`).join('')}${Array.from({ length: offset }, () => '<div class="outside"></div>').join('')}${Array.from({ length: days }, (_, i) => `<div class="${s.tempo === 'week' && i + 1 >= today && i + 1 < today + 7 ? 'today' : ''}"><span>${i + 1}</span>${(marks[i + 1] || []).map(x => `<em class="${x.cls}" title="${esc(x.text)}">${esc(x.text)}</em>`).join('')}</div>`).join('')}</div>
   <div class="cols two" style="margin-top:10px">${group(t('Next few months'), upcoming.length ? `<ul class="small">${upcoming.map(({ v, at }) => `<li><b>${esc(v.name)}</b> — ${dateLabel(at)}</li>`).join('')}</ul>` : `<p class="muted small">${t('No relevant deadlines in the next four months. Enjoy the silence; it is not real.')}</p>`)}${group(t('Holidays this month'), holidays(s.month).length ? `<ul class="small">${holidays(s.month).map(h => `<li><b>${esc(h.name)}</b> — ${esc(h.note)}</li>`).join('')}</ul>` : `<p class="muted small">${t('None. The department does not believe in rest this month.')}</p>`)}</div>`;
 }

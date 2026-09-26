@@ -1,0 +1,31 @@
+.supervision-terms, .supervision-status {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  margin-block: 12px;
+  padding: 12px;
+  border: 1px solid #81918c;
+  border-inline-start: 4px solid #4a6d62;
+  border-radius: 3px;
+  background: #f3f5ee;
+  color: #253b34;
+  font-size: var(--fs-md, 1rem);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.supervision-terms h3, .supervision-status h3 { margin: 0 0 8px; font-size: 1em; color: inherit; }
+.supervision-terms p, .supervision-status p { margin: 6px 0 0; }
+.supervision-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; margin-top: 12px; }
+.supervision-options > div { min-width: 0; border-top: 1px solid #aab7af; padding-top: 10px; }
+.supervision-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 10px 16px; margin: 8px 0 0; }
+.supervision-facts > div { min-width: 0; }
+.supervision-facts dt { color: #465f53; }
+.supervision-facts dd { margin: 2px 0 0; font-weight: 700; }
+.supervision-consult { margin-top: 12px; }
+.supervision-consult .btn { max-width: 100%; min-height: 44px; height: auto; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; text-align: start; }
+.supervision-consult p, .supervision-note { color: #465f53; }
+.supervision-choice-note { display: block; margin-top: 5px; padding-top: 5px; border-top: 1px solid #aab7af; color: #253b34; line-height: 1.4; }
+.venture-status details { margin-top: 8px; }
+.venture-status summary { cursor: pointer; padding-block: 6px; min-height: 44px; box-sizing: border-box; }
+.venture-shares { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.venture-shares dd { font-size: 1.25em; font-variant-numeric: tabular-nums; }

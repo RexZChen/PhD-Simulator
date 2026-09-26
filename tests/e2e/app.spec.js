@@ -58,7 +58,7 @@ async function tryClick(locator, ms = 1500) {
   return one.click({ timeout: ms }).then(() => true, () => false);
 }
 // The room can close between the count() and the read, and a detached element throws.
-const examPhase = room => room.getAttribute('data-phase').catch(() => null);
+const examPhase = room => room.getAttribute('data-phase', { timeout: 500 }).catch(() => null);
 // And the room leaving the document is not the exam ending. A render replaces the whole desktop,
 // and anything on a timer can cause one mid-exam — an achievement balloon expiring is enough — so
 // for a frame there is no [data-vv] anywhere while Room 214 is very much still sitting. Reading
@@ -104,7 +104,7 @@ test('setup wizard requires the license, then the questionnaire creates an appli
   await expect(page.getByRole('heading', { name: /Setup Wizard/ })).toBeVisible();
   await page.getByRole('button', { name: /New applicant/ }).click();
   await page.getByRole('button', { name: /Next >/ }).click();
-  await expect(page.getByText(/work of satire/)).toBeVisible();
+  await expect(page.getByText('This is a work of satire about academic life. The forms are fictional. The feeling may be familiar.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Next >/ })).toBeDisabled();
   await page.check('#eula');
   await page.getByRole('button', { name: /Next >/ }).click();
@@ -214,8 +214,8 @@ test('Simplified Chinese changes the setup interface and survives navigation', a
   await expect(page.getByRole('heading', { name: /博士模拟器安装向导/ })).toBeVisible();
   await page.getByRole('button', { name: /新申请者/ }).click();
   await page.getByRole('button', { name: /下一步/ }).click();
-  await expect(page.getByRole('heading', { name: '许可协议' })).toBeVisible();
-  await expect(page.getByText(/所有人物均为虚构/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: '开始之前' })).toBeVisible();
+  await expect(page.locator('.setup-notice')).toContainText('均为虚构或戏仿');
 });
 
 // ── Streaming composers: mail, chat, rebuttal ──────────────────────────────────
@@ -266,8 +266,9 @@ test('chat: the composer offers lines, types one, and posts it', async ({ page }
   await page.locator('[data-action="chat-menu"]').first().click();
   await expect(page.locator('.say-menu')).toBeVisible();
   expect(await page.locator('.say-item').count()).toBeGreaterThan(5);
+  if (await page.locator('.say-group summary').count()) await page.locator('.say-group summary').filter({ hasText: 'Check-ins & meetings' }).click();
   const mineBefore = await page.locator('.sl-msg.mine').count();
-  await page.locator('.say-item:not([disabled])').first().click();
+  await page.locator('.say-item:not([disabled]):visible').first().click();
   await expect(page.locator('[data-action="chat-send"]')).toBeEnabled({ timeout: 5000 });
   await page.locator('[data-action="chat-send"]').click();
   await expect(page.locator('.sl-msg.mine')).toHaveCount(mineBefore + 1);
@@ -369,8 +370,14 @@ test('Gaggle Scholar counts what exists and ranks you against everyone you know'
   await expect(page.locator('.sch-metrics')).toContainText('23');
   expect(await page.locator('.cc-col').count()).toBeGreaterThan(2);
   await page.locator('[data-action="scholar-tab"][data-id="everyone"]').click();
-  expect(await page.locator('.sch-board .lv-row').count()).toBeGreaterThanOrEqual(5);
-  await expect(page.locator('.sch-board .lv-row.me')).toHaveCount(1);
+  const people = page.locator('.sch-people .sch-person');
+  expect(await people.count()).toBeGreaterThanOrEqual(5);
+  await expect(page.locator('.sch-person-me')).toHaveCount(1);
+  await expect(page.locator('.sch-person-me .sch-person-counts')).toContainText('Cited by 23');
+  const citations = await people.locator('.sch-person-counts > b').allTextContents();
+  const counts = citations.map(Number);
+  expect(counts.every(Number.isFinite)).toBe(true);
+  expect(counts).toEqual([...counts].sort((a, b) => b - a));
 });
 
 test('a conference trip: a real city, a talk you perform, questions, and a bill', async ({ page }) => {
@@ -596,6 +603,8 @@ test('mail, chat and the log follow the language, mid-run', async ({ page }) => 
     await page.locator('[data-action="chat-channel"][data-id="general"]').click();
     const chatLine = (await page.locator('.sl-msg .sl-body p').last().innerText()).trim().slice(0, 90);
     await page.locator('.desk-icon[data-app="dashboard"]').click();
+    const notesPanel = page.locator('[data-disclosure="manager-notes"]');
+    if (await notesPanel.getAttribute('open') === null) await notesPanel.locator('summary').click();
     const note = (await page.locator('.notes-box').innerText()).trim().slice(0, 80);
     return { mailRow, mailBody, chatLine, note };
   };
@@ -965,6 +974,7 @@ test('the desktop never gets brighter as you get worse', async ({ page }) => {
 });
 
 test('the archive stays open: Scholar and the other tabs after the run concludes', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await page.evaluate(async () => {
     const st = await import('/src/engine/state.js');
@@ -984,10 +994,15 @@ test('the archive stays open: Scholar and the other tabs after the run concludes
   await page.getByRole('button', { name: /Review the last run/ }).click();
   await page.locator('[data-action="wiz-next"]').click();
   await closeDialogs(page);
+  await expect(page.getByRole('button', { name: 'Try another academic fate →', exact: true })).toBeInViewport();
+  await expect(page.locator('.ending-actions').getByRole('button', { name: 'Saved runs', exact: true })).toBeInViewport();
+  await expect(page.locator('.ending-story')).not.toHaveAttribute('open', '');
+  await page.getByText('Read your ending', { exact: true }).click();
+  await expect(page.locator('.ending-story p')).toContainText('They bring you in at mid-level.');
   // Six years of mail, citations and a submission history are the point of having played; the
   // desktop does not get taken away at the end.
   for (const app of ['scholar', 'mail', 'browser', 'calendar']) {
-    await page.locator(`[data-action="open"][data-app="${app}"]`).first().dblclick();
+    await page.locator(`[data-action="open"][data-app="${app}"]`).first().click();
     await expect(page.locator('.window .client')).toBeVisible();
     await expect(page.locator(`[data-action="open"][data-app="${app}"]`).first()).toHaveClass(/active/);
   }
@@ -1306,8 +1321,11 @@ test('the patent is a process with its own clock, and it lands on Scholar', asyn
   await resolveScenes(page);
   await closeDialogs(page);
   await page.locator('[data-action="open"][data-app="scholar"]').first().dblclick();
-  await expect(page.locator('.patent-row')).toBeVisible();
-  await expect(page.locator('.patent-row')).toContainText(/Patent/);
+  const patent = page.locator('.sch-paper.sch-patent');
+  await expect(patent).toBeVisible();
+  await expect(patent.getByRole('heading')).toHaveText(st.entry.title);
+  await expect(patent).toContainText(st.entry.venue);
+  await expect(patent).toContainText(st.entry.inventors);
 });
 
 test('the optional questionnaire is optional, and answering it changes the story', async ({ page }) => {
@@ -1406,6 +1424,7 @@ test('an unscheduled meeting takes a piece of the turn you already chose', async
 
 test('the advisor’s mood is a face, not a sentence you have to parse', async ({ page }) => {
   await seedPlay(page, `s.month = 20; s.advisorMode = { id: 'checkedOut', until: s.month + 3, since: s.month };`);
+  await page.locator('[data-disclosure="manager-advisor"] > summary').click();
   // On the manager card, next to their avatar.
   await expect(page.locator('.advisor-card .mode-face .face-svg')).toBeVisible();
   expect(await page.locator('.advisor-card .mode-face .face-svg').getAttribute('class')).toContain('awful');
@@ -1416,6 +1435,7 @@ test('the advisor’s mood is a face, not a sentence you have to parse', async (
 
   // A different mode is a different face.
   await seedPlay(page, `s.month = 20; s.advisorMode = { id: 'attentive', until: s.month + 3, since: s.month };`);
+  await page.locator('[data-disclosure="manager-advisor"] > summary').click();
   expect(await page.locator('.advisor-card .mode-face .face-svg').getAttribute('class')).toContain('great');
 });
 
@@ -1425,6 +1445,7 @@ test('the advisor card is a card, not a column: the face is a badge and the text
   // broke one word per line and the card ran 565px tall inside a 318px box. Every existing test
   // still passed, because they all asserted the face EXISTS — none of them looked at the layout.
   await seedPlay(page, "s.month = 26;");
+  await page.locator('[data-disclosure="manager-advisor"] > summary').click();
   const card = page.locator('.advisor-card').first();
   await expect(card).toBeVisible();
   const box = await card.boundingBox();

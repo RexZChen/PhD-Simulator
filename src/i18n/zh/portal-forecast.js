@@ -1,0 +1,15 @@
+export const portalForecastZh = {
+  'Take-home pay': '税后到账',
+  'Food': '餐饮',
+  'Hardship support': '困难补助',
+  'This month’s settled budget': '本月已结算收支',
+  'Estimated monthly budget': '本月收支估算',
+  'Balance before debt repayment': '偿还本金前的收支差额',
+  'Recorded payroll and recurring bills for this month. Later purchases and medical bills are separate; card repayments move money between cash and debt.': '这里显示本月已结算的工资和常规账单。之后的购物和医疗账单另计；偿还信用卡本金会同时减少现金和欠款。',
+  'Estimate from current funding, housing, food and insurance. Includes scheduled fees and interest; excludes new medical bills, purchases and changes before payroll.': '按当前资助、住房、餐饮和保险估算，包含已知的定期费用及利息，不包含新增医疗账单、购物或发薪前的变化。',
+  'Open Finance': '查看财务',
+  'Preliminary examination passed.': '资格考试已通过。',
+  'Conditional pass: an accepted publication is required by August 2031.': '有条件通过：须在 2031 年 8 月结束前有一篇论文被录用。',
+  'Retake scheduled: {month}.': '补考时间：{month}。',
+  'Scheduled: {month}.': '考试时间：{month}。',
+};

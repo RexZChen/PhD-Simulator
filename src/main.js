@@ -1,22 +1,37 @@
 import './styles.css';
+import './ui/workspace.css';
+import './ui/scholar.css';
+import './ui/chatphd.css';
+import './ui/labchat.css';
+import './ui/meeting.css';
+import './ui/publication.css';
+import './ui/relocation.css';
+import './ui/recovery.css';
+import './ui/supervision.css';
+import { syncMeetingArrival, skipMeetingArrival, meetingArriving } from './ui/meeting.js';
+import { chatPrompts } from './ui/apps/chatphd.js';
+import { storage } from './platform/storage.js';
 import { createRun, chatBody, mailSubject, mailSender, requestText, noticeText, entryText } from './engine/state.js';
 import { dispatch, prepareRun } from './engine/game.js';
 import { loadSave, saveRun, resetSave, emptyMeta, listSlots, readSlot, writeSlot, deleteSlot } from './engine/save.js';
+import { exportBackup, exportRecoveryOriginal, previewBackup, importBackup, BACKUP_MAX_BYTES } from './engine/backup.js';
+import { backupError } from './ui/backups.js';
 import { shell } from './ui/shell.js';
+import { captureFocus, restoreFocus, containDialogTab } from './ui/focus.js';
 import { play, setSound } from './ui/sound.js';
 import { setAppLanguage } from './i18n/apply.js';
 import { streamText, stopStream, finishStream, isStreaming, composedText } from './ui/compose.js';
-import { startTalk, pickWord, stopTalk, talkRunning, startQaTimer, stopQaTimer } from './ui/talkgame.js';
-import { startBench, strike, stopBench, benchRunning } from './ui/research.js';
-import { startLecture, toggleWork, stopLecture, lectureRunning } from './ui/lecture.js';
-import { startViva, vivaMove, stopViva, vivaRunning, examTalk, examInterrupt, examCorridor } from './ui/viva.js';
-import { startCluster, clusterPick, stopCluster, clusterRunning } from './ui/cluster.js';
+import { startTalk, pickWord, advanceTalk, stopTalk, talkRunning, startQaTimer, stopQaTimer, repaintTalk, repaintQaTimer } from './ui/talkgame.js';
+import { startBench, strike, stopBench, benchRunning, benchChoose, benchNext, repaintBench } from './ui/research.js';
+import { startLecture, toggleWork, stopLecture, lectureRunning, lectureChoice, repaintLecture } from './ui/lecture.js';
+import { startViva, vivaMove, stopViva, vivaRunning, examTalk, examInterrupt, examCorridor, examAdvance, repaintViva } from './ui/viva.js';
+import { startCluster, clusterPick, stopCluster, clusterRunning, clusterAdvance, repaintCluster } from './ui/cluster.js';
 import { draftFor } from './ui/apps/mail.js';
 import { markBoard, eraseBoard, paintBoard } from './ui/apps/whiteboard.js';
 import { fixtures } from './data/desk.js';
 import { exams, badCop } from './data/exams.js';
 import { chatDraft } from './ui/apps/chat.js';
-import { rebuttalDraft } from './ui/apps/browser.js';
+import { rebuttalDraft, rebuttalComposeContext, rebuttalComposeMatches } from './ui/apps/browser.js';
 import { conditions as conditionDefs } from './data/life.js';
 import { achievements } from './data/catalog.js';
 import { esc, voiced, rollReadout } from './ui/helpers.js';
@@ -24,12 +39,28 @@ import { t, pauseProvenance, resumeProvenance } from './i18n/index.js';
 const conditionNames = Object.fromEntries(Object.entries(conditionDefs).map(([k, v]) => [k, v.name]));
 
 const root = document.querySelector('#app');
-const loaded = loadSave(localStorage);
+const loaded = loadSave(storage);
 let run = loaded.run;
 let meta = loaded.meta;
 let notices = [loaded.notice, loaded.error].filter(Boolean);
 let ui = { screen: 'boot', wizardStep: 0, wizardChoice: run && run.phase !== 'ending' ? 'continue' : 'new', eula: false, app: 'dashboard', browserTab: 'overgrief', mailFolder: 'inbox', selectedMail: null, chatChannel: 'advisor', startMenu: false, minimized: false, confirm: null, dialog: null, balloons: [], saveError: loaded.error, effort: 'generic', contact: false };
 let balloonId = 0;
+let backupText = null, backupRead = 0;
+
+async function readBackupFile(file) {
+  const request = ++backupRead;
+  backupText = null; ui.backupPreview = null;
+  if (!file) return;
+  if (file.size > BACKUP_MAX_BYTES) { ui.saveNote = backupError('too-large'); render(); return; }
+  try {
+    const text = await file.text();
+    if (request !== backupRead || !ui.saves) return;
+    const result = previewBackup(text);
+    ui.saveNote = result.error ? backupError(result.error) : null;
+    if (!result.error) { backupText = text; ui.backupPreview = { name: file.name, summary: result.summary }; }
+  } catch { if (request !== backupRead || !ui.saves) return; ui.saveNote = backupError('invalid'); }
+  render({ preserveScroll: false });
+}
 setSound(meta.settings.sound);
 // Text size is a scale now, not a switch. Old saves carry a boolean; read it once and forget it.
 if (meta.settings.textSize === undefined) meta.settings.textSize = meta.settings.largeText ? 2 : 1;   // 1 is Normal, not the floor
@@ -52,22 +83,34 @@ setAppLanguage(initialLanguage);
 if (!meta.settings.lang) meta.settings.lang = initialLanguage;
 
 // Timed dialogs: the bar in the DOM is the clock. When it empties, the moment closes.
-let sceneTimer = null, sceneKey = null;
+let sceneTimer = null, sceneKey = null, scenePercent = 100;
 function stopSceneTimer() { if (sceneTimer) clearInterval(sceneTimer); sceneTimer = null; sceneKey = null; }
 function syncSceneTimer() {
   const el = document.querySelector('[data-scene-timer]');
   if (!el) { stopSceneTimer(); return; }
+  if (meta.settings.untimedChoices || meta.settings.selfPaced) {
+    stopSceneTimer();
+    el.hidden = true;
+    const note = el.nextElementSibling;
+    if (note?.classList.contains('timer-note')) note.textContent = t('Take your time. Choose when you are ready.');
+    return;
+  }
   const key = el.dataset.sceneTimer + '|' + (run?.pushback?.id || run?.event || '');
-  if (sceneTimer && sceneKey === key) return;
+  if (sceneTimer && sceneKey === key) {
+    const bar = el.querySelector('[data-scene-bar]');
+    if (bar) { bar.style.width = `${scenePercent}%`; bar.className = scenePercent < 30 ? 'low' : ''; }
+    return;
+  }
   stopSceneTimer();
   sceneKey = key;
   const total = Number(el.dataset.sceneTimer) * 1000;
-  let left = total;
+  let left = total; scenePercent = 100;
   sceneTimer = setInterval(() => {
+    if (document.hidden || ui.dialog || ui.confirm || ui.saves || meetingArriving()) return;
     left -= 100;
     const bar = document.querySelector('[data-scene-bar]');
     if (!bar) { stopSceneTimer(); return; }
-    const pct = Math.max(0, left / total) * 100;
+    const pct = Math.max(0, left / total) * 100; scenePercent = pct;
     bar.style.width = `${pct}%`;
     bar.className = pct < 30 ? 'low' : '';
     if (left <= 0) { stopSceneTimer(); perform({ type: 'HESITATE' }); }
@@ -75,18 +118,18 @@ function syncSceneTimer() {
 }
 // The lecture runs itself once its dialog is on screen.
 function syncLecture() {
-  const on = run?.stage === 'minigame' && run?.minigame === 'lecture';
-  if (on && !lectureRunning()) startLecture((run.seed + run.month * 7) >>> 0, r => perform({ type: 'LECTURE', ...r }));
+  const on = ui.screen === 'game' && run?.stage === 'minigame' && run?.minigame === 'lecture';
+  if (on && !lectureRunning()) startLecture((run.seed + run.month * 7) >>> 0, r => perform({ type: 'LECTURE', ...r }), { selfPaced: !!meta.settings.selfPaced });
   if (!on && lectureRunning()) stopLecture();
+  if (on && lectureRunning()) repaintLecture();
 }
 // Room 214, same lifecycle. It survives a re-render and does not restart on one.
 function syncViva() {
-  const on = run?.stage === 'minigame' && run?.minigame === 'viva';
+  const on = ui.screen === 'game' && run?.stage === 'minigame' && run?.minigame === 'viva';
   if (on && !vivaRunning()) {
     // The establishing shot: who is in the room, what is booked, and whose third one of the week
     // this is. It is the first thing the day tells you and it belongs before anybody speaks.
     const exam = exams[run.viva.kind] || exams.prelim;
-    if (exam.note) sceneNote(t(exam.note));
     startViva((run.seed + run.month * 31 + (run.milestones?.prelimAttempts || 0) * 7) >>> 0, run.viva.kind, run.player.skills,
       tally => {
         play('chime');
@@ -94,10 +137,22 @@ function syncViva() {
         // And afterwards, the one who was assigned the difficult role is warm to you and asks about
         // your funding. Which lands only once the verdict is already in, so it goes after dispatch.
         if (tally.badCop) sceneNote(t(badCop.afterward));
-      });
+      }, { selfPaced: !!meta.settings.selfPaced });
   }
   if (!on && vivaRunning()) stopViva();
-  if (run?.stage !== 'minigame' || run?.minigame !== 'cluster') { if (clusterRunning()) stopCluster(); }
+  if (on && vivaRunning()) repaintViva();
+  const onBench = ui.screen === 'game' && run?.stage === 'minigame' && run?.minigame === 'bench';
+  if (onBench && !benchRunning()) startBench((run.seed + run.month * 13) >>> 0, run.player.skills.research, run.player.stats.energy,
+        tally => { run.stage = 'plan'; run.minigame = null; perform({ type: 'BENCH', tally }, { preserveScroll: false }); play('chime'); }, { selfPaced: !!meta.settings.selfPaced });
+  if (!onBench && benchRunning()) stopBench();
+  if (benchRunning()) repaintBench();
+  const onCluster = ui.screen === 'game' && run?.stage === 'minigame' && run?.minigame === 'cluster';
+  if (onCluster && !clusterRunning()) startCluster((run.seed + run.month * 17) >>> 0,
+        result => { run.stage = 'plan'; run.minigame = null; perform({ type: 'CLUSTER', result }, { preserveScroll: false }); play('chime'); }, { selfPaced: !!meta.settings.selfPaced });
+  if (clusterRunning()) repaintCluster();
+  if (talkRunning()) repaintTalk();
+  repaintQaTimer();
+  if (!onCluster) { if (clusterRunning()) stopCluster(); }
 }
 
 // Achievements were a grey line in a log nobody re-reads. When a new one lands, stamp it on the
@@ -111,18 +166,16 @@ function flashAwards() {
   if (seenAwards === null) { seenAwards = new Set(now); return; }
   const fresh = now.filter(id => !seenAwards.has(id));
   for (const id of fresh) seenAwards.add(id);
-  if (!fresh.length || !meta.settings.sound && meta.settings.quiet) return;
+  if (!fresh.length || meta.settings.quiet) return;
   const host = document.querySelector('[data-award-host]');
   if (!host) return;
-  for (const id of fresh) {
-    const a = achievements[id];
-    if (!a) continue;
-    const el = document.createElement('div');
-    el.className = 'award-toast';
-    el.innerHTML = `<b>${t('Achievement unlocked')}</b><span>${esc(t(a.name))}</span><small>${esc(t(a.desc))}</small>`;
-    host.appendChild(el);
-    setTimeout(() => el.remove(), 5200);
-  }
+  const earned = fresh.map(id => achievements[id]).filter(Boolean);
+  if (!earned.length) return;
+  const el = document.createElement('div');
+  el.className = 'award-toast';
+  el.innerHTML = `<button class="award-dismiss" data-action="dismiss-award" aria-label="${esc(t('Dismiss'))}">×</button><b>${t('Achievement unlocked')}</b><span>${earned.map(a => esc(t(a.name))).join(' · ')}</span><small>${earned.length === 1 ? esc(t(earned[0].desc)) : esc(t('{n} achievements added to your collection.', { n: earned.length }))}</small>`;
+  host.appendChild(el);
+  setTimeout(() => el.remove(), 6500);
   play('chime');
 }
 
@@ -198,39 +251,66 @@ function followThreads() {
 }
 
 function render({ restoreTyping = false, preserveScroll = true } = {}) {
+  const previousFocus = captureFocus();
+  // Disclosures are interface state: preserve the player's choice across full renders.
+  ui.disclosures ||= {};
+  for (const panel of document.querySelectorAll('details[data-disclosure]')) ui.disclosures[panel.dataset.disclosure] = panel.open;
   const scroll = preserveScroll ? (document.querySelector('.client')?.scrollTop || 0) : 0;
   const modalScroll = document.querySelector('.dialog .body')?.scrollTop || 0;
   // Rendering calls t() thousands of times; none of it is text the run stores, so keep it
   // out of the provenance buffer.
   pauseProvenance();
   try { root.innerHTML = shell(run, ui, meta, loaded.run, notices); } finally { resumeProvenance(); }
+  for (const panel of document.querySelectorAll('details[data-disclosure]')) {
+    if (Object.hasOwn(ui.disclosures, panel.dataset.disclosure)) panel.open = ui.disclosures[panel.dataset.disclosure];
+  }
   const client = document.querySelector('.client');
   if (client && preserveScroll) client.scrollTop = scroll;
   const body = document.querySelector('.dialog .body'); if (body) body.scrollTop = modalScroll;
-  if (restoreTyping) document.querySelector('#typing-zone')?.focus();
   followThreads();
+  syncMeetingArrival(run, meta.settings, () => !!(ui.dialog || ui.confirm || ui.saves));
   syncSceneTimer();
   syncLecture();
   syncViva();
   flashAwards();
   paintBoard();
+  restoreFocus(previousFocus);
+  if (restoreTyping) document.querySelector('#typing-zone')?.focus();
+}
+function closeDialog() {
+  ui.dialog = ui.dialog === 'accessibility' ? ui.comfortReturn || null : null;
+  ui.comfortReturn = null;
+  render();
+}
+
+function beginQaClock() {
+  startQaTimer(14, () => {
+    if (run?.stage === 'trip' && run.trip && !run.trip.qaDone) answerTripQuestion('timeout');
+  }, { selfPaced: !!meta.settings.selfPaced });
+}
+
+function answerTripQuestion(id) {
+  stopQaTimer();
+  perform({ type: 'TRIP_QA', id }, { preserveScroll: false });
+  if (run?.trip && !run.trip.qaDone) beginQaClock();
+  else ui.talkStage = null;
+  if (id !== 'timeout') document.querySelector('.qa-prev, [data-qa-result]')?.focus();
 }
 function persist() {
   if (!run) return;
-  const result = saveRun(localStorage, run, meta);
+  const result = saveRun(storage, run, meta);
   meta = result.meta; ui.saveError = result.error; loaded.run = run; loaded.meta = meta;
 }
-function saveMeta() { const result = saveRun(localStorage, run, meta); meta = result.meta; ui.saveError = result.error; loaded.meta = meta; }
+function saveMeta() { const result = saveRun(storage, run, meta); meta = result.meta; ui.saveError = result.error; loaded.meta = meta; }
 function balloon(title, text, icon = 'bell', sound = 'notify') {
-  ui.balloons.push({ id: ++balloonId, title, text: String(text).slice(0, 140) });
-  if (ui.balloons.length > 3) ui.balloons.shift();
+  ui.balloons = [{ id: ++balloonId, title, text: String(text).slice(0, 140), icon }];
   const id = balloonId;
   setTimeout(() => { ui.balloons = ui.balloons.filter(b => b.id !== id); render(); }, 6000);
   play(sound);
 }
 function notify(text) { balloon('Academic OS', text, 'warn', 'error'); }
 // The composer types a canned line into the box, then Send becomes available.
-function closeCompose() { stopStream(); ui.compose = null; ui.chatMenu = false; }
+function closeCompose() { stopStream(); ui.compose = null; ui.chatMenu = false; ui.chatRequestFocus = false; }
 function beginCompose(mailId, optionId) {
   ui.compose = { mailId, optionId, done: false };
   render();
@@ -241,19 +321,19 @@ function beginCompose(mailId, optionId) {
 function setLanguage(lang) { meta.settings.lang = lang; setAppLanguage(lang); saveMeta(); render(); }
 
 function afterDispatch(before, after) {
+  // Quiet mode keeps these updates in their apps and badges instead of covering the task.
+  // Direct action/error feedback still uses notify() independently.
+  if (!meta.settings.quiet) {
   const newMail = after.inbox.filter(m => !before.inbox.some(x => x.id === m.id));
   const newChat = after.chatMessages.filter(m => !m.mine && !before.chatMessages.some(x => x.id === m.id));
   const newReq = after.requests.filter(r => r.status === 'open' && !before.requests.some(x => x.id === r.id));
-  const newAch = after.achievements.filter(a => !before.achievements.includes(a));
-  // The balloon printed the raw id — "Achievement unlocked — boundary" — next to a panel that had
-  // the real name in it. Look it up, the way the panel does.
-  if (newAch.length) balloon(t('Achievement unlocked'), newAch.map(id => t(achievements[id]?.name || id)).join(', '), 'star', 'chime');
   if (newReq.length) balloon(t('Request from Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), requestText(after, newReq[0]), 'chat', 'ring');
   else if (newChat.filter(m => m.channel === 'advisor').length) balloon(t('Prof. {name}', { name: after.advisor.name.split(' ').at(-1) }), chatBody(after, newChat.filter(m => m.channel === 'advisor')[0]), 'chat', 'notify');
   else if (newChat.length) balloon(`#${newChat[0].channel}`, `${newChat[0].sender}: ${chatBody(after, newChat[0])}`, 'chat', 'notify');
   if (newMail.length) balloon(t('New mail'), `${mailSender(after, newMail[0])}: ${mailSubject(after, newMail[0])}`, 'mail', newChat.length ? 'click' : 'notify');
   const newConds = (after.conditions || []).filter(c => !(before.conditions || []).some(x => x.id === c.id));
   if (newConds.length) balloon(t('Your body, calling'), t(conditionNames[newConds[0].id] || newConds[0].id), 'warn', 'error');
+  }
   if (after.phase === 'ending' && before.phase !== 'ending') play(after.ending.id === 'pass' ? 'accept' : 'reject');
   const acc = after.counts?.accepted || 0, bef = before.counts?.accepted || 0;
   if (acc > bef) play('accept'); else if ((after.counts?.rejected || 0) > (before.counts?.rejected || 0)) play('reject');
@@ -263,6 +343,12 @@ function perform(action, options = {}) {
     const before = run;
     run = dispatch(run, action);
     if (before.phase === 'playing' || run.phase === 'playing') afterDispatch(before, run);
+    if (action.type === 'SUBMIT') {
+      const paper = run.projects.find(p => p.id === before.activeProjectId);
+      ui.submissionReceipt = { seed: run.seed, projectId: paper.id, attempt: paper.submissionHistory.length };
+      ui.balloons = [];
+      options = { ...options, preserveScroll: false };
+    }
     // Anything that arrived in the channel you are currently looking at has been seen. Without
     // this the badge counts messages that are already on the screen in front of you.
     if (run?.phase === 'playing' && ui.screen === 'game' && ui.app === 'chat' && !ui.minimized && action.type !== 'READ_CHAT') {
@@ -271,13 +357,14 @@ function perform(action, options = {}) {
     }
     persist();
     render(options);
+    if (action.type === 'SUBMIT') document.querySelector('[data-submission-receipt]')?.focus();
   } catch (error) { notify(error.message || t('That action is unavailable.')); render(); }
 }
 function startRun(seed, answers) {
   run = prepareRun(createRun(seed, answers));
   run.seenBefore = { ...meta.eventCounts };
   meta.runs = (meta.runs || 0) + 1;
-  ui = { ...ui, screen: 'game', app: 'dashboard', confirm: null, startMenu: false, minimized: false, wizardStep: 0, selectedMail: null };
+  ui = { ...ui, screen: 'game', app: 'dashboard', dialog: null, confirm: null, startMenu: false, minimized: false, wizardStep: 0, selectedMail: null };
   persist(); play('submit'); render();
 }
 function submitProfile() {
@@ -306,6 +393,13 @@ root.addEventListener('submit', e => {
   if (e.target.id === 'chatphd-form') { e.preventDefault(); const input = document.querySelector('#chatphd-input'); const text = input?.value || ''; perform({ type: 'CHATPHD_SAY', text }); const again = document.querySelector('#chatphd-input'); if (again) again.focus(); }
 });
 root.addEventListener('change', e => {
+  if (e.target.id === 'backup-file') { void readBackupFile(e.target.files?.[0]); return; }
+  if (e.target.dataset.comfort) {
+    const key = e.target.dataset.comfort;
+    if (!['quiet', 'sound', 'untimedChoices', 'selfPaced'].includes(key)) return;
+    meta.settings[key] = e.target.checked;
+    setSound(meta.settings.sound); saveMeta(); render(); return;
+  }
   if (e.target.id === 'eula') { ui.eula = e.target.checked; render(); }
   if (e.target.id === 'effort-select') { ui.effort = e.target.value; render(); }
   if (e.target.id === 'contact-faculty') { ui.contact = e.target.checked; render(); }
@@ -318,24 +412,45 @@ root.addEventListener('keydown', e => {
   }
 });
 document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.keyCode === 229) return;
+  containDialogTab(e);
+  if (e.defaultPrevented) return;
   if (e.target.matches('input, select, textarea, #typing-zone')) return;
-  if (/^[1-6]$/.test(e.key)) { const b = document.querySelector(`[data-hotkey="${e.key}"]:not(:disabled)`); if (b) { e.preventDefault(); b.click(); } return; }
-  if (e.key === 'Enter') { const d = document.querySelector('.modal [data-default="1"]:not(:disabled)') || document.querySelector('.wizard-buttons [data-default="1"]:not(:disabled)') || (!document.querySelector('.modal') && document.querySelector('[data-action="continue"]:not(:disabled)')); if (d) { e.preventDefault(); d.click(); } return; }
+  // Native controls own Enter/Space. Global shortcuts must never turn selecting
+  // a plan (or Cancel in a dialog) into advancing time or confirming an action.
+  if (['Enter', ' '].includes(e.key) && e.target.closest('button, a[href], summary, [role="button"]')) return;
+  const activeModal = [...document.querySelectorAll('.modal, .say-menu[role="dialog"]')].at(-1);
+  if (/^[1-6]$/.test(e.key)) { const b = (activeModal || document).querySelector(`[data-hotkey="${e.key}"]:not(:disabled)`); if (b) { e.preventDefault(); b.click(); } return; }
+  if (e.key === 'Enter') { const d = activeModal ? activeModal.querySelector('[data-default="1"]:not(:disabled)') : document.querySelector('.wizard-buttons [data-default="1"]:not(:disabled)') || document.querySelector('[data-action="continue"]:not(:disabled)'); if (d) { e.preventDefault(); d.click(); } return; }
   if (e.key === ' ' && lectureRunning()) { e.preventDefault(); toggleWork(); return; }
   if (e.key === ' ' && benchRunning()) { e.preventDefault(); strike(); return; }
-  if (e.key === 'Escape') { if (ui.startMenu || ui.dialog || ui.confirm || ui.thread) { ui.startMenu = false; ui.dialog = null; ui.confirm = null; ui.thread = null; render(); } }
+  if (e.key === 'Escape' && ui.confirm) { ui.confirm = null; render(); return; }
+  if (e.key === 'Escape' && activeModal?.classList.contains('say-menu')) { document.querySelector('[data-action="chat-menu-close"]')?.click(); return; }
+  if (e.key === 'Escape' && ui.saves) { document.querySelector('.dialog.saves [data-action="saves-close"]')?.click(); return; }
+  if (e.key === 'Escape' && ui.menu) {
+    const menu = ui.menu;
+    ui.menu = null; render();
+    document.querySelector(`[data-action="menu"][data-id="${menu}"]`)?.focus();
+    return;
+  }
+  if (e.key === 'Escape') { if (ui.startMenu || ui.dialog || ui.confirm || ui.thread) { ui.startMenu = false; ui.confirm = null; ui.thread = null; closeDialog(); } }
 });
 
 root.addEventListener('click', event => {
   const word = event.target.closest('[data-tg-pick]');
   if (word && talkRunning()) { play('click'); pickWord(word.dataset.tgPick); return; }
   const target = event.target.closest('[data-action]');
-  if (!target || target.disabled) return;
+  if (!target) {
+    if (ui.menu && !event.target.closest('.mb-drop')) { ui.menu = null; render(); }
+    return;
+  }
+  if (target.disabled) return;
   const action = target.dataset.action, id = target.dataset.id;
   if (action !== 'start-menu') ui.startMenu = false;
   if (action !== 'menu' && !String(action).startsWith('text-size') && action !== 'sound' && action !== 'quiet') ui.menu = null;
   if (!['choice', 'continue', 'dismiss-report', 'boot-skip', 'wb-mark'].includes(action)) play('click');
   switch (action) {
+    case 'skip-meeting-arrival': skipMeetingArrival(); return;
     case 'boot-skip': ui.screen = 'home'; render(); return;
     case 'home': ui.screen = 'home'; ui.minimized = false; ui.confirm = null; ui.dialog = null; ui.wizardStep = 0; render({ preserveScroll: false }); return;
     case 'collection': ui.screen = 'collection'; ui.minimized = false; render({ preserveScroll: false }); return;
@@ -350,19 +465,23 @@ root.addEventListener('click', event => {
     case 'reset': ui.confirm = 'reset'; render(); return;
     case 'cancel-confirm': ui.confirm = null; render(); return;
     case 'confirm':
-      if (ui.confirm === 'reset') { resetSave(localStorage); run = null; meta = emptyMeta(); loaded.run = null; loaded.meta = meta; notices = []; ui = { ...ui, screen: 'home', confirm: null, wizardStep: 0, wizardChoice: 'new', eula: false }; }
+      if (ui.confirm === 'reset') { const error = resetSave(storage); if (error) { ui.saveError = error; ui.confirm = null; render(); return; } run = null; meta = emptyMeta(); loaded.run = null; loaded.meta = meta; notices = []; ui = { ...ui, screen: 'home', confirm: null, wizardStep: 0, wizardChoice: 'new', eula: false }; }
       else { ui.confirm = null; ui.screen = 'home'; ui.wizardStep = 0; ui.wizardChoice = 'new'; }
       render(); return;
     case 'about': ui.dialog = 'about'; render(); return;
+    case 'pause-scene': ui.dialog = 'pause'; render(); return;
+    case 'pause-activity': ui.dialog = 'activity-pause'; render(); return;
+    case 'accessibility': ui.comfortReturn = ['pause', 'activity-pause'].includes(ui.dialog) ? ui.dialog : null; ui.dialog = 'accessibility'; render(); return;
     case 'language': setLanguage(id); return;
     case 'tips': ui.dialog = 'tips'; render(); return;
     case 'shutdown': ui.dialog = 'shutdown'; render(); return;
-    case 'close-dialog': ui.dialog = null; render(); return;
+    case 'close-dialog': closeDialog(); return;
+    case 'dismiss-award': document.querySelector('.award-toast')?.remove(); return;
     case 'dismiss-balloon': ui.balloons = ui.balloons.filter(b => String(b.id) !== id); render(); return;
     case 'start-menu': ui.startMenu = !ui.startMenu; ui.menu = null; render(); return;
     case 'menu': ui.menu = ui.menu === id ? null : id; ui.startMenu = false; render(); return;
     case 'new-run': ui.menu = null; if (run && run.phase !== 'ending') { ui.confirm = 'new'; render(); } else { ui.screen = 'home'; ui.wizardStep = 0; ui.wizardChoice = 'new'; render({ preserveScroll: false }); } return;
-    case 'save-now': ui.menu = null; persist(); ui.saveNote = t('Saved.'); render(); return;
+    case 'save-now': ui.menu = null; persist(); ui.saveNote = ui.saveError || t('Saved.'); render(); return;
     case 'to-wizard': ui.menu = null; ui.screen = 'home'; ui.minimized = false; ui.wizardStep = 0; render({ preserveScroll: false }); return;
     case 'lang-toggle': ui.menu = null; setLanguage(meta.settings.lang === 'zh' ? 'en' : 'zh'); return;
     case 'copy-seed': ui.menu = null; copyText(run ? String(run.seed) : ''); return;
@@ -392,6 +511,7 @@ root.addEventListener('click', event => {
       const early = run && ['prep', 'application', 'interviews', 'admissions'].includes(run.phase);
       if (!run || !(['playing', 'ending'].includes(run.phase) || (early && PRE_ENROL.includes(target.dataset.app)))) return;
       closeCompose();
+      if (target.dataset.app !== 'browser') ui.submissionReceipt = null;
       ui.screen = 'game'; ui.app = target.dataset.app; ui.minimized = false;
       // A jump that names a destination lands on it. "Open OpenRegret" used to open Netscope on
       // whatever tab you last left it on, which is not what the button said.
@@ -408,23 +528,51 @@ root.addEventListener('click', event => {
       else render({ preserveScroll: false });
       return;
     }
-    case 'browser-tab': closeCompose(); ui.browserTab = id; render({ preserveScroll: false }); return;
+    case 'browser-tab': closeCompose(); if (id !== 'openregret') ui.submissionReceipt = null; ui.browserTab = id; render({ preserveScroll: false }); return;
+    case 'receipt-plan':
+      ui.submissionReceipt = null; ui.app = 'dashboard'; render({ preserveScroll: false });
+      { const heading = document.querySelector('.client h1'); if (heading) { heading.tabIndex = -1; heading.focus(); } }
+      return;
+    case 'receipt-view':
+      ui.submissionReceipt = null; perform({ type: 'SELECT_PROJECT', id }, { preserveScroll: false });
+      { const heading = document.querySelector('.client h1'); if (heading) { heading.tabIndex = -1; heading.focus(); } }
+      return;
+    case 'chatphd-prompt': {
+      const prompt = chatPrompts.find(x => x.id === id);
+      if (prompt) perform({ type: 'CHATPHD_SAY', topic: id, text: t(prompt.text) });
+      document.querySelector('#chatphd-input')?.focus();
+      return;
+    }
+    case 'chatphd-view': {
+      const destination = document.querySelector(id === 'tools' ? '.cph-tools' : '#chatphd-input');
+      destination?.focus(); destination?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    case 'chatphd':
+    case 'chatphd-resolve': {
+      perform({ type: action === 'chatphd' ? 'CHATPHD' : 'CHATPHD_RESOLVE', id });
+      const result = document.querySelector('.cph-suggestion, .cph-result');
+      result?.focus(); result?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
     case 'job-portal': ui.jobPortal = id; render({ preserveScroll: false }); return;
     case 'bench-start': {
       if (!run || run.stage !== 'plan') return;
       run.stage = 'minigame'; run.minigame = 'bench'; persist(); render({ preserveScroll: false });
       play('click');
-      startBench((run.seed + run.month * 13) >>> 0, run.player.skills.research, run.player.stats.energy,
-        tally => { run.stage = 'plan'; run.minigame = null; perform({ type: 'BENCH', tally }, { preserveScroll: false }); play('chime'); });
       return;
     }
+    case 'bench-careful': benchChoose('careful'); return;
+    case 'bench-connect': benchChoose('connect'); return;
+    case 'bench-next': benchNext(); return;
+    case 'lecture-choice': lectureChoice(id); return;
+    case 'cluster-advance': clusterAdvance(); return;
+    case 'exam-advance': examAdvance(); return;
     case 'bench-strike': strike(); return;
     case 'cluster-start': {
       if (!run || run.stage !== 'plan') return;
       run.stage = 'minigame'; run.minigame = 'cluster'; persist(); render({ preserveScroll: false });
       play('click');
-      startCluster((run.seed + run.month * 17) >>> 0,
-        result => { run.stage = 'plan'; run.minigame = null; perform({ type: 'CLUSTER', result }, { preserveScroll: false }); play('chime'); });
       return;
     }
     case 'cluster-line': clusterPick(Number(id)); play('click'); return;
@@ -452,7 +600,7 @@ root.addEventListener('click', event => {
     case 'net-intro': perform({ type: 'NET_INTRO', id }); return;
     case 'viva-move': vivaMove(id); play('click'); return;
     case 'exam-talk': examTalk(id); play('click'); return;
-    case 'exam-interrupt': examInterrupt(); play('click'); return;
+    case 'exam-interrupt': examInterrupt(id); play('click'); return;
     case 'exam-corridor': examCorridor(id); play('click'); return;
     case 'fixture': {
       if (fixtures[id]?.opens) { ui.board = true; render({ preserveScroll: false }); play('click'); return; }
@@ -488,15 +636,36 @@ root.addEventListener('click', event => {
       if (adv) perform({ type: 'ENROLL', id: adv.id }, { preserveScroll: false });
       return;
     }
-    case 'saves': { ui.saves = { slots: listSlots(localStorage) }; ui.saveNote = null; ui.startMenu = false; ui.menu = null; render({ preserveScroll: false }); return; }
-    case 'saves-close': { clearTimeout(armTimer); ui.saves = null; ui.saveNote = null; ui.saveArmed = null; render({ preserveScroll: false }); return; }
+    case 'saves': { ui.saves = { slots: listSlots(storage), recoveryCount: loadSave(storage).recoveryCount || 0 }; ui.saveNote = null; ui.startMenu = false; ui.menu = null; render({ preserveScroll: false }); return; }
+    case 'saves-close': { clearTimeout(armTimer); backupRead++; backupText = null; ui.backupPreview = null; ui.saves = null; ui.saveNote = null; ui.saveArmed = null; render({ preserveScroll: false }); return; }
+    case 'backup-choose': document.querySelector('#backup-file')?.click(); return;
+    case 'backup-cancel': backupRead++; backupText = null; ui.backupPreview = null; ui.saveNote = null; render({ preserveScroll: false }); return;
+    case 'recovery-export':
+    case 'backup-export': {
+      const original = action === 'recovery-export';
+      const result = original ? exportRecoveryOriginal(storage, Number(id)) : exportBackup(storage, run, meta);
+      if (result.error) { ui.saveNote = backupError(result.error); render(); return; }
+      const url = URL.createObjectURL(new Blob([result.text], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url; link.download = original ? `academic-os-original-${Number(id) + 1}.json` : `academic-os-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      ui.saveNote = original ? t('Original download started. This build cannot resume this recovery data.') : t('Backup download started. Keep the file to restore your progress later.'); render(); return;
+    }
+    case 'backup-restore': {
+      if (!backupText || !ui.backupPreview) return;
+      const result = importBackup(storage, backupText);
+      if (result.error) { ui.saveNote = backupError(result.error); render(); return; }
+      // Reload stops all in-flight minigames and resumes through the normal save loader.
+      location.reload(); return;
+    }
     case 'slot-save': {
       // Copying the live run into a slot. The autosave keeps writing to its own key, so this is a
       // snapshot rather than a move: you can put the run down and pick it up later.
       clearTimeout(armTimer); ui.saveArmed = null;
-      const err = writeSlot(localStorage, Number(id), run);
+      const err = writeSlot(storage, Number(id), run);
       ui.saveNote = err || t('Saved to slot {n}.', { n: id });
-      ui.saves = { slots: listSlots(localStorage) };
+      ui.saves = { slots: listSlots(storage), recoveryCount: loadSave(storage).recoveryCount || 0 };
       render({ preserveScroll: false });
       return;
     }
@@ -512,9 +681,9 @@ root.addEventListener('click', event => {
       }
       clearTimeout(armTimer);
       ui.saveArmed = null;
-      const err = deleteSlot(localStorage, Number(id));
+      const err = deleteSlot(storage, Number(id));
       ui.saveNote = err || t('Slot {n} deleted. Your achievements are untouched.', { n: id });
-      ui.saves = { slots: listSlots(localStorage) };
+      ui.saves = { slots: listSlots(storage), recoveryCount: loadSave(storage).recoveryCount || 0 };
       render({ preserveScroll: false });
       return;
     }
@@ -531,16 +700,20 @@ root.addEventListener('click', event => {
       }
       clearTimeout(armTimer);
       ui.saveArmed = null;
-      run = null;
-      saveRun(localStorage, null, meta);
+      { const result = saveRun(storage, null, meta);
+        if (result.error) { ui.saveError = result.error; ui.saveNote = result.error; render(); return; }
+        meta = result.meta;
+      }
+      run = null; loaded.run = null; loaded.meta = meta; ui.dialog = null;
       ui.saves = null; ui.saveNote = null;
       ui.screen = 'home'; ui.wizardStep = 0; ui.wizardChoice = 'new'; ui.app = 'dashboard';
       render({ preserveScroll: false });
       return;
     }
     case 'slot-load': {
-      const loadedRun = readSlot(localStorage, Number(id));
+      const loadedRun = readSlot(storage, Number(id));
       if (!loadedRun) { ui.saveNote = t('That slot could not be read.'); render({ preserveScroll: false }); return; }
+      stopSceneTimer(); ui.dialog = null;
       run = loadedRun;
       persist();
       ui.saves = null; ui.saveNote = null; ui.screen = 'game'; ui.app = 'dashboard'; ui.minimized = false;
@@ -554,25 +727,25 @@ root.addEventListener('click', event => {
     case 'board-close': { ui.board = false; render({ preserveScroll: false }); return; }
     case 'photo-close': { if (run) { run.photo = null; persist(); render({ preserveScroll: false }); } return; }
     case 'crisis': perform({ type: 'CRISIS', id }, { preserveScroll: false }); return;
+    case 'emeritus-consult': perform({ type: 'EMERITUS_CONSULT' }); return;
+    case 'venture-review': perform({ type: 'VENTURE_REVIEW' }); return;
     case 'life-tab': ui.lifeTab = id; render({ preserveScroll: false }); return;
     case 'trip-visa': perform({ type: 'TRIP_VISA', id }, { preserveScroll: false }); return;
     case 'talk-intro': ui.talkStage = 'intro'; render({ preserveScroll: false }); return;
     case 'talk-start': {
       ui.talkStage = 'game'; render({ preserveScroll: false });
       play('click');
-      startTalk((run.seed + run.month) >>> 0, tally => { ui.talkStage = 'result'; perform({ type: 'TRIP_TALK', tally }, { preserveScroll: false }); play('chime'); });
+      startTalk((run.seed + run.month) >>> 0, tally => { ui.talkStage = 'result'; perform({ type: 'TRIP_TALK', tally }, { preserveScroll: false }); play('chime'); }, { selfPaced: !!meta.settings.selfPaced });
       return;
     }
+    case 'talk-advance': advanceTalk(); return;
     case 'talk-qa': {
       ui.talkStage = 'qa'; render({ preserveScroll: false });
-      startQaTimer(14, () => { if (run?.trip && !run.trip.qaDone) { perform({ type: 'TRIP_QA', id: 'timeout' }, { preserveScroll: false }); } });
+      beginQaClock();
       return;
     }
     case 'trip-qa': {
-      stopQaTimer();
-      perform({ type: 'TRIP_QA', id }, { preserveScroll: false });
-      if (run?.trip && !run.trip.qaDone) startQaTimer(14, () => { if (run?.trip && !run.trip.qaDone) perform({ type: 'TRIP_QA', id: 'timeout' }, { preserveScroll: false }); });
-      else { ui.talkStage = null; }
+      answerTripQuestion(id);
       return;
     }
     case 'trip-day': perform({ type: 'TRIP_DAY', id }, { preserveScroll: false }); return;
@@ -611,18 +784,22 @@ root.addEventListener('click', event => {
     case 'deposit': play('submit'); perform({ type: 'DEPOSIT' }, { preserveScroll: false }); return;
     case 'pay-debt': perform({ type: 'PAY_DEBT', amount: id }); return;
     case 'rebut-option': {
-      ui.compose = { kind: 'rebuttal', optionId: id, done: false };
+      const p = run.projects.find(project => project.id === run.activeProjectId);
+      if (run.stage !== 'plan' || p?.status !== 'Rebuttal') return;
+      const composer = { kind: 'rebuttal', optionId: id, done: false, ...rebuttalComposeContext(p) };
+      ui.compose = composer;
       render(); play('click');
-      streamText(rebuttalDraft(run, id), () => { if (ui.compose) { ui.compose.done = true; render(); } });
+      streamText(rebuttalDraft(run, id), () => { if (ui.compose === composer && rebuttalComposeMatches(run, composer)) { composer.done = true; render(); } });
       return;
     }
     case 'rebut-send': {
-      if (!ui.compose || ui.compose.kind !== 'rebuttal' || !ui.compose.done) return;
+      if (run.stage !== 'plan' || !rebuttalComposeMatches(run, ui.compose) || !ui.compose.done) return;
       const { optionId } = ui.compose;
       closeCompose(); play('submit');
       perform({ type: 'REBUT', id: optionId });
       return;
     }
+    case 'select-project': closeCompose(); ui.submissionReceipt = null; perform({ type: 'SELECT_PROJECT', id }); return;
     case 'mail-folder': closeCompose(); ui.mailFolder = id; ui.selectedMail = null; render({ preserveScroll: false }); return;
     case 'mail-reply': closeCompose(); ui.compose = { mailId: id, optionId: null, done: false }; render(); return;
     case 'mail-option': beginCompose(target.dataset.mail, id); return;
@@ -638,14 +815,21 @@ root.addEventListener('click', event => {
       return;
     }
     case 'chat-channel': closeCompose(); ui.chatChannel = id; perform({ type: 'READ_CHAT', channel: id }); return;
-    case 'chat-menu': stopStream(); ui.compose = null; ui.chatMenu = true; render(); return;
-    case 'chat-menu-close': ui.chatMenu = false; render(); return;
+    case 'chat-menu': stopStream(); ui.compose = null; ui.chatMenu = true; ui.chatRequestFocus = id === 'requests'; render(); return;
+    case 'chat-menu-close': ui.chatMenu = false; ui.chatRequestFocus = false; render(); return;
     case 'chat-option': {
       ui.chatMenu = false;
       ui.compose = { kind: 'chat', channel: ui.chatChannel, optionId: id, done: false };
       render();
+      document.querySelector('.composer-input')?.focus();
       play('click');
-      streamText(chatDraft(run, ui.chatChannel, id), () => { if (ui.compose) { ui.compose.done = true; render(); } });
+      streamText(chatDraft(run, ui.chatChannel, id), () => {
+        if (!ui.compose) return;
+        const followingDraft = document.activeElement?.matches('.composer-input');
+        ui.compose.done = true;
+        render();
+        if (followingDraft) document.querySelector('[data-action="chat-send"]')?.focus();
+      });
       return;
     }
     case 'chat-send': {
@@ -661,6 +845,13 @@ root.addEventListener('click', event => {
     }
     case 'read-mail': closeCompose(); ui.selectedMail = id; perform({ type: 'READ_MAIL', id }); return;
     case 'apply': perform({ type: 'APPLY', schoolId: id, effort: ui.effort || 'generic', contact: !!ui.contact, poiId: target.dataset.target }); return;
+    case 'prep-section': {
+      if (!['statement', 'letters', 'advisors'].includes(id)) return;
+      const section = document.querySelector(`#prep-${id}`);
+      section?.scrollIntoView({ block: 'start' });
+      section?.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+      return;
+    }
     case 'ga-tab': ui.gaTab = id; render({ preserveScroll: false }); return;
     case 'ga-school': {
       // The faculty panel renders below a grid of thirty-two school buttons, roughly five hundred
@@ -695,7 +886,7 @@ root.addEventListener('click', event => {
   const actions = {
     admissions: { type: 'ADMISSIONS' }, enroll: { type: 'ENROLL', id }, 'ask-student': { type: 'ASK_STUDENT', id },
     plan: { type: 'PLAN', id }, 'start-project': { type: 'START_PROJECT' }, 'start-side': { type: 'START_SIDE' }, 'select-project': { type: 'SELECT_PROJECT', id },
-    write: { type: 'WRITE', amount: 5 }, hype: { type: 'HYPE' }, 'send-advisor': { type: 'SEND_ADVISOR' }, 'skip-approval': { type: 'SKIP_APPROVAL' }, 'set-target': { type: 'SET_TARGET', id }, 'clear-target': { type: 'CLEAR_TARGET' }, zoom: { type: 'ZOOM' },
+    'write-session': { type: 'WRITE_SESSION' }, write: { type: 'WRITE', amount: 5 }, hype: { type: 'HYPE' }, 'send-advisor': { type: 'SEND_ADVISOR' }, 'skip-approval': { type: 'SKIP_APPROVAL' }, 'set-target': { type: 'SET_TARGET', id }, 'clear-target': { type: 'CLEAR_TARGET' }, zoom: { type: 'ZOOM' },
     submit: { type: 'SUBMIT' }, rebut: { type: 'REBUT', id }, recycle: { type: 'RECYCLE', id }, preprint: { type: 'PREPRINT' }, chatphd: { type: 'CHATPHD', id }, practice: { type: 'PRACTICE' }, grant: { type: 'GRANT' },
     'req-do': { type: 'REQUEST_DO', id }, 'req-push': { type: 'REQUEST_PUSH', id }, 'req-decline': { type: 'REQUEST_DECLINE', id }, ask: { type: 'ASK', id }, prelim: { type: 'MILESTONE', id }, milestone: { type: 'MILESTONE', id }, graduate: { type: 'MILESTONE', id },
     pace: { type: 'PACE' }, 'start-thesis': { type: 'START_THESIS' }, 'schedule-defense': { type: 'SCHEDULE_DEFENSE' },

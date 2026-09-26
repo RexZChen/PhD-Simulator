@@ -1,0 +1,91 @@
+/* LabChat is one workspace: channels, history, and the next reply. */
+.slack {
+  position: relative; grid-template-columns: 190px minmax(0, 1fr);
+  min-height: min(460px, 100%); border: 1px solid #b4aeb7;
+  border-radius: 5px; overflow: hidden;
+}
+.slack-rail { background: #392a40; padding-bottom: 12px; }
+.sl-work { padding: 15px 14px 13px; border-bottom: 1px solid #68576d; }
+.sl-brand { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #fff; }
+.sl-brand strong { font-size: var(--fs-lg); letter-spacing: -.02em; }
+.sl-work b { font-size: var(--fs-sm); line-height: 1.4; overflow-wrap: anywhere; }
+.sl-work small { display: block; margin-top: 4px; color: #d5c6d9; }
+.sl-section { color: #d5c6d9; font-weight: 700; padding: 16px 14px 6px; font-size: var(--fs-xs); }
+.sl-item { min-height: 38px; padding: 8px 12px; border-left: 3px solid transparent; gap: 7px; }
+.sl-item .sl-ic { flex: 0 0 16px; opacity: 1; }
+.sl-item:hover { background: #4e3b56; }
+.sl-item.active { background: #665070; border-left-color: #dbbbdf; font-weight: 700; }
+.sl-item:focus-visible { outline: 2px solid #e6d7e8; outline-offset: -4px; }
+.sl-item .sl-role { color: #d5c6d9; font-size: var(--fs-xs); max-width: 65px; overflow: hidden; text-overflow: ellipsis; }
+.sl-people { color: #cabbce; margin-top: 15px; border-color: #68576d; }
+.slack-main { min-width: 0; overflow: hidden; }
+.slack-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: #fcfafc; border-bottom: 1px solid #ddd6df; }
+.slack-head > div { min-width: 0; }
+.slack-head b { line-height: 1.35; }
+.ch-topic { margin-top: 4px; color: #66616a; line-height: 1.4; overflow-wrap: anywhere; }
+.chat-request-shortcut { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; max-width: 45%; padding: 7px 9px; border: 1px solid #cebd93; border-radius: 4px; background: #fff6dc; color: #625127; font-size: var(--fs-xs); text-align: left; }
+.chat-request-shortcut .ico { flex: 0 0 16px; }
+.slack-log { justify-content: flex-start; padding: 12px 0; overscroll-behavior: contain; }
+.sl-msg { padding: 8px 18px 8px 12px; gap: 8px; }
+.sl-body { min-width: 0; }
+.sl-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px; }
+.sl-who small { margin: 0; }
+.sl-body p { color: #353138; }
+.msg-actions { border-left-color: #a88638; background: #fff9e9; padding: 9px; gap: 7px; }
+.msg-actions .btn { white-space: normal; }
+.slack-composer { position: static; padding: 10px 14px 14px; border-top: 1px solid #eee9ee; }
+.composer-box { border-color: #b7a9bc; box-shadow: 0 1px 2px #3826400c; }
+.composer-tools { justify-content: space-between; gap: 10px; padding: 8px 10px; background: #f8f5f9; color: #635569; font-size: var(--fs-sm); }
+.composer-tools small { font-size: var(--fs-xs); }
+.composer-input { min-height: 48px; }
+.composer-placeholder { color: #756879; }
+.composer-foot { padding: 7px; }
+.cbtn.choose-message { padding: 6px 9px; color: #51405a; background: #f2edf4; border: 1px solid #cebed4; font-weight: 700; }
+.cbtn.send { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: auto; min-height: 34px; padding: 6px 9px; }
+.slack .say-menu { top: 72px; bottom: 12px; left: 202px; right: 12px; max-height: none; border-color: #a795b0; box-shadow: 0 4px 18px #38264033; }
+.say-menu-head { flex: 0 0 auto; padding: 12px; background: #f5eff7; border-bottom-color: #dacee0; }
+.say-menu-head .btn.link { min-height: 34px; color: #51405a; }
+.say-menu-body { min-height: 0; overscroll-behavior: contain; }
+.say-group > summary { padding: 13px 12px; color: #493650; }
+.say-group > summary:hover { background: #f7f2f9; }
+.say-item { padding: 10px 12px; }
+.say-item:hover:not(:disabled) { background: #eee5f3; color: #3c2b45; }
+.say-item:hover:not(:disabled) small { color: #63566b; }
+.say-item:hover:not(:disabled) em { color: #8a4938; }
+.say-item:disabled { opacity: 1; color: #777; background: #f8f8f8; }
+.say-request .say-item:disabled { opacity: 1; }
+.dm-openers { max-height: 220px; }
+.dm-topic { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.dm-topic b { flex: 1 1 140px; }
+.dm-topic .say-cost { flex: 0 0 auto; }
+.dm-topic em { flex-basis: 100%; }
+.dm-discussed { padding: 8px 10px; color: #63566b; font-size: var(--fs-sm); }
+.dm-discussed summary { cursor: pointer; }
+.dm-discussed p { margin: 8px 0 0; }
+@media (max-width: 760px) {
+  .slack { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); min-height: min(460px, 100%); }
+  .slack-rail { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 3px; padding: 5px; overflow-x: auto; overflow-y: hidden; border-bottom: 1px solid #75627f; }
+  .sl-item { flex: 0 0 auto; width: auto; max-width: 220px; min-height: 38px; border-left: 0; border-bottom: 2px solid transparent; padding: 7px 9px; }
+  .sl-item.active { border-left: 0; border-bottom-color: #e2c9e8; }
+  .sl-item .sl-role { display: none; }
+  .slack-head { padding: 9px 10px; gap: 7px; flex-wrap: wrap; }
+  .slack-head .ch-topic { font-size: var(--fs-xs); }
+  .chat-request-shortcut { max-width: 100%; padding: 5px 8px; }
+  .sl-msg { grid-template-columns: 32px minmax(0, 1fr); padding: 7px 10px 7px 6px; gap: 7px; }
+  .sl-av .avatar { width: 30px; height: 30px; }
+  .slack-composer { padding: 7px; }
+  .composer-tools { padding: 6px 8px; flex-wrap: wrap; gap: 2px; }
+  .composer-tools small { display: none; }
+  .composer-foot { gap: 5px; }
+  .slack .say-menu { top: 55px; bottom: 7px; left: 7px; right: 7px; }
+  .say-menu-head { padding: 9px; }
+  .say-count { display: inline-block; }
+  .dm-openers { max-height: 180px; }
+}
+
+/* Outcome notes carry no avatar, presence claim, reactions, or reply controls. */
+.sl-note { margin: 8px 10px 12px 46px; padding: 10px 12px; border-left: 3px solid #8b7e99; background: #f3f0f6; color: #4b4055; overflow-wrap: anywhere; font-size: var(--fs-sm); line-height: 1.5; }
+.sl-note > div { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.sl-note small { color: #675b70; }
+.sl-note p { margin: 4px 0 0; }
+@media (max-width: 540px) { .sl-note { margin-inline: 8px; } }

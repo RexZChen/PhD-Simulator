@@ -17,13 +17,15 @@
 //   OSDI: deadline early Dec, decisions Mar, conference July.  SOSP: deadline early Apr, decisions Jul, conference Oct.
 //   NSDI: spring (late Apr) and fall (mid-Sep) deadlines, conference May.
 //   STOC: deadline early Nov, decisions Feb, conference June.  FOCS: deadline early Apr, decisions early Jul, conference Oct/Nov.
-//   SODA: deadline early Jul, decisions Oct, conference Jan.
+//   SODA: deadline mid-Jul, response Sep, decisions Oct, conference Jan.
 //   CHI: deadline mid-Sep, reviews + revise-and-resubmit Nov, decisions mid-Jan, conference late Apr/May.
 //   UIST 2026: deadline late Mar, rebuttal early Jun, decisions late Jun, conference Nov.
 //   CSCW: journal/conference hybrid with no stable annual deadline; modeled as rolling.
 //   ICRA: deadline mid-Sep, decisions late Jan, conference May/Jun.  RSS: deadline late Jan, rebuttal late Mar, decisions Apr, conference July.
 //   CoRL: deadline late May, decisions early Sep, conference Nov.
-//   KDD: two cycles (early Aug, early Feb), conference Aug.   TMLR and workshops: rolling.
+//   KDD 2026: late Jul / early Feb, decisions Nov / May, conference Aug.
+//   TMLR and workshops: modeled as rolling (real journals may pause submissions).
+// The dated references describe the named edition, not the simulation's 2028–2034 dates.
 export const venueReferences = {
   NeurIPS: { cycle: 'NeurIPS 2026', submitted: '2026-05-06', source: 'https://dev.neurips.cc/Conferences/2026/Dates' },
   ICML: { cycle: 'ICML 2026', submitted: '2026-01-28', source: 'https://icml.cc/Conferences/2026/Dates' },
@@ -41,6 +43,17 @@ export const venueReferences = {
   RSS: { cycle: 'RSS 2026', submitted: '2026-01-30', source: 'https://roboticsconference.org/information/cfp/' },
   UIST: { cycle: 'UIST 2026', submitted: '2026-03-31', source: 'https://uist.acm.org/2026/cfp/' },
   CSCW: { cycle: 'CSCW journal model', submitted: 'rolling', source: 'https://cscw.acm.org/rolling.html' },
+  KDD: { cycle: 'KDD 2026 research track', submitted: '2025-07-31 / 2026-02-08', source: 'https://kdd2026.kdd.org/research-track-call-for-papers/', checked: '2026-09-26',
+    rounds: [
+      { submitted: '2025-07-31', response: '2025-10-04 / 2025-10-18', decision: '2025-11-23' },
+      { submitted: '2026-02-08', response: '2026-04-04 / 2026-04-17', decision: '2026-05-16' },
+    ] },
+  SOSP: { cycle: 'SOSP 2025', submitted: '2025-04-17', source: 'https://www.sigops.org/s/conferences/sosp/2025/cfp.html', checked: '2026-09-26', response: '2025-07-01 / 2025-07-03', decision: '2025-07-15' },
+  STOC: { cycle: 'STOC 2026', submitted: '2025-11-04', source: 'https://acm-stoc.org/stoc2026/stoc2026-cfp.html', checked: '2026-09-26', decision: '2026-02-01' },
+  SODA: { cycle: 'SODA 2026', submitted: '2025-07-14', source: 'https://www.siam.org/conferences-events/past-event-archive/soda26/submissions/', checked: '2026-09-26', response: '2025-09-08 / 2025-09-11', decision: '2025-10' },
+  ICRA: { cycle: 'ICRA 2026', submitted: '2025-09-15', source: 'https://2026.ieee-icra.org/contribute/', checked: '2026-09-26', decision: '2026-01-31', decisionSource: 'https://2026.ieee-icra.org/contribute/call-for-icra-2026-papers-now-accepting-submissions/' },
+  CoRL: { cycle: 'CoRL 2026', submitted: '2026-05-28', source: 'https://2026.corl.org/contributions/instruction-for-authors', checked: '2026-09-26' },
+  TMLR: { cycle: 'TMLR rolling journal', submitted: 'rolling', source: 'https://www.jmlr.org/tmlr/', checked: '2026-09-26' },
 };
 
 const V = (id, name, real, category, topics, deadlines, review, rebuttal, phaseOne, conference, baseline, hypeTolerance, tier, travel = 'far') =>
@@ -53,16 +66,17 @@ export const venues = [
   V('aaaight', 'AAAIght', 'AAAI', 'Major AI', ['ml', 'nlp', 'robotics'], [7], 3, 2, 1, 2, .23, 35, 2),
   V('ijcaiguess', 'IJCAI Guess', 'IJCAI', 'Major AI', ['ml', 'nlp', 'robotics'], [1], 3, null, null, 8, .19, 35, 2),
   V('cvpretty', 'CVPRetty', 'CVPR', 'Vision', ['ml', 'robotics'], [11], 3, 2, null, 6, .23, 45, 1),
-  V('kddish', 'KDDish', 'KDD', 'Data mining', ['ml'], [2, 8], 3, 2, null, 8, .20, 40, 2),
+  { ...V('kddish', 'KDDish', 'KDD', 'Data mining', ['ml'], [2, 7], 3, 2, null, 8, .20, 40, 2), cycles: { 7: { review: 4, rebuttal: 3 } } },
   V('aclmao', 'ACLmao', 'ACL', 'NLP flagship', ['nlp'], [1], 3, 2, null, 7, .22, 40, 1),
   V('emnlplease', 'EMNLPlease', 'EMNLP', 'NLP', ['nlp'], [5], 3, 2, null, 11, .22, 40, 1),
   V('naaclose', 'NAACLose', 'NAACL', 'NLP', ['nlp'], [10], 3, 2, null, 5, .24, 40, 2),
   V('osdisaster', 'OSDIsaster', 'OSDI', 'Systems flagship', ['systems'], [12], 3, null, null, 7, .17, 25, 1),
+  // Its real response and decision share July; this month-scale model omits that response.
   V('sospicious', 'SOSPicious', 'SOSP', 'Systems flagship', ['systems'], [4], 3, null, null, 10, .17, 25, 1),
   V('nsdiy', 'NSDIY', 'NSDI', 'Networked systems', ['systems'], [4, 9], 3, null, null, 5, .19, 30, 1),
   V('stock', 'STOCk', 'STOC', 'Theory flagship', ['theory'], [11], 3, null, null, 6, .28, 20, 1),
   V('focsed', 'FOCSed', 'FOCS', 'Theory flagship', ['theory'], [4], 3, null, null, 11, .30, 20, 1),
-  V('sodastream', 'SODAstream', 'SODA', 'Algorithms', ['theory'], [7], 3, null, null, 1, .30, 20, 1),
+  V('sodastream', 'SODAstream', 'SODA', 'Algorithms', ['theory'], [7], 3, 2, null, 1, .30, 20, 1),
   V('chill', 'CHIll', 'CHI', 'HCI flagship', ['hci'], [9], 4, 2, null, 4, .25, 45, 1),
   V('uisted', 'UISTed', 'UIST', 'Interfaces', ['hci'], [3], 3, 2, null, 11, .24, 40, 1),
   V('cscwhy', 'CSCWhy', 'CSCW', 'Social computing', ['hci'], 'rolling', 5, 2, null, 10, .28, 45, 2),
@@ -90,14 +104,16 @@ export const acceptsThisMonth = (v, index, monthOf) => v.rolling || v.deadlines.
 
 // Review timeline for a submission made at `submitted`.
 export function timelineFor(v, submitted, monthOf) {
-  const decision = submitted + v.review;
+  // Different submission rounds can feed the same conference with different review lengths.
+  const cycle = v.cycles?.[monthOf(submitted)] || v;
+  const decision = submitted + cycle.review;
   let conference = null;
   if (v.conference) { for (let i = decision; i < decision + 13; i++) if (monthOf(i) === v.conference) { conference = i; break; } }
   else if (v.id === 'workshop') conference = decision + 1;
   return {
     submitted,
     phaseOne: v.phaseOne === null ? null : submitted + v.phaseOne,
-    rebuttal: v.rebuttal === null ? null : submitted + v.rebuttal,
+    rebuttal: cycle.rebuttal === null ? null : submitted + cycle.rebuttal,
     decision,
     conference,
   };

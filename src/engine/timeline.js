@@ -4,11 +4,36 @@ import { t } from '../i18n/index.js';
 import { stances, conditions, moves, secondOpinions } from '../data/timeline.js';
 import { dateLabel, phdYear } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, chat, award, lastName, vars, activeProject, joined } from './state.js';
+import { effects, log, message, chat, award, lastName, vars, activeProject, joined, TOTAL_MONTHS } from './state.js';
 import { paperQuality } from './paper.js';
 
 export const TALK_OPENS = 36;          // year four
 export const DEFENSE_WINDOW = { 5: 57, 6: 69 };   // month a target year defends in
+
+// A target is an estimate, not a booked defense or a waiver of degree requirements.
+export function feasibleGraduationTarget(s, requestedYear = 5) {
+  if (s.month + 1 >= TOTAL_MONTHS) return null;
+  const month = Math.min(TOTAL_MONTHS - 1, Math.max(DEFENSE_WINDOW[requestedYear] ?? DEFENSE_WINDOW[6], s.month + 2));
+  return { month, year: Math.floor(month / 12) + 1 };
+}
+export const agreedGraduationMonth = s => Number.isFinite(s.grad?.targetMonth) ? s.grad.targetMonth
+  : Number.isFinite(s.milestones?.plannedDefense) ? s.milestones.plannedDefense
+    : s.grad?.settled ? DEFENSE_WINDOW[s.grad.targetYear] ?? null : null;
+export const graduationTargetMissed = s => s.grad?.settled && Number.isFinite(agreedGraduationMonth(s))
+  && agreedGraduationMonth(s) < s.month && s.milestones.defense !== 'pass' && !s.milestones.graduated;
+const noDate = () => t('No new defense target fits before funding ends. An agreement cannot extend the funding window.');
+function contextualMove(s, id) {
+  const base = moves[id], target = feasibleGraduationTarget(s, id === 'accept' ? 6 : 5);
+  if (!base || !target) return base;
+  if (id === 'date') return { ...base,
+    line: t('“I propose {month} as a defense target, subject to the dissertation being approved. Can we work backwards from that?”', { month: dateLabel(target.month) }),
+    good: t('“Let us work backwards from that date.” It is a planning agreement. The room is not booked yet.') };
+  if (id === 'offer') return { ...base, good: t('They open the calendar beside the offer. You agree on a feasible target; the offer does not waive the degree requirements.') };
+  if (id === 'accept') return { ...base, label: t('Accept the later feasible target'), hint: t('Target {month}; approval and a booked defense are still required.', { month: dateLabel(target.month) }),
+    line: t('You accept the later feasible target, with the dissertation and committee approval still to complete.') };
+  return base;
+}
+
 
 // How strong the objective case is, 0-100. This is the part that is actually about the work.
 export function gradRecord(s) {
@@ -30,10 +55,11 @@ export const objectionIsFair = s => gradRecord(s) < 45 || gradWillingness(s) >= 
 
 export const ASK_COOLDOWN = 3;   // you cannot ask every month; a term has to pass
 export const canAskTimeline = s => s.phase === 'playing' && s.month >= TALK_OPENS && !s.milestones.graduated
-  && !(s.grad && s.grad.settled) && (!s.grad || !s.grad.asked || s.month - s.grad.askedMonth >= (s.grad.burned ? ASK_COOLDOWN * 2 : ASK_COOLDOWN));
-export const askAgainIn = s => (s.grad && s.grad.asked && !s.grad.settled) ? Math.max(0, (s.grad.burned ? ASK_COOLDOWN * 2 : ASK_COOLDOWN) - (s.month - s.grad.askedMonth)) : 0;
+  && !!feasibleGraduationTarget(s) && (!s.grad?.settled || graduationTargetMissed(s)) && (!s.grad || !s.grad.asked || s.month - s.grad.askedMonth >= (s.grad.burned ? ASK_COOLDOWN * 2 : ASK_COOLDOWN));
+export const askAgainIn = s => (s.grad && s.grad.asked && (!s.grad.settled || graduationTargetMissed(s))) ? Math.max(0, (s.grad.burned ? ASK_COOLDOWN * 2 : ASK_COOLDOWN) - (s.month - s.grad.askedMonth)) : 0;
 
 export function openTimeline(s) {
+  if (!feasibleGraduationTarget(s)) throw new Error(noDate());
   if (!canAskTimeline(s)) throw new Error(t('Too early to ask, or already settled. The question keeps.'));
   const record = gradRecord(s), willing = gradWillingness(s);
   const id = record < 35 ? 'notReady' : willing > 62 ? 'yes' : willing > 40 ? 'conditional' : 'deflect';
@@ -46,8 +72,9 @@ export function openTimeline(s) {
     record: Math.round(record), willing: Math.round(willing),
     line: vars(t(pick(s, stances[id].lines)), { condition: cond ? t(cond.text) : '' }),
     settled: id === 'yes', targetYear: id === 'yes' ? 5 : null,
-    used: [],
+    used: [], targetMonth: null,
   };
+  if (id === 'yes') s.grad.line = t('They open the calendar. “Yes, we can agree a target. The draft still needs approval, and the defense still needs booking.”');
   effects(s, { energy: -4, stress: id === 'yes' ? -8 : 6 });
   log(s, joined(t('You asked about finishing.'), ' ', s.grad.line));
   if (id === 'yes') settle(s, 5, t('They agreed in the room, without being pushed.'));
@@ -55,38 +82,37 @@ export function openTimeline(s) {
 }
 
 function settle(s, year, how) {
-  s.grad = { ...(s.grad || {}), settled: true, targetYear: year, how };
-  s.milestones.targetGradYear = year;
-  const month = DEFENSE_WINDOW[year] || DEFENSE_WINDOW[6];
-  s.milestones.plannedDefense = month;
-  log(s, year === 5
-    ? t('It is agreed: you are finishing in year five. {how} The date exists now, which changes what every month is for.', { how })
-    : t('It is agreed: a sixth year. {how} It is the median outcome and it is not a defeat; it is just longer.', { how }));
+  const target = feasibleGraduationTarget(s, year);
+  if (!target) return false;
+  s.grad = { ...(s.grad || {}), settled: true, targetYear: target.year, targetMonth: target.month, how };
+  s.milestones.targetGradYear = target.year;
+  s.milestones.plannedDefense = target.month;
+  log(s, t('Agreed defense target: {month}, in year {year}. This is not a booking; the dissertation still needs approval. {how}', { month: dateLabel(target.month), year: target.year, how }));
   message(s, t('Graduate Studies'), t('Expected completion updated'),
-    t('Your record now shows an expected completion in year {year}. This is an estimate and carries no obligation on the part of the university, your advisor, or the passage of time.', { year }),
-    'portal', 'inbox', 'policies');
-  chat(s, 'advisor', s.advisor.name, year === 5
-    ? t('Right — May it is. I will start thinking about your letter. Do not make me regret the letter.')
-    : t('Next year, then. It will be a better thesis and I know that is not what you wanted to hear.'));
+    t('Your planning record now targets {month}. The defense must be booked separately after draft approval; revisions and deposit follow a pass.', { month: dateLabel(target.month) }), 'portal', 'inbox', 'policies');
+  chat(s, 'advisor', s.advisor.name, t('“{month}, as a target. Send me the draft and we will see what still needs doing.”', { month: dateLabel(target.month) }));
+  // Preserve the negotiation trade-off: agreeing to the advisor's later target still costs
+  // hope, even when both feasible dates fall inside the final year.
   effects(s, year === 5 ? { hope: 14, confidence: 8, stress: -6 } : { hope: -8, stress: 4, satisfaction: 4 });
-  if (year === 5) award(s, 'ontime');
+  if (target.year === 5) award(s, 'ontime');
+  return true;
 }
 
 export function timelineMoves(s) {
   const g = s.grad;
-  if (!g || g.settled) return [];
+  if (!g || g.settled || !feasibleGraduationTarget(s)) return [];
   const used = g.used || [];
   const list = [];
   if (g.stance !== 'notReady') {
     list.push({ ...moves.evidence, done: used.includes('evidence') });
-    list.push({ ...moves.date, done: used.includes('date') });
+    list.push({ ...contextualMove(s, 'date'), done: used.includes('date') });
     list.push({ ...moves.committee, done: used.includes('committee') });
   }
   // The offer move only exists if there is an offer, and only once in a run.
   if (!used.includes('offer') && (s.jobs?.apps || []).some(a => a.stage === 'offer' && (a.deadlineMonth ?? 99) >= s.month))
     list.push({ ...moves.offer, done: false, danger: true });
   list.push({ ...moves.second, done: used.includes('second') });
-  list.push({ ...moves.accept, done: false });
+  list.push({ ...contextualMove(s, 'accept'), done: false });
   return list;
 }
 
@@ -94,13 +120,14 @@ export function playTimelineMove(s, id) {
   const g = s.grad;
   if (!g || g.settled) throw new Error(t('That conversation is over for now.'));
   if (g.burned) throw new Error(t('Not after that. You will have to let a term pass and come back to it.'));
-  const move = moves[id];
+  if (!feasibleGraduationTarget(s)) throw new Error(noDate());
+  const move = contextualMove(s, id);
   if (!move) throw new Error(t('That is not something you could say.'));
   if ((g.used || []).includes(id) && id !== 'accept') throw new Error(t('You have tried that. Trying it again is just repeating yourself.'));
   g.used = [...(g.used || []), id];
 
   if (id === 'accept') {
-    settle(s, 6, t('You accepted the extra year.'));
+    settle(s, 6, t('You accepted the later feasible target.'));
     return { id, line: t(move.line), outcome: 'settled' };
   }
 
@@ -112,7 +139,7 @@ export function playTimelineMove(s, id) {
     effects(s, { hope: fair ? -2 : 6, stress: fair ? 2 : -4 });
     award(s, 'askedaround');
     log(s, joined(t(move.line), ' ', line));
-    return { id, line: `${t(move.line)} ${line}`, outcome: 'informed', fair };
+    return { id, line: joined(t(move.line), ' ', line), outcome: 'informed', fair };
   }
 
   if (id === 'offer') {
@@ -130,7 +157,7 @@ export function playTimelineMove(s, id) {
       + (s.advisor.ambition - 50) * .006 - (s.relationship.trust - 50) * .006 + (s.relationship.dependency - 20) * .004
       - (s.jobs?.secret?.disclosed ? .10 : 0) - (s.flags.committeeBacking ? .05 : 0), .04, .74));
     const won = roll(s, odds);
-    const text = `${t(move.line)} ${t(won ? move.good : move.bad)}`;
+    const text = joined(t(move.line), ' ', t(won ? move.good : move.bad));
     log(s, text);
     s.flags.usedOfferAsLeverage = true;
     if (shadow) s.letterDrag = (s.letterDrag || 0) + (won ? 1 : 2);
@@ -153,7 +180,7 @@ export function playTimelineMove(s, id) {
   }[id];
   const odds = clamp(base + (willing - 45) / 260 - (s.advisor.toxicity - 40) / 320, .08, .88);
   const won = roll(s, odds);
-  const text = `${t(move.line)} ${t(won ? move.good : move.bad)}`;
+  const text = joined(t(move.line), ' ', t(won ? move.good : move.bad));
   log(s, text);
 
   if (won) {
@@ -172,7 +199,7 @@ export function playTimelineMove(s, id) {
 // A condition, once agreed, is checked every month. Meeting it settles the year.
 export function checkCondition(s) {
   const g = s.grad;
-  if (!g || g.settled || g.stance !== 'conditional' || !g.condition) return;
+  if (!g || g.settled || g.stance !== 'conditional' || !g.condition || !feasibleGraduationTarget(s)) return;
   const c = conditions.find(x => x.id === g.condition);
   if (!c) return;
   const met = {
@@ -197,7 +224,7 @@ export function timelineDrift(s) {
     log(s, t('Year four begins. Nobody will start the conversation about finishing except you.'));
   }
   if (s.month === 52 && !s.grad?.settled) {
-    log(s, t('Nobody has said the word “finishing” out loud in eighteen months. The sixth year is arriving by default, which is how most sixth years arrive.'));
+    log(s, t('There is still no agreed finishing date. The sixth year is arriving by default, which is how most sixth years arrive.'));
     s.milestones.targetGradYear = s.milestones.targetGradYear || 6;
   }
 }

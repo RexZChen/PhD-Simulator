@@ -48,7 +48,13 @@ const report = (title, all, tally, label = x => x) => {
 let gaps = 0;
 gaps += report('events', events.map(e => e.id), seen);
 gaps += report('achievements', Object.keys(achievements), got);
-const allEndings = [...new Set([...Object.values(trackEndings).flat().map(e => e.id), ...Object.keys(exitEndings())])];
+// Career outcomes are keyed records, and finish() prefixes those keys with phd_.
+// Reading value.id collapsed all twelve into a single undefined "ending".
+const allEndings = [...new Set([
+  ...Object.keys(trackEndings).map(id => `phd_${id}`),
+  ...Object.keys(exitEndings()),
+  'no_offer', 'fired', 'quit', 'fail', 'abd', 'undeposited',
+])];
 report('endings', allEndings, ends);   // endings are style-gated by design; reported, not counted
 
 const bucket = (name, pick) => {

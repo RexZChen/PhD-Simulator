@@ -52,7 +52,7 @@ export function monthlyMail(s) {
     message(s, t('Graduate Studies'), m === 9 ? t('Welcome back: 14 updated policies') : t('Spring registration is open (and required)'), pickFresh(s, 'mail:semester', mailTemplates.semesterStart), 'portal', 'inbox', 'policies');
     message(s, t('Department Payroll'), m === 9 ? t('Appointment for the fall term') : t('Appointment for the spring term'), pickFresh(s, 'mail:payroll', s.ta ? mailTemplates.taAssignment : mailTemplates.raAssignment), 'portal', 'inbox', 'payroll');
   }
-  for (const h of holidays(s.month)) if (['Thanksgiving', 'Winter break', 'Spring break'].includes(h.name) && roll(s, .8)) message(s, t('Facilities'), t('{holiday}: building hours', { holiday: h.name }), pickFresh(s, 'mail:closure', mailTemplates.closure));
+  for (const h of holidays(s.month)) if (['thanksgiving', 'winter_break', 'spring_break'].includes(h.id) && roll(s, .8)) message(s, t('Facilities'), t('{holiday}: building hours', { holiday: h.name }), pickFresh(s, 'mail:closure', mailTemplates.closure));
   // CFP reminders two months before a relevant deadline.
   for (const v of venues) {
     if (v.rolling || !fitsTopic(v, s.player.profile.topic) || v.topics.includes('any')) continue;

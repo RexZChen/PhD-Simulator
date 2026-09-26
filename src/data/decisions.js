@@ -39,7 +39,7 @@ export const letters = {
     signed: 'Graduate Admissions, {school}',
     after: [
       'Four sentences. Somebody wrote them once, in about 2016, and they have been sent several thousand times since, and the third one is doing all the work.',
-      'The number in the second paragraph is there so that the decision reads as arithmetic rather than as a judgement of you. It is arithmetic. It is also a judgement of you.',
+      'You divide the positions by the applications. The calculator gives you a percentage. The portal gives you the same letter.',
       'You close the tab. Then you open it again, twenty minutes later, to check that it says what it said.',
       'You look for the sentence that explains it. There is no sentence that explains it. There never is; that is a policy, and the policy is correct, and it does not help.',
     ],

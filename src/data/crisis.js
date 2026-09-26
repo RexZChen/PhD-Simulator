@@ -8,68 +8,70 @@ export const CRISIS_COOLDOWN = 10;      // months
 export const crises = {
   collapse: {
     id: 'collapse', title: 'The floor of the fourth-floor kitchen',
-    text: ['You stand up too fast and the room goes grey at the edges, and then you are sitting on the floor with your back against the dishwasher and someone is asking if you can hear them. You can. You would rather not be asked.',
-      'It is not dramatic. You simply stop being able to continue, in the middle of a Tuesday, and a labmate walks you to the health centre because you are arguing about whether you need to go.'],
+    text: ['The room goes grey at the edges. You sit down on the kitchen floor while someone checks whether you can hear them. A meeting reminder lights up your phone. It has no idea where you are.',
+      'You cannot keep working. Someone stays with you while you arrange help. Your open laptop still shows the task you expected to finish next.'],
     weeks: 2, cost: 240,
   },
   infection: {
-    id: 'infection', title: 'The thing you left for three weeks',
-    text: ['It was fine and then it was not fine, and the nurse uses the word “urgent” in a tone that suggests she has said it several times already and you were not listening.',
-      'Three weeks of telling yourself it would settle. It did not settle. The clinic can see you today, which is the sentence you did not want to hear.'],
+    id: 'infection', title: 'A health problem that cannot wait',
+    text: ['You explain what has changed. The clinic offers an urgent appointment. The booking form still asks whether you can fit it around your normal schedule.',
+      'The symptoms are getting harder to work around. The clinic can see you today. Your calendar has no empty space, so something on it will have to move.'],
     weeks: 2, cost: 620,
   },
   breakdown: {
     id: 'breakdown', title: 'A Wednesday you do not remember agreeing to',
-    text: ['You have been awake for most of two days and the thing you are looking at has stopped meaning anything. You read the same line eleven times. Then you are crying in a stairwell, which is at least a private stairwell.',
-      'The counselling service has a six-week wait and a same-day line for people who are not okay right now. You use the second number, which is its own kind of admission.'],
+    text: ['You read the same line without taking it in. In the stairwell, away from the screen, you begin to cry. For a while the next task is simply too much.',
+      'The counselling service lists routine appointments and an urgent contact. You reach for the urgent number. The form asks for your availability; what you need is help making room.'],
     weeks: 3, cost: 180,
   },
 };
 
-// What you do about it. None of these are free, and the cheapest one is the most expensive.
+// Responses trade modeled recovery, leave, and costs; the prose does not promise a medical outcome.
 export const crisisMoves = {
   treat: {
-    id: 'treat', label: 'Do what they tell you',
-    hint: 'Weeks off, a bill, and a body that keeps working afterwards',
-    line: 'You take the antibiotics, or the leave, or the referral. You do the thing. It costs two weeks you did not have and it is the reason you are still here in year six.',
+    id: 'treat', label: 'Make room for care and follow-up',
+    hint: 'More recovery; weeks of leave and a bill',
+    line: 'You arrange care and time away from work. It does not settle everything today. You send the necessary messages, including one to explain why a form about your absence will itself be late.',
     effects: { health: 26, stress: -10, hope: 4 },
   },
   minimum: {
-    id: 'minimum', label: 'Do the minimum and get back to it',
-    hint: 'Half the recovery, half the time, and it comes back',
-    line: 'You take the prescription and none of the rest. You are at your desk on Thursday. It half-works, which is the worst amount for a thing like this to work.',
+    id: 'minimum', label: 'Fit care into the smallest gap you can make',
+    hint: 'Less recovery and less leave; recurrence remains a risk',
+    line: 'You make a limited arrangement and keep much of the work on your calendar. Some pressure eases. The follow-up and the unfinished work are still competing for the same space.',
     effects: { health: 12, stress: -2, energy: -6 },
     recurs: true,
   },
   ignore: {
-    id: 'ignore', label: 'Tell them you will come back next week',
-    hint: 'No time lost now. A worse version of this, later.',
-    line: 'You do not go back. Nothing terrible happens for eleven weeks, and then something does, and it is the same thing with more of it.',
+    id: 'ignore', label: 'Postpone follow-up for now',
+    hint: 'No leave or bill now; higher stress and greater recurrence risk',
+    line: 'You postpone the next step. The work calendar stays intact; that is the immediate relief. The health problem is unresolved, and fitting it in later may be harder.',
     effects: { health: 4, stress: 6, hope: -6 },
     recurs: true, worse: true,
   },
 };
 
-// Afterwards. The calendar did not move, and nobody adjusts anything. This is the honest part:
-// not cruelty, just a system with no slot for it.
+// Immediate responses, including after postponement. Do not assume leave has already elapsed.
 export const afterCrisis = {
-  advisor: [
-    '“Feeling better? Good.” A pause of exactly the right length. “Where are we on the draft?”',
-    '“I heard. That sounds rough.” Then, in the same breath and the same tone: “So what is the plan for the deadline?”',
-    '“Take the time you need.” The deadline has not moved. Neither of you mentions that the deadline has not moved.',
-    '“You should have told me sooner.” It is kindly meant. It is also the third thing they say, after the two about the experiments.',
-    'They do not mention it at all. The meeting is about the figures. You cannot tell whether this is tact or whether they do not know.',
-  ],
+  advisor: {
+    practical: {
+      leave: 'I have moved our pending requests back by your leave period. Conference deadlines still need a separate decision.',
+      noRequests: 'There are no pending requests from me to move. Take your leave; we can review the next steps afterward.',
+      postponed: 'If you decide to take time away, tell me which commitments need revisiting.',
+    },
+    acknowledge: 'Thanks for telling me. You do not need to attach a work update to this message.',
+    work: 'I have seen your message. When you can, tell me what this means for the current work plan.',
+    unavailable: 'Your message to Prof. {name} is sent. There is no reply yet.',
+  },
   lab: [
-    'Someone left soup in the fridge with your name on it. No note. You know who it was and you do not say so, because saying so would make it a thing.',
-    '{labmateFirst} covered your section for a week and refuses to let you thank them properly, which is its own small violence.',
-    'The lab is normal with you, immediately and completely, and you cannot decide whether that is the kindest or the loneliest thing.',
+    'Could I bring you something to eat? No work update needed.',
+    'Is there a small task I could take off your list?',
+    'You do not need to keep up with the lab chat today. I can pass along anything that needs an answer.',
   ],
   self: [
-    'You are back. Nothing about the timeline has changed and everything about your relationship to it has.',
-    'The two weeks are gone and the deadline is where it was. You do the arithmetic once and then decide not to do it again.',
-    'You have started answering “how are you” differently, and only to two people.',
+    'You look at the work calendar again. The health interruption is real even where the schedule has no box for it.',
+    'You start sorting what can wait from what needs an answer. The list is smaller than before. It is still a list.',
+    '“How are you?” does not have to mean “Are you working again?” You notice who leaves room for a different answer.',
   ],
 };
 
-export const CRISIS_NOTE = 'You cannot plan around this one. That is what makes it different from every other thing in this game.';
+export const CRISIS_NOTE = 'These choices change recovery, leave, and costs in this run. Work deadlines do not move automatically.';

@@ -1,0 +1,15 @@
+export const exitStoryZh = {
+  'You save the unfinished dissertation with the code and the notes. The filename still says draft. The work has a place in the archive even without a defense date; whether you return to it is a question for another calendar.': '你把未完成的学位论文、代码和笔记存放在一起。文件名还写着草稿。没有答辩日期，这些工作也在档案里有个位置；是否再回来做，是以后日历上的问题。',
+  'The transcript lists the master’s degree. Ordering a copy costs twelve dollars. You put it beside the work you can show and start deciding which parts belong on the next application.': '成绩单上列着硕士学位。订一份副本要十二美元。你把它放在可以展示的工作旁边，开始决定下一份申请该写哪些部分。',
+  'The new job has its own forms, acronyms, and people who know where things are kept. When someone asks about the PhD, you give the version you want to give. Then the conversation returns to the work in front of you.': '新工作也有自己的表格、缩写，以及知道东西放在哪儿的人。有人问起博士经历，你说自己愿意说的那个版本。然后话题回到眼前的工作。',
+  'The calendar has an empty space where group meeting used to be. At first you still check the time. There is no recovery deadline in the space, and no progress report to send about it.': '日历上原来组会的位置空了出来。起初，你还是会看时间。那块空白里没有康复截止日期，也不需要为此发送进度汇报。',
+  'The office asks for a preferred next advisor on a form you have not yet decided to submit. You leave the field blank while asking what can transfer and what cannot. A blank field is not an agreement to start over.': '办公室的表格上要填意向新导师，你还没决定是否提交。你先把那一栏空着，问清哪些工作能转过去、哪些不能。留空不等于同意从头再来。',
+  'You put the application materials in a folder with the year on it. They are available if you choose another cycle. The next calendar could contain applications, work, or something you were postponing; none of those decisions is due tonight.': '你把申请材料放进标着年份的文件夹。如果决定再申请，它们还在。下一本日历里可以是申请、工作，也可以是一直推迟的事；这些决定都不必今晚交。',
+  'You request the committee’s written decision and a record of the coursework you completed. The decision does not change. The record is more specific than the word you have been using for the whole experience.': '你索要委员会的书面决定，以及已完成课程的记录。决定没有改变。那份记录，比你一直用来概括整段经历的那个词具体得多。',
+  'The prototype reaches someone who was not in the lab. Their first question is about a button, not the method. You write it down. Whether there is a business here is still a question, and this is a different way of investigating it.': '原型到了实验室之外的人手里。第一个问题问的是按钮，不是方法。你记了下来。这能不能成为一门生意，仍然是个问题；现在换了一种办法去研究它。',
+  'You leave the program. Recovery no longer has to fit between meetings. The withdrawal form still asks for an expected return date.': '你离开项目。恢复不必再挤在会议之间。退出表格仍然要填预计返校日期。',
+  'You leave to work on the product. There is no committee to approve it; there are customers who may not want it.': '你离开学校去做产品。不再有委员会负责批准；会有可能不想要它的客户。',
+  'This advising arrangement cannot continue. The department has a form for changing it, and questions the form does not answer.': '这段指导安排无法继续。系里有更换安排的表格，也有表格回答不了的问题。',
+  'You accept the offer and arrange the handover. The research files stay in the lab; you keep a permitted copy of your own work.': '你接受录用，安排交接。研究文件留在实验室；在允许的范围内，你保留自己工作的副本。',
+  'You leave with an MS. The department changes the degree line in its records. You keep the completed work and the questions that remain open.': '你带着硕士学位离开。系里改了档案上的学位一栏。做完的工作和还没解开的问题，你都留着。',
+};

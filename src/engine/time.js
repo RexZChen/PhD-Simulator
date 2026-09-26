@@ -3,7 +3,7 @@ import { dayBlocks } from './../data/life.js';
 import { focusAvailability } from '../data/calendar.js';
 import { venueById } from '../data/venues.js';
 import { t } from '../i18n/index.js';
-import { TOTAL_MONTHS } from './state.js';
+import { TOTAL_MONTHS, editable, activeProject } from './state.js';
 
 export const sprintSets = {
   deadline: [
@@ -15,7 +15,7 @@ export const sprintSets = {
     { id: 'sleep', name: 'Sleep and eat', icon: 'moon', desc: 'A radical strategy. Advisor may notice.', effects: { energy: 14, stress: -8, satisfaction: -2 }, personality: 'boundarySetter' },
   ],
   rebuttal: [
-    { id: 'writing', name: 'Draft the rebuttal', icon: 'paper', desc: 'Answer three reviewers in 5,000 characters.', effects: { energy: -5, stress: 3, writingQuality: 2 }, skill: 'writing' },
+    { id: 'writing', name: 'Draft the rebuttal', icon: 'paper', desc: 'Answer the reviewers within the response limit.', effects: { energy: -5, stress: 3, writingQuality: 2 }, skill: 'writing' },
     { id: 'experiments', name: 'Run the extra experiment', icon: 'research', desc: 'The one Reviewer 2 wants. It might help.', effects: { energy: -6, stress: 3, evidence: 5 }, skill: 'research', personality: 'grinder' },
     { id: 'feedback', name: 'Ask the lab to read it', icon: 'chat', desc: 'A second opinion on your opinion.', effects: { energy: -3, writingQuality: 3, trust: 1 }, skill: 'communication' },
     { id: 'sleep', name: 'Sleep. Reviews cannot be un-read.', icon: 'moon', desc: 'Recovery.', effects: { energy: 12, stress: -8 }, personality: 'boundarySetter' },
@@ -35,7 +35,8 @@ export function milestoneOf(s) {
   if (!m) return s.month <= 23 ? { kind: 'prelim', month: 23 } : null;
   if (!m.prelim || m.prelim === 'retake') return { kind: 'prelim', month: m.prelimMonth };
   if (!m.proposal || m.proposal === 'conditional' || m.proposal === 'retake') return { kind: 'proposal', month: m.proposalMonth };
-  if (m.defenseMonth !== null && m.defenseMonth !== undefined && !m.defense) return { kind: 'defense', month: m.defenseMonth };
+  // Major revisions schedule another defense; only a pass closes the milestone.
+  if (m.defenseMonth !== null && m.defenseMonth !== undefined && (!m.defense || m.defense === 'revisions')) return { kind: 'defense', month: m.defenseMonth };
   return null;
 }
 export function crunchOf(s) {
@@ -53,14 +54,16 @@ export function crunchOf(s) {
 }
 // Seasons: three calm months at once, once the prelim is behind you.
 export function seasonEligible(s) {
-  if (s.phase !== 'playing' || s.month < 24 || s.week !== 0 || s.pace === 'month' || crunchOf(s)) return false;
+  if (s.phase !== 'playing' || s.leaveWeeks > 0 || s.month < 24 || s.week !== 0 || s.dayIndex > 0 || s.pace === 'month' || crunchOf(s)) return false;
   if (s.month + 3 > TOTAL_MONTHS - 1) return false;
   const horizon = s.month + 3;
+  if (s.advisorTenure?.status === 'notice' && s.advisorTenure.advisorId === s.advisor?.id && s.advisorTenure.departureMonth < horizon) return false;
   const ms = milestoneOf(s);
   if (ms && ms.month < horizon) return false;
   if (s.internship && s.internship.start < horizon && s.internship.end >= s.month) return false;
   if (s.thesis && !s.thesis.deposited) return false;          // a deposit deadline is not a calm season
   if (s.grad && s.grad.asked && !s.grad.settled) return false; // nor is an unsettled finishing date
+  if (s.requests.some(r => r.status === 'open')) return false;
   for (const p of s.projects) {
     if (p.targetMonth !== null && p.targetMonth !== undefined && p.targetMonth < horizon && !['Submitted', 'Rebuttal', 'Accepted', 'Abandoned'].includes(p.status)) return false;
     if (p.status === 'Advisor Review') return false;
@@ -71,10 +74,20 @@ export function seasonEligible(s) {
   return true;
 }
 export const DAYS_PER_WEEK = 5;
+export const remainingWeeks = s => Math.max(0, 4 - s.week - (s.dayIndex || 0) / DAYS_PER_WEEK);
+export const turnWeeks = s => s.tempo === 'day' ? 1 / DAYS_PER_WEEK
+  : s.tempo === 'week' ? 1 - (s.dayIndex || 0) / DAYS_PER_WEEK
+    : s.tempo === 'season' ? 12 : remainingWeeks(s);
+// Ordinary plans are specified per month; sprint plans are specified per week.
+// Looking more closely at the calendar must not multiply a monthly plan's output.
+export function focusScale(s, focus, weeks = Math.max(0, turnWeeks(s) - (s.leaveWeeks || 0))) {
+  const duration = focus.durationWeeks ?? (['week', 'day'].includes(s.tempo) ? 1 : 4);
+  return weeks / duration * (s.tempo === 'season' ? .9 : 1);
+}
 // Day pace: the last week before a deadline runs one day at a time, and the player can
 // drop into it manually during any crunch week.
 export function dayEligible(s) {
-  const c = s.crunch || crunchOf(s);
+  const c = crunchOf(s);
   if (!c) return false;
   if (s.dayOff === s.month) return false;
   if (c.type === 'deadline' || c.type === 'rebuttal') return s.week >= 3 || s.dayMode === s.month;
@@ -84,19 +97,41 @@ export const tempoOf = s => crunchOf(s) ? (dayEligible(s) ? 'day' : 'week') : se
 // Serializable snapshot of the crunch for the current turn.
 export const crunchSnapshot = s => { const c = crunchOf(s); return c ? { type: c.type, kind: c.kind || null, venueName: c.venueName || null, projectId: c.project?.id || null, venueId: c.venue?.id || null } : null; };
 
+export function leaveCoversTurn(s) {
+  const weeks = turnWeeks(s);
+  return s.leaveWeeks > 0 && s.leaveWeeks >= weeks - 1e-9;
+}
+
+const paperEffectKeys = ['progress', 'draft', 'evidence', 'writingQuality', 'novelty', 'technicalDepth', 'reproducibility', 'scope'];
+function paperPlans(s, options) {
+  const target = s.crunch?.type === 'deadline' ? s.projects.find(p => p.id === s.crunch.projectId) : activeProject(s);
+  if (editable(target)) return options;
+  const reason = target ? t('That draft is already with someone. Its status is “{status}”.', { status: t(target.status) }) : t('No project you can work on. Start one in the Projects box.');
+  return options.map(f => ({ ...f, disabled: paperEffectKeys.some(k => f.effects[k]) ? reason : null }));
+}
+
 export function focusOptions(s) {
-  if (s.tempo === 'day') return dayBlocks.map(b => ({ ...b, desc: b.blurb, effects: { energy: b.energy, ...b.effects } }));
+  if (leaveCoversTurn(s)) return [{ id: 'recovery', name: t('Recovery leave'), icon: 'heart',
+    desc: t('Continue to use your leave. Research and meetings wait.'), effects: {}, locked: true }];
+  if (s.crunch?.type === 'rebuttal') {
+    const open = s.projects.some(p => p.id === s.crunch.projectId && p.status === 'Rebuttal');
+    return sprintSets.rebuttal.map(f => ({ ...f, disabled: !open && f.id !== 'sleep' ? t('No rebuttal is currently open.') : null }));
+  }
+  if (s.tempo === 'day' && s.crunch?.type !== 'zoom') return paperPlans(s, dayBlocks.map(b => ({ ...b, desc: b.blurb, effects: { energy: b.energy, ...b.effects } })));
   if (s.internship && s.month >= s.internship.start && s.month <= s.internship.end) return [{ ...internshipFocus, locked: true }];
   const crunch = s.crunch || null;
-  if (crunch) return sprintSets[crunch.type === 'defense' ? 'prelim' : crunch.type === 'zoom' ? 'deadline' : crunch.type].map(f => ({ ...f }));
+  if (crunch && crunch.type !== 'zoom') {
+    const options = sprintSets[crunch.type === 'defense' ? 'prelim' : crunch.type].map(f => ({ ...f }));
+    return crunch.type === 'deadline' ? paperPlans(s, options) : options;
+  }
   const availability = focusAvailability(s.month);
   // Research and Write need something to work on. An Accepted paper stays in s.projects forever,
   // so once the first one landed these two stayed enabled, still advertising "▲ Progress +++",
   // and silently produced nothing — for as long as the player failed to guess that the fix was to
   // start another project. Measured at 44% of a naive player's turns.
-  const editable = (s.projects || []).some(p => !['Accepted', 'Abandoned'].includes(p.status));
-  const noProject = editable ? null : t('No project you can work on. Start one in the Projects box.');
-  return focuses.map(f => ({ ...f, disabled: availability[f.id] || (['research', 'write'].includes(f.id) ? noProject : null) }));
+  const hasEditable = (s.projects || []).some(editable);
+  const noProject = editable(activeProject(s)) ? null : hasEditable ? t('Pick an editable project first.') : t('No project you can work on. Start one in the Projects box.');
+  return focuses.map(f => ({ ...f, durationWeeks: 4, disabled: availability[f.id] || (['research', 'write'].includes(f.id) ? noProject : null) }));
 }
 export const focusById = (s, id) => focusOptions(s).find(f => f.id === id) || null;
 
@@ -116,12 +151,11 @@ export function paceOptions(s) {
   const why = {
     season: s.month < 24 ? 'Seasons open once the prelim is behind you.'
       : forced ? 'Not while there is a deadline this month.'
-      : s.week !== 0 ? 'Only at the start of a month.'
+      : s.week !== 0 || s.dayIndex > 0 ? 'Only at the start of a month.'
       : !seasonEligible(s) ? 'Something on the calendar needs this month one at a time.' : null,
     month: forced ? 'A deadline this month takes it week by week.' : null,
     week: forced || s.week === 0 ? null : 'The month is already under way.',
     day: !c ? 'Day pace is for deadline weeks.'
-      : s.dayOff === s.month ? 'You stepped back out of day pace this month.'
       : (c.type === 'deadline' || c.type === 'rebuttal') && s.week < 3 ? 'The last week of a deadline month.'
       : null,
   };

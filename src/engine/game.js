@@ -3,12 +3,12 @@ import { t } from '../i18n/index.js';
 import { monthOf, isSummer, nextIndexFor, dateLabel as calLabel } from '../data/calendar.js';
 import { chatphdLines, chatphdReplies, advisorPings, logLines } from '../data/chatter.js';
 import { repliesFor } from '../data/replies.js';
-import { channelActionById } from '../data/social.js';
+import { socialAction } from './social.js';
 import { clamp, random, roll, pick, pickFresh } from './probability.js';
 import { effects, log, message, sentMail, chat, finish, award, populateLab, activeProject, absWeek, lastName, firstName, editable, fill, joined, TOTAL_MONTHS, vars, activeLabmates, seedPriorWork } from './state.js';
-import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate } from './events.js';
+import { scheduleTurnEvents, resolveChoice, hooks, pushEvent, openNext, resolvePushback, hesitate, templateById, eligible } from './events.js';
 import { lectureLines } from '../data/minigames.js';
-import { createProject, createThesis, benchSession, clusterSession, canStartMain, canStartSide, syncProject, write, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
+import { createProject, createThesis, benchSession, clusterSession, canStartMain, canStartSide, syncProject, write, writeBudget, sendAdvisor, skipApproval, submit, processPapers, closeRebuttals, rebut, recycle, preprint, paperQuality, setTarget, canSetTarget, clearTarget, venueById, venuesForTopic, canSubmitNow } from './paper.js';
 import { patentMonth, openPatent, doPatentMeeting, answerOfficeAction, nextPatentMeeting } from './patent.js';
 import { networkMonth, netTalk, netCollab, doCollab, askNetLetter, netIntro, meetContact } from './network.js';
 import { updateAdvisorMode, monthlyMeetings, weeklyMeeting, generateRequests, expireRequests, doRequest, pushbackRequest, declineRequest, ask, updatePressure, advisorPing, shiftCadence, revealHint, reviewLatencyWeeks, advisorResponds, newAdvisor } from './advisor.js';
@@ -24,16 +24,20 @@ import { useFixture } from './desk.js';
 import { accrueCitations } from './scholar.js';
 import { updateStanding, updateQuitPressure, fired, quit, quitBand } from './divergence.js';
 import { prepareTrip, resolveVisa, scoreTalk, answerQuestion, spendTripDay, resolveCaught, endTrip, upgradeTrip } from './trip.js';
-import { buildCV, generateOffers, startEpilogue, answerBeat, currentBeat } from './epilogue.js';
+import { buildCV, generateOffers, offerFor, startEpilogue, answerBeat, currentBeat } from './epilogue.js';
 import { trackEndings } from '../data/endings.js';
 import { trackById, ACADEMIC } from '../data/tracks.js';
 import { drawWeather, weatherLine, openBoard } from './market.js';
-import { beginRevisions, revise, deposit, canDeposit, revisionMonth, revisionsLeft } from './thesis.js';
+import { beginRevisions, revise, deposit, canDeposit, revisionMonth, revisionsLeft, defenseScheduleUnavailable } from './thesis.js';
 import { openTimeline, playTimelineMove, canAskTimeline, timelineDrift } from './timeline.js';
-import { crunchOf, tempoOf, focusOptions, focusById, crunchSnapshot, milestoneOf, seasonEligible, dayEligible, paceOptions, setPace, DAYS_PER_WEEK, canDecideThesis, thesisFloor } from './time.js';
+import { crunchOf, tempoOf, focusOptions, focusById, focusScale, crunchSnapshot, milestoneOf, seasonEligible, dayEligible, paceOptions, setPace, DAYS_PER_WEEK, turnWeeks, canDecideThesis, thesisFloor } from './time.js';
 import { applyInternships, canApplyIntern, openInternTalk, playInternMove, endInternship, ensureIntern, internWindow } from './internship.js';
 import { addFunding } from './funding.js';
 import { fundingSources } from '../data/fundingSources.js';
+import { processRelocation, transferSupportActive } from './relocation.js';
+import { arrangeRetirement, consultEmeritus, maintainSupervision, handoverSupportActive } from './supervision.js';
+import { maintainTenure } from './tenure.js';
+import { legacyVenture } from './venture.js';
 import { react, replyTo, sendDm, dmPeople, dmOptions, replyOptionsFor, roomReacts } from './slack.js';
 import { askLetter, availableWriters, letterCount, lettersReady, packetStrength, closeLetters, needsLetters } from './letters.js';
 import { applyJob, jobsMonth, discloseSearch, withdrawApp, setWorkAuth, listingsFor, openPortals, funnel, liveOffers, ensureJobs } from './jobsearch.js';
@@ -64,8 +68,9 @@ hooks.jobTrack = (s, track) => {
   if (line) chat(s, 'advisor', a.name, line);
   if (!ACADEMIC.includes(track) && a.ambition > 70) chat(s, 'advisor', a.name, t('I will support whatever you decide. I would be lying if I said I was not disappointed, and you should ignore that entirely.'));
 };
-hooks.newAdvisor = s => newAdvisor(s);
-hooks.openPatent = s => openPatent(s, activeProject(s)?.id);
+hooks.newAdvisor = (s, reason) => newAdvisor(s, reason);
+hooks.retirement = (s, kind, success) => arrangeRetirement(s, kind, success, newAdvisor);
+hooks.openPatent = (s, projectId) => openPatent(s, projectId || activeProject(s)?.id);
 hooks.fired = s => fired(s);
 hooks.conference = (s, p) => { s.pendingTrip = p.id; };
 hooks.quit = (s, how) => quit(s, how);
@@ -95,8 +100,8 @@ hooks.funding = (s, spec) => {
 };
 hooks.acceptInternship = s => {
   const start = nextIndexFor(6, s.month + 1);
-  if (start > 22 || s.internship) return;
-  s.internship = { start, end: Math.min(23, start + 2), company: s.company, typeId: pick(s, ['sde', 'mle', 'research']), mentor: null, salary: 9000 };
+  if (start >= TOTAL_MONTHS || s.internship) return;
+  s.internship = { start, end: Math.min(TOTAL_MONTHS - 1, start + 2), company: s.company, typeId: pick(s, ['sde', 'mle', 'research']), mentor: null, salary: 9000 };
   if (s.player.profile.international) s.scheduled.push({ id: 'cpt', week: absWeek(s) + 4 });
   log(s, t('Internship at {company} confirmed for {from}–{to}. Summer has a salary now.', { company: s.company, from: calLabel(start), to: calLabel(s.internship.end) }));
 };
@@ -132,10 +137,25 @@ function snapshot(s) {
 }
 
 function monthStart(s, first = false, intermediate = false) {
+  s.dayIndex = 0; s.dayActions = {};
+  processRelocation(s);
+  maintainTenure(s);
+  maintainSupervision(s);
   const m = monthOf(s.month);
+  const transferCovered = transferSupportActive(s) || handoverSupportActive(s);
+  if (transferCovered) s.ta = false;
+  const support = s.transferSupport;
+  if (support && !support.expiryNotified && s.month >= support.until
+      && support.schoolId === s.program?.id) {
+    support.expiryNotified = true;
+    s.ta = !handoverSupportActive(s) && !(s.flags.fellow && s.month < 12)
+      && (s.month < 12 || s.advisor.funding < 50 || !!s.flags.extraTA || !!s.flags.hardTA);
+    if (s.month >= 60 && s.advisor.funding < 60 && !s.ta && !s.flags.fellow && !s.flags.loan && !s.flags.finishFast) s.flags.fundingGap = true;
+    log(s, t('The departmental transfer funding guarantee has ended. Your regular teaching and funding rules apply again this month.'));
+  }
   if (!first) {
     const interning = s.internship && s.month >= s.internship.start && s.month <= s.internship.end;
-    const summerGap = isSummer(s.month) && s.ta && s.month >= 12 && !interning && !s.flags.summerTA && !s.flags.summerCovered;
+    const summerGap = !transferCovered && isSummer(s.month) && s.ta && s.month >= 12 && !interning && !s.flags.summerTA && !s.flags.summerCovered;
     monthlyLedger(s);
     if (summerGap && m === 6) log(s, t('Summer funding gap. The stipend has become a suggestion.'));
     if (s.debt > 4000 && !s.flags.debtNoticed) {
@@ -153,7 +173,7 @@ function monthStart(s, first = false, intermediate = false) {
     // who never taught in six years, which was 52% of runs against a real ~5%.
     const firstYear = s.month < 12;
     const covered = s.flags.fellow && s.month < 12;
-    s.ta = !covered && (firstYear || s.advisor.funding < 50 || !!s.flags.extraTA || !!s.flags.hardTA);
+    s.ta = !transferCovered && !covered && (firstYear || s.advisor.funding < 50 || !!s.flags.extraTA || !!s.flags.hardTA);
     if (s.ta) s.counts.taSemesters = (s.counts.taSemesters || 0) + 1;   // what you taught, not what you are teaching
     if (m === 9) { s.flags.summerTA = false; s.flags.summerCovered = false; }
   }
@@ -196,52 +216,58 @@ function monthStart(s, first = false, intermediate = false) {
   if (s.milestones.prelim === 'conditional' && s.month >= 36) { if (s.counts.accepted >= 1) { s.milestones.prelim = 'pass'; log(s, t('The conditional pass is now a pass. The condition was a paper; the paper exists.')); } else { finish(s, 'master', t('Mastered Out'), t('The conditional pass expired without a paper. You leave with an MS and a body of work that will haunt someone’s related-work section.')); return; } }
   if (s.milestones.prelim === 'conditional' && s.month === 30) message(s, t('Graduate Studies'), t('Reminder: conditional pass'), t('Your preliminary examination result was a conditional pass. The condition (an accepted publication) must be met by the end of August 2031.'), 'portal', 'inbox', 'policies');
   // Year six funding: stipend shrinks unless someone covers it.
-  if (s.month >= 60 && s.advisor.funding < 60 && !s.ta && !s.flags.fellow && !s.flags.loan && !s.flags.finishFast) s.flags.fundingGap = true;
+  if (!transferCovered && s.month >= 60 && s.advisor.funding < 60 && !s.ta && !s.flags.fellow && !s.flags.loan && !s.flags.finishFast) s.flags.fundingGap = true;
   if (intermediate) return;
   s.report = { before: snapshot(s), events: [], focus: null, meetings: null, month: s.month, weeks: [], ledger: s.ledger || null, monthsCovered: 1 };
   // Real movement on a project is something an advisor can see in a meeting, so it counts as
   // output too — not only a draft that was formally sent.
   s.turnStartWork = s.projects.reduce((a, p) => a + (p.progress || 0) + (p.draft || 0), 0);
   beginTurn(s);
-  if (s.eventQueue.length) { s.eventReturn = 'plan'; openNext(s); }
+  if (s.eventQueue.length && s.stage !== 'crisis') { s.eventReturn = 'plan'; openNext(s); }
 }
 
 // Entering the planning stage: refresh papers, tempo, and defaults.
-function beginTurn(s) {
-  processPapers(s);
-  syncProject(s);
+function refreshPlanning(s) {
   s.crunch = crunchSnapshot(s);
   s.tempo = tempoOf(s);
   const current = activeProject(s);
-  if (current && !editable(current)) { const other = s.projects.find(p => editable(p)); if (other) s.activeProjectId = other.id; }
+  if (['rebuttal', 'deadline'].includes(s.crunch?.type)) s.activeProjectId = s.crunch.projectId;
+  else if (current && !editable(current)) { const other = s.projects.find(p => editable(p)); if (other) s.activeProjectId = other.id; }
   const options = focusOptions(s);
   if (options.length === 1 && options[0].locked) s.focus = options[0].id;
   else if (!options.some(f => f.id === s.focus && !f.disabled)) s.focus = null;
+}
+function beginTurn(s) {
+  processPapers(s);
+  syncProject(s);
+  refreshPlanning(s);
   s.typed = 0; s.actions = {}; s.needsBegin = false; s.doorScene = null;
-  if (s.tempo === 'day') { s.dayActions = s.dayActions || {}; s.dayIndex = s.dayIndex || 0; } else { s.dayIndex = 0; s.dayActions = {}; }
+  s.dayActions ||= {}; s.dayIndex ||= 0;
   // An open crisis is a gate on the turn, not a screen you can be pushed off. The body is not
   // optional and neither is this: you answer it before you plan anything else.
   s.stage = s.crisis && !s.crisis.resolved ? 'crisis' : 'plan';
   s.notice = fieldNote(s);
   // A conference month takes over the whole window; open it once the turn is otherwise ready.
-  if (s.pendingTrip) {
+  if (s.pendingTrip && s.stage !== 'crisis') {
     const p = s.projects.find(x => x.id === s.pendingTrip);
     s.pendingTrip = null;
     if (p) prepareTrip(s, p);
   }
 }
 
-function applyTurn(s) {
+function applyTurn(s, { seasonChunk = false, deferEvents = false } = {}) {
   if (s.stage !== 'plan') throw new Error('Finish what is on screen first.');
   const f = focusById(s, s.focus);
   if (!f || f.disabled) throw new Error(s.tempo === 'week' ? t('Choose what this week goes to.') : t('Choose a plan for the month first.'));
   if (s.tempo === 'season' && !seasonEligible(s)) { s.tempo = 'month'; s.report.monthsCovered = 1; }
-  if (f.id === 'rest') { s.counts.rested = (s.counts.rested || 0) + 1; if (s.counts.rested >= 9) award(s, 'ninerest'); }
+  if (f.id === 'rest' && !(s.leaveWeeks > 0)) { s.counts.rested = (s.counts.rested || 0) + turnWeeks(s) / 4; if (s.counts.rested >= 9) award(s, 'ninerest'); }
   const tempo = s.tempo, crunch = s.crunch;
   const isDay = tempo === 'day';
-  const weeks = isDay ? 1 / DAYS_PER_WEEK : tempo === 'week' ? 1 : tempo === 'season' ? 12 : 4 - s.week;
+  const weeks = turnWeeks(s);
+  const intervalStart = s.week + (s.dayIndex || 0) / DAYS_PER_WEEK;
   expireRequests(s);
-  const leave = isDay ? 0 : Math.min(s.leaveWeeks, weeks); s.leaveWeeks -= leave;
+  const leave = Math.min(Math.max(0, s.leaveWeeks || 0), weeks);
+  s.leaveWeeks = Math.max(0, Math.round(((s.leaveWeeks || 0) - leave) * 1e9) / 1e9);
   const work = weeks - leave;
   const st = s.player.stats;
   const productivity = clamp((.55 + s.player.skills.research / 150) * (st.energy < 25 ? .55 : 1) * (st.hope < 25 ? .7 : 1) * (s.burnoutMonths > 0 ? .65 : 1) * (s.mutators.includes('drought') && ['ml', 'nlp', 'robotics'].includes(s.player.profile.topic) ? .9 : 1), .2, 1.3);
@@ -249,34 +275,47 @@ function applyTurn(s) {
   // same is true of going home: you cannot stop for the evening AND deliver the whole month, and
   // pretending otherwise made the sixth door strictly better than the other five.
   const kept = summonsKeep(s) * (1 - clamp(s.turnBite || 0, 0, .3));
-  const scale = (isDay ? work : tempo === 'week' ? work : tempo === 'season' ? work / 4 * .9 : work / 4) * kept;
+  const scale = focusScale(s, f, work) * (seasonChunk ? .9 : 1) * kept;
   const delta = {};
   for (const [k, v] of Object.entries(f.effects)) delta[k] = v * scale;
-  const p = activeProject(s);
+  const rebuttalProject = crunch?.type === 'rebuttal' ? s.projects.find(p => p.id === crunch.projectId && p.status === 'Rebuttal') : null;
+  const deadlineProject = crunch?.type === 'deadline' ? s.projects.find(p => p.id === crunch.projectId && editable(p)) : null;
+  const p = rebuttalProject || deadlineProject || activeProject(s);
   for (const k of ['progress', 'draft', 'evidence', 'writingQuality']) if (delta[k] && delta[k] > 0) delta[k] *= productivity;
   if (p && delta.progress > 0) delta.progress *= 1 - p.scope / 220;
   if (p && f.id === 'research' && p.progress >= 35 && ['Drafting', 'Experiments', 'Prototype'].includes(p.status)) delta.draft = (delta.draft || 0) + 5 * scale;
   if (p && f.id === 'write') delta.progress = (delta.progress || 0) + 4 * scale;
-  if (p && (f.id === 'write' || f.id === 'writing') && work > 0) delta.writingQuality = Math.max(1, (s.player.skills.writing + st.energy + s.advisor.management / 3 - s.player.hidden.stress * .6) / 30) * scale * (tempo === 'week' || isDay ? 2 : 1);
+  if (p && (f.id === 'write' || f.id === 'writing') && work > 0) delta.writingQuality = Math.max(1, (s.player.skills.writing + st.energy + s.advisor.management / 3 - s.player.hidden.stress * .6) / 30) * scale * (f.durationWeeks !== 4 && (tempo === 'week' || isDay) ? 2 : 1);
   if (p && p.collaborators.length > 1 && delta.progress > 0) delta.progress *= 1.15;
   if (f.id === 'career' && [9, 10, 11].includes(monthOf(s.month))) delta.career = (delta.career || 0) * 1.3;
   if (f.id === 'teach' && !s.ta) delta.money = (delta.money || 0) * .5;
+  // Rebuttal work is a narrow exception to manuscript immutability. It belongs to the
+  // paper whose window is open, not whichever document is selected in another app.
+  // Quality feeds the eventual decision; submitted papers remain locked to generic effects.
+  if (rebuttalProject) for (const key of ['evidence', 'writingQuality']) {
+    if (delta[key]) rebuttalProject[key] = clamp(rebuttalProject[key] + delta[key]);
+    delete delta[key];
+  }
+  if (deadlineProject) for (const key of ['progress', 'draft', 'evidence', 'writingQuality', 'novelty', 'technicalDepth', 'reproducibility', 'scope']) {
+    if (delta[key]) deadlineProject[key] = clamp(deadlineProject[key] + delta[key]);
+    delete delta[key];
+  }
   effects(s, delta);
   clearSummons(s);
   s.turnBite = 0;
-  if (leave) { effects(s, { energy: 12 * leave, stress: -10 * leave, hope: 4 * leave }); log(s, leave === weeks ? t('On leave. The laptop stayed closed for a whole week, which counts as a miracle.') : t('A week of leave, then back to it.')); }
+  if (leave) { effects(s, { energy: 12 * leave, stress: -10 * leave, hope: 4 * leave }); log(s, t('Leave used: {n} week(s). Work resumes only in the remaining time.', { n: Math.round(leave * 100) / 100 })); }
   const commute = s.housing.commute * .5, taDrag = s.ta ? (s.month < 12 ? .45 : .8) : 0, stressDrag = s.player.hidden.stress > 65 ? 1.5 : 0, health = s.flags.resolutionHealth ? .5 : 0, cat = s.flags.cat ? .3 : 0;
   const openRequests = s.requests.filter(r => r.status === 'open').length;
-  effects(s, { energy: (3.2 - commute - taDrag - stressDrag + health + cat) * weeks, stress: (-.5 + (s.pressure > 60 ? .5 : 0) + (tempo === 'week' ? 1.5 : 0) + openRequests * .5) * weeks });
+  effects(s, { energy: (3.2 - stressDrag + health + cat) * weeks - (commute + taDrag) * work, stress: -.5 * weeks + ((s.pressure > 60 ? .5 : 0) + (tempo === 'week' && crunch?.type !== 'zoom' ? 1.5 : 0) + openRequests * .5) * work });
   vitalsDrift(s, weeks);
-  if (tempo === 'month' && p && s.report?.before && p.progress <= (s.report.before.projects?.[p.id]?.progress ?? 0) && !['Submitted', 'Rebuttal', 'Accepted'].includes(p.status) && f.id !== 'rest') effects(s, { hope: -2 });
+  if (work > 0 && tempo === 'month' && p && s.report?.before && p.progress <= (s.report.before.projects?.[p.id]?.progress ?? 0) && !['Submitted', 'Rebuttal', 'Accepted'].includes(p.status) && f.id !== 'rest') effects(s, { hope: -2 });
   if (st.money < 0) effects(s, { stress: 2 * weeks, hope: -.5 * weeks });
   else if (st.money < 300) effects(s, { stress: 1 * weeks, hope: -.25 * weeks });
   if (f.skill) s.player.skills[f.skill] = clamp(s.player.skills[f.skill] + .15 * work);
   if (f.personality && work > 0) s.player.personality[f.personality]++;
-  if (s.player.profile.style === 'collaborative' && (f.id === 'network' || f.id === 'feedback')) effects(s, { trust: 2 });
+  if (work > 0 && s.player.profile.style === 'collaborative' && (f.id === 'network' || f.id === 'feedback')) effects(s, { trust: 2 * (f.durationWeeks === 4 ? Math.min(1, work / 4) : 1) });
   if (s.player.personality.boundarySetter >= 5) award(s, 'boundary');
-  const ctx = { tempo, crunch, monthsList: tempo === 'season' ? [0, 1, 2].map(i => monthOf(s.month + i)) : null };
+  const ctx = { tempo, crunch, leave, fullLeave: work <= 1e-9, meetingStart: intervalStart + leave, meetingEnd: intervalStart + weeks, workWeeks: work, monthsList: tempo === 'season' ? [0, 1, 2].map(i => monthOf(s.month + i)) : null };
   let meetingTemplate = null, present = false;
   if (tempo === 'season') {
     const parts = [0, 1, 2].map(() => monthlyMeetings(s, ctx));
@@ -285,15 +324,15 @@ function applyTurn(s) {
     for (let i = 0; i < 2; i++) monthlyDrift(s);
     log(s, t('{focus} season ({from}–{to}). {held} of {expected} one-on-ones happened.', { focus: f.name, from: calLabel(s.month), to: calLabel(s.month + 2), held: mm.held, expected: mm.expected }), true);
   } else if (tempo === 'month') {
-    const mm = monthlyMeetings(s, ctx);
+    const mm = ctx.fullLeave ? { expected: 0, held: 0, cancelled: 0, lines: [], groupLine: '', present: false, meetingTemplate: null } : monthlyMeetings(s, ctx);
     s.report.meetings = mm; s.report.focus = f.name; meetingTemplate = mm.meetingTemplate; present = mm.present;
     log(s, t('{focus} month. {held} of {expected} one-on-ones happened.', { focus: f.name, held: mm.held, expected: mm.expected }), true);
   } else if (isDay) {
     s.report.days = s.report.days || [];
-    s.report.days.push({ week: s.week + 1, day: (s.dayIndex || 0) + 1, focus: f.name, coffee: s.caffeine?.day || 0, skipped: s.dayMeals || 0 });
+    s.report.days.push({ week: s.week + 1, day: (s.dayIndex || 0) + 1, focus: f.name, leave, coffee: s.caffeine?.day || 0, skipped: s.dayMeals || 0 });
     log(s, t('{day}: {focus}.', { day: dayName(s), focus: f.name }), true);
   } else {
-    const wm = weeklyMeeting(s, ctx);
+    const wm = ctx.fullLeave ? { meetingTemplate: null, held: 0, cancelled: 0 } : weeklyMeeting(s, ctx);
     meetingTemplate = wm.meetingTemplate;
     s.report.weeks.push({ week: s.week + 1, focus: f.name, held: wm.held, cancelled: wm.cancelled, leave });
     log(s, t('Week {week}: {focus}.', { week: s.week + 1, focus: f.name }) + (wm.cancelled ? ' ' + t('Meeting cancelled.') : ''), true);
@@ -303,15 +342,83 @@ function applyTurn(s) {
     s.dayActions = {}; s.dayMeals = 0;
     if (s.caffeine) { s.caffeine.day = 0; }
     if (s.dayIndex >= DAYS_PER_WEEK) { s.dayIndex = 0; s.week += 1; }
-  } else s.week += tempo === 'season' ? 4 : weeks;
+  } else {
+    s.week = tempo === 'week' ? s.week + 1 : 4;
+    s.dayIndex = 0; s.dayActions = {}; s.dayMeals = 0;
+    if (s.caffeine) s.caffeine.day = 0;
+  }
   const monthEnded = s.week >= 4;
   if (monthEnded) { s.week = 4; monthlyDrift(s); }
-  generateRequests(s, weeks, ctx);
+  if (work > 1e-9) generateRequests(s, work, ctx);
   syncProject(s);
   s.eventReturn = monthEnded ? 'report' : 'plan';
   s.needsBegin = !monthEnded;
   if (isDay && !monthEnded) s.dayNote = pick(s, dayWeather);
-  scheduleTurnEvents(s, { ...ctx, meetingTemplate, present, monthEnd: monthEnded });
+  const eventContext = { ...ctx, meetingTemplate, present, monthEnd: monthEnded };
+  if (!deferEvents) scheduleTurnEvents(s, eventContext);
+  return eventContext;
+}
+
+
+// A fast season is three actual months, not twelve weeks credited before the calendar moves.
+// Only routine scene sampling is batched; care and authored interruptions retain their decisions.
+function applySeason(s) {
+  const focus = s.focus, fromMonth = s.month;
+  const report = { ...s.report, before: s.report?.before || snapshot(s), fromMonth, throughMonth: fromMonth,
+    monthsCovered: 0, advanceMonths: 1, ledgers: [], meetings: null, events: s.report?.events || [], weeks: [] };
+  const mergeMeetings = meeting => {
+    if (!meeting) return;
+    if (!report.meetings) report.meetings = { ...meeting, lines: [...meeting.lines] };
+    else {
+      for (const key of ['expected', 'held', 'cancelled']) report.meetings[key] += meeting[key] || 0;
+      report.meetings.lines = report.meetings.lines.concat(meeting.lines).slice(0, 6);
+    }
+  };
+  const interrupt = () => {
+    s.lastSeasonReport = structuredClone(report);
+    s.report = { before: snapshot(s), events: [], focus: null, meetings: null, month: s.month,
+      weeks: [], ledger: s.ledger || null, monthsCovered: 1, interruptedSeason: structuredClone(report) };
+    s.needsBegin = true;
+    log(s, t('Season paused after {n} month(s). The remaining planned work has not been applied.', { n: report.monthsCovered }));
+  };
+  for (let i = 0; i < 3; i++) {
+    s.tempo = 'month'; s.focus = focus; s.stage = 'plan';
+    s.report = { ...report, meetings: null };
+    const context = applyTurn(s, { seasonChunk: true, deferEvents: true });
+    mergeMeetings(s.report.meetings);
+    report.focus = s.report.focus;
+    report.monthsCovered++;
+    report.throughMonth = s.month;
+    if (s.ledger?.month === s.month) report.ledgers.push(structuredClone(s.ledger));
+    s.report = report;
+    const urgent = Object.values(templateById).some(e => e.urgent && eligible(s, e, context));
+    const due = s.scheduled.some(x => x.week <= absWeek(s) && templateById[x.id] && eligible(s, templateById[x.id], context));
+    const milestone = milestoneOf(s);
+    if (i === 2 || urgent || due || s.eventQueue.length || s.requests.some(r => r.status === 'open') || (milestone && milestone.month <= s.month)) {
+      scheduleTurnEvents(s, context);
+      return;
+    }
+    if (s.turnStartWork !== undefined) {
+      const output = s.projects.reduce((sum, p) => sum + (p.progress || 0) + (p.draft || 0), 0);
+      if (output - s.turnStartWork >= 8) s.lastOutputMonth = s.month;
+    }
+    s.month++; s.week = 0;
+    monthStart(s, false, true);
+    if (s.phase !== 'playing') { s.lastSeasonReport = structuredClone(report); return; }
+    if (s.crisis && !s.crisis.resolved) { interrupt(); s.stage = 'crisis'; return; }
+    beginTurn(s);
+    const nextMilestone = milestoneOf(s);
+    if (s.stage === 'plan') {
+      for (const e of Object.values(templateById)) if (e.urgent && eligible(s, e, { tempo: s.tempo, crunch: s.crunch })) pushEvent(s, e.id);
+    }
+    if (s.stage !== 'plan' || s.eventQueue.length || s.pendingTrip || s.crunch || s.leaveWeeks > 0
+        || (nextMilestone && nextMilestone.month <= s.month) || !focusById(s, focus) || focusById(s, focus).disabled) {
+      const stage = s.stage;
+      interrupt();
+      if (s.eventQueue.length && stage === 'plan') { s.eventReturn = 'plan'; openNext(s); }
+      return;
+    }
+  }
 }
 
 function monthlyDrift(s) {
@@ -395,7 +502,7 @@ function outOfTime(s) {
       return true;
     }
     finish(s, 'undeposited', t('Defended, Never Deposited'),
-      t('You passed. There is a form in a drawer in an office that says so, signed by four people.\n\nThe revisions were three weeks of work and you did not do them, because you had started the job, and because the thing you had been carrying for six years had already been put down and could not be picked back up. This happens to more people than anyone admits, and almost none of them are lazy. They are finished, in the way a runner is finished.\n\nThe university will hold your file for five years. Two of those years from now, on a Tuesday, you will open the document again.'));
+      t('You passed the defense. The committee signed one form and left you a list of revisions. That list is still unfinished when the funding window closes.\n\nThe degree has not been conferred. The work exists, the defense happened, and neither substitutes for the deposited dissertation. The university has separate boxes for these facts.\n\nYour run ends here, with an unfinished submission and a record of what you did complete.'));
     return true;
   }
   return false;
@@ -407,7 +514,8 @@ function dismissReport(s) {
   if (ms && ms.month === s.month) { s.stage = 'milestone'; s.milestoneKind = ms.kind; log(s, { prelim: t('The committee has assembled. The projector works, which feels like an omen.'), proposal: t('The proposal committee is in the room. One of them brought lunch.'), defense: t('Defense day. The room is booked for two hours. The cake is booked for one.') }[ms.kind]); return; }
   if (outOfTime(s)) return;
   if (s.month >= TOTAL_MONTHS - 1) { finish(s, 'abd', t('All But Dissertation'), t('Six years. The funding ended before the thesis did. You leave with a master’s, a body of work, and a very specific kind of tiredness. Many good careers begin exactly here.')); return; }
-  advanceMonths(s, s.report?.monthsCovered || 1);
+  if (s.crisis && !s.crisis.resolved) { s.stage = 'crisis'; return; }
+  advanceMonths(s, s.report?.advanceMonths ?? s.report?.monthsCovered ?? 1);
 }
 function advanceMonths(s, n) {
   s.report = s.report || {};
@@ -433,6 +541,10 @@ function advanceMonths(s, n) {
     const last = i === n - 1 || (ms && ms.month <= s.month + 1);
     monthStart(s, false, !last);
     ledgers.push(s.ledger);
+    if (s.phase !== 'playing' || (s.crisis && !s.crisis.resolved)) {
+      if (s.phase === 'playing') { s.stage = 'crisis'; s.needsBegin = true; }
+      break;
+    }
     if (last) break;
   }
   if (s.report) s.report.before = opening;
@@ -546,8 +658,9 @@ function milestone(s, kind, strategy) {
     m.defense = 'revisions'; m.defenseMonth = Math.min(TOTAL_MONTHS - 1, s.month + 3); effects(s, { hope: -8, stress: 10 }); log(s, t('Major revisions. The committee wants Chapter 4 rewritten and one more experiment. Defense again in {month}.', { month: calLabel(m.defenseMonth) })); continueAt(); return;
   }
   if (kind === 'graduation') {
-    const offer = (s.jobs.market || []).find(o => o.kind === strategy);
+    const offer = offerFor(s, strategy);
     if (!offer) throw new Error(t('That offer is not on the table.'));
+    strategy = offer.kind;
     s.jobs.chosen = strategy;
     s.jobs.taken = offer;
     const ending = trackEndings[strategy] || trackEndings.unplaced;
@@ -624,7 +737,7 @@ export function dispatch(state, action) {
   }
   if (s.stage === 'commencement') {
     if (a.type === 'TAKE_OFFER') {
-      const offer = (s.jobs.market || []).find(o => o.kind === a.id);
+      const offer = offerFor(s, a.id);
       if (!offer) throw new Error(t('That offer is not on the table.'));
       startEpilogue(s, a.id);
       return s;
@@ -635,11 +748,9 @@ export function dispatch(state, action) {
     if (a.type === 'EPILOGUE') {
       answerBeat(s, a.id);
       if (s.epilogue.finished) {
-        const years = 5 + Math.round(random(s) * 4);
         const track = trackEndings[s.jobs.chosen] || trackEndings.unplaced;
         finish(s, `phd_${s.jobs.chosen}`, t(track.title),
-          `${t(track.text)}\n\n${t('{years} years later, the degree is a line on a page and everything else it gave you is not. You can read a hard paper and know within ten minutes whether it is true. You can sit with a problem that does not resolve. You know what it costs to find something out, and you are one of a small number of people on earth who has done it.\n\nYou still email {advisor}. Not often. Enough.\n\nA PhD is not for everyone, and nobody should pretend otherwise. It is long, it is underpaid, and it will ask for more than is reasonable. It was also the six years you learned to think. Both of those are true, and you are allowed to keep both.',
-            { years, advisor: t('Prof. {name}', { name: lastName(s.advisor.name) }) })}`);
+          `${t(track.text)}\n\n${s.epilogue.note}\n\n${t('The record ends here. The next decision belongs to you.')}`);
         s.finalEpilogue = s.epilogue;
       }
       return s;
@@ -666,14 +777,26 @@ export function dispatch(state, action) {
     if (s.player.stats.energy < 1) throw new Error(t('Not enough Energy.'));
     effects(s, opt.effects);
     let outcome = opt.note ? t(opt.note) : '';
+    const applyReplyFlag = (flag, value) => {
+      if (flag !== 'rebuttalBonus') { s.flags[flag] = value; return; }
+      const live = s.projects.filter(p => p.timeline && (p.status === 'Rebuttal' || (p.status === 'Submitted' && p.afterRebuttal)));
+      const matches = live.filter(p => mail.projectId
+        ? p.id === mail.projectId && p.timeline.submitted === mail.submissionMonth
+          && (mail.submissionAttempt === undefined || p.submissionHistory.length === mail.submissionAttempt)
+        : p.timeline.rebuttal === mail.month && p.timeline.submitted <= mail.month);
+      // A reply belongs to the message's submission, never to the currently selected paper.
+      // Old mail without identity is usable only when its original owner is unambiguous.
+      if (matches.length === 1) matches[0].rebuttalBonus = value;
+    };
+
     if (opt.check) {
       const val = opt.check.advisor ? s.advisor[opt.check.advisor] : opt.check.skill ? s.player.skills[opt.check.skill] : s.player.stats[opt.check.stat];
       const success = roll(s, clamp(.5 + (val - opt.check.difficulty) / 110, .1, .9));
       effects(s, success ? opt.successEffects : opt.failureEffects);
       outcome = success ? t(opt.successText) : t(opt.failureText);
-      for (const [flag, v] of Object.entries(opt.flags || {})) { if (v === 'onSuccess') { if (success) s.flags[flag] = true; } else s.flags[flag] = v; }
+      for (const [flag, v] of Object.entries(opt.flags || {})) { if (v === 'onSuccess') { if (success) applyReplyFlag(flag, true); } else applyReplyFlag(flag, v); }
     } else {
-      for (const [flag, v] of Object.entries(opt.flags || {})) if (v !== 'onSuccess') s.flags[flag] = v;
+      for (const [flag, v] of Object.entries(opt.flags || {})) if (v !== 'onSuccess') applyReplyFlag(flag, v);
     }
     if (opt.personality) s.player.personality[opt.personality]++;
     mail.replied = opt.id;
@@ -682,14 +805,18 @@ export function dispatch(state, action) {
     if (outcome) s.mailOutcome = outcome;
     return s;
   }
-  if (a.type === 'SELECT_PROJECT') { if (!s.projects.some(p => p.id === a.id)) throw new Error(t('No such project.')); s.activeProjectId = a.id; return s; }
+  if (a.type === 'SELECT_PROJECT') { if (!s.projects.some(p => p.id === a.id)) throw new Error(t('No such project.')); s.activeProjectId = a.id; if (s.focus && !focusOptions(s).some(f => f.id === s.focus && !f.disabled)) s.focus = null; return s; }
   if (a.type === 'DISMISS_REPORT') { dismissReport(s); return s; }
   if (a.type === 'FIXTURE') { useFixture(s, a.id); return s; }
   if (a.type === 'SUMMONS') {
     if (s.stage !== 'summons') throw new Error(t('There is nothing in the calendar.'));
     answerSummons(s, a.id);
     s.stage = 'plan';
-    applyTurn(s);
+    // Older saves can hold a summons raised after the selected plan became unavailable.
+    // Keep the meeting response, then let the player choose useful work before time advances.
+    if (!focusById(s, s.focus) || focusById(s, s.focus).disabled) { s.focus = null; return s; }
+    if (s.tempo === 'season' && seasonEligible(s)) applySeason(s);
+    else applyTurn(s);
     if (s.stage === 'plan' && s.needsBegin) beginTurn(s);
     return s;
   }
@@ -708,23 +835,34 @@ export function dispatch(state, action) {
   if (s.stage !== 'plan') throw new Error(s.stage === 'report' ? t('Close the monthly report first.') : t('Finish what is on screen first.'));
   if (a.type === 'PLAN') { const f = focusById(s, a.id); if (!f) throw new Error(t('That is not an option right now.')); if (f.disabled) throw new Error(f.disabled); s.focus = a.id; return s; }
   if (a.type === 'CONTINUE') {
+    if (s.crisis && !s.crisis.resolved) { s.stage = 'crisis'; return s; }
+    const options = focusOptions(s);
+    if (options.length === 1 && options[0].locked) s.focus = options[0].id;
+    const selected = options.find(f => f.id === s.focus);
+    if (!selected || selected.disabled) throw new Error(selected?.disabled || t('Choose a plan for the month first.'));
     // The interrupt is raised after the plan is chosen and before the turn resolves, which is the
     // whole point of it: everything else happens around your decision, this happens to it.
-    if (!s.summons && maybeSummons(s, { crunch: s.crunch })) { s.stage = 'summons'; return s; }
-    applyTurn(s);
+    if (!(s.leaveWeeks > 0) && !s.summons && maybeSummons(s, { crunch: s.crunch })) { s.stage = 'summons'; return s; }
+    if (s.tempo === 'season' && seasonEligible(s)) applySeason(s);
+    else applyTurn(s);
     if (s.stage === 'plan' && s.needsBegin) beginTurn(s);
     return s;
   }
   const once = id => { if (s.actions[id]) throw new Error(t('You already did that this turn.')); s.actions[id] = true; };
   const p = activeProject(s);
   switch (a.type) {
+    case 'VENTURE_REVIEW': {
+      if (!legacyVenture(s)) throw new Error(t('This company decision is no longer current.'));
+      pushEvent(s, 'spin_review_legacy'); s.eventReturn = 'plan'; openNext(s); break;
+    }
     case 'START_PROJECT': if (!canStartMain(s)) throw new Error(t('Your main project is still alive. Finish it, submit it, or abandon it first.')); createProject(s); break;
     case 'START_SIDE': if (!canStartSide(s)) throw new Error(t('A side project needs month 5+, a main project past 40%, and no other side project.')); if (s.player.stats.energy < 15) throw new Error(t('Not enough Energy to start something new.')); effects(s, { energy: -5 }); createProject(s, { kind: 'side' }); s.player.personality.independent++; break;
     case 'WRITE': write(s, Number.isFinite(a.amount) ? clamp(a.amount, 1, 5) : 5); break;
+    case 'WRITE_SESSION': write(s, writeBudget(s) - (s.typed || 0)); break;
     case 'HYPE': if (!p || !['Drafting', 'Experiments'].includes(p.status)) throw new Error(t('Open an active draft first.')); once('hype'); effects(s, { hype: 12, novelty: 3 }); s.player.personality.riskTaker++; log(s, t('Added “a general framework.” The claim is doing some heavy lifting.')); break;
     case 'SEND_ADVISOR': sendAdvisor(s, reviewLatencyWeeks(s, s.crunch)); break;
-    case 'SKIP_APPROVAL': if (!(s.tempo === 'week' && s.week >= 2) && !['checkedOut', 'traveling'].includes(s.advisorMode?.id)) throw new Error(t('You can only skip the advisor’s read late in a crunch, or when they are unreachable.')); skipApproval(s); break;
-    case 'SET_TARGET': { if (!p || !editable(p) && p.status !== 'Ready') throw new Error(t('Pick an editable project first.')); const v = venueById[a.id]; if (!v || v.rolling || !venuesForTopic(p.topic).includes(v)) throw new Error(t('That venue does not fit this project.')); if (!setTarget(s, p, a.id)) throw new Error(t('No upcoming deadline for that venue within this run.')); break; }
+    case 'SKIP_APPROVAL': skipApproval(s); break;
+    case 'SET_TARGET': { if (!canSetTarget(p)) throw new Error(t('Pick an editable project first.')); const v = venueById[a.id]; if (!v || v.rolling || !venuesForTopic(p.topic).includes(v)) throw new Error(t('That venue does not fit this project.')); if (!setTarget(s, p, a.id)) throw new Error(t('No upcoming deadline for that venue within this run.')); break; }
     case 'CLEAR_TARGET': if (!p) throw new Error(t('No project.')); clearTarget(s, p); log(s, t('Target cleared. The deadline still exists; it just isn’t yours.')); break;
     case 'SET_PACE': {
       const note = setPace(s, a.id);
@@ -748,6 +886,8 @@ export function dispatch(state, action) {
       const th = s.projects.find(p => p.kind === 'thesis');
       if (!th || th.status !== 'Ready') throw new Error(t('The committee needs an approved dissertation draft first.'));
       if (s.milestones.defenseMonth !== null && s.milestones.defenseMonth !== undefined) throw new Error(t('The defense is already scheduled.'));
+      const schedulingBlocked = defenseScheduleUnavailable(s);
+      if (schedulingBlocked) throw new Error(schedulingBlocked);
       if (s.relationship.dependency >= 60 && !s.flags.defenseCleared && !s.flags.oneMorePaper) { pushEvent(s, 'one_more_paper'); s.eventReturn = 'plan'; openNext(s); break; }
       const target = s.milestones.targetGradYear || 6;
       const earliest = target === 5 ? 54 : 60;
@@ -774,19 +914,38 @@ export function dispatch(state, action) {
     case 'RECYCLE': recycle(s, a.id); break;
     case 'PREPRINT': preprint(s); break;
     case 'CHATPHD': {
+      if (s.chatphdPending) throw new Error(t('Review or discard the current suggestion first.'));
       if (!p || !['title', 'abstract', 'concept', 'experiment', 'rebuttal'].includes(a.id)) throw new Error(t('Choose a ChatPHD request with a project open.'));
       if (a.id === 'rebuttal' ? p.status !== 'Rebuttal' : !editable(p)) throw new Error(t('ChatPHD needs an editable project (or an open rebuttal).'));
       once('chatphd');
-      effects(s, { energy: 3, ...({ title: { hype: 6, draft: 3 }, abstract: { draft: 8, writingQuality: 3 }, concept: { readiness: 4 }, experiment: { evidence: 5, progress: 5 }, rebuttal: {} }[a.id]) });
-      const wrong = roll(s, .25); if (wrong) effects(s, { hype: 8, reproducibility: -4 });
-      if (a.id === 'rebuttal') s.flags.rebuttalBonus = !wrong;
-      s.chatphd = pick(s, chatphdLines[a.id]) + (wrong ? t(' (You did not check. You will remember this.)') : t(' (You checked. Two things were wrong. You fixed them.)'));
-      log(s, wrong ? t('ChatPHD suggested an impressively confident shortcut. Verification was skipped.') : t('ChatPHD helped you get unstuck. You checked the suggestion before using it.')); break;
+      const wrong = roll(s, .25);
+      s.chatphdPending = { id: a.id, projectId: p.id, wrong, text: pick(s, chatphdLines[a.id]) };
+      break;
+    }
+    case 'CHATPHD_RESOLVE': {
+      const pending = s.chatphdPending;
+      if (!pending || !['check', 'use', 'discard'].includes(a.id)) throw new Error(t('Choose what to do with the current suggestion.'));
+      if (a.id !== 'discard') {
+        if (!p || p.id !== pending.projectId) throw new Error(t('Open the original project before using this suggestion.'));
+        if (pending.id === 'rebuttal' ? p.status !== 'Rebuttal' : !editable(p)) throw new Error(t('This suggestion no longer fits the project. Discard it and request a new one.'));
+        if (a.id === 'check' && s.player.stats.energy < 2) throw new Error(t('Checking the suggestion needs 2 Energy.'));
+        if (a.id === 'check') effects(s, { energy: -2 });
+        effects(s, { energy: 3, ...({ title: { hype: 6, draft: 3 }, abstract: { draft: 8, writingQuality: 3 }, concept: { readiness: 4 }, experiment: { evidence: 5, progress: 5 }, rebuttal: {} }[pending.id]) });
+        if (a.id === 'use' && pending.wrong) effects(s, { hype: 8, reproducibility: -4 });
+        if (pending.id === 'rebuttal' && (a.id === 'check' || !pending.wrong)) p.rebuttalBonus = true;
+      }
+      const outcome = a.id === 'discard' ? t('You discarded the suggestion. The project is unchanged.')
+        : a.id === 'check' ? (pending.wrong ? t('You checked the suggestion, caught an error, and corrected it before using it.') : t('You checked the suggestion against your work before using it.'))
+        : t('You used the suggestion without checking it. Confident wording is not verification.');
+      s.chatphd = pending.text + '\n\n' + outcome;
+      s.chatphdPending = null;
+      log(s, outcome);
+      break;
     }
     case 'CHATPHD_SAY': {
       const text = String(a.text || '').trim().slice(0, 200);
       if (!text) throw new Error(t('Say something. ChatPHD is listening, in the sense that a search bar listens.'));
-      const key = Object.keys(chatphdReplies).find(k => k !== 'default' && text.toLowerCase().includes(k)) || (/\b(hi|hey)\b/i.test(text) ? 'hello' : /\b(thank)/i.test(text) ? 'thanks' : /\?$/.test(text) && text.length < 12 ? 'help' : 'default');
+      const key = Object.hasOwn(chatphdReplies, a.topic) ? a.topic : Object.keys(chatphdReplies).find(k => k !== 'default' && text.toLowerCase().includes(k)) || (/\b(hi|hey)\b/i.test(text) ? 'hello' : /\b(thank)/i.test(text) ? 'thanks' : /\?$/.test(text) && text.length < 12 ? 'help' : 'default');
       const reply = pick(s, chatphdReplies[key]);
       s.chatphdLog = [...(s.chatphdLog || []), { from: 'you', text }, { from: 'bot', text: reply }].slice(-14);
       if (key === 'cite' && roll(s, .5)) { effects(s, { hype: 2 }); }
@@ -796,7 +955,7 @@ export function dispatch(state, action) {
     case 'DAY_MODE': {
       if (!s.crunch) throw new Error(t('Day by day only makes sense when something is due.'));
       if (s.tempo === 'day') { s.dayOff = s.month; s.dayMode = null; log(s, t('Back to whole weeks. The days blur again, which is a mercy.')); }
-      else { s.dayMode = s.month; s.dayOff = null; s.dayIndex = 0; s.dayActions = {}; log(s, t('Going day by day. Five working days a week, and you will feel every one.')); }
+      else { s.dayMode = s.month; s.dayOff = null; log(s, t('Going day by day. Five working days a week, and you will feel every one.')); }
       s.tempo = tempoOf(s); s.focus = null; s.dayNote = pick(s, dayWeather);
       break;
     }
@@ -816,6 +975,7 @@ export function dispatch(state, action) {
     }
     case 'POP_IN': {
       if (s.tempo !== 'day') throw new Error(t('Pop-ins happen on days, not months.'));
+      if (s.flags.remoteAdvisor) throw new Error(t('Your advisor is off campus. Request a meeting in LabChat.'));
       once('popin');
       if (s.player.stats.energy < 3) throw new Error(t('Not enough Energy.'));
       s.dayOutcome = popIn(s).line;
@@ -889,21 +1049,24 @@ export function dispatch(state, action) {
     case 'PRACTICE': once('practice'); effects(s, { energy: -6, readiness: 8, confidence: 2 }); log(s, t('Practiced explaining the contribution without saying “obviously.”')); break;
     case 'GRANT': once('grant'); if (s.player.stats.money >= 500 || s.flags.emergencyGrant) throw new Error(t('Emergency support is available once, below $500.')); s.flags.emergencyGrant = true; effects(s, { money: 900, energy: -5 }); log(s, t('Emergency support approved. A little breathing room, and a form to confirm you breathed.')); break;
     case 'REQUEST_DO': doRequest(s, a.id, a.text || ''); break;
+    case 'EMERITUS_CONSULT': consultEmeritus(s); syncProject(s); break;
     case 'REQUEST_PUSH': pushbackRequest(s, a.id, a.text || ''); break;
     case 'REQUEST_DECLINE': declineRequest(s, a.id, a.text || ''); break;
     case 'ASK': { ask(s, a.id, a.text || ''); if (s.eventQueue.length && !s.event) { s.eventReturn = 'plan'; openNext(s); } break; }
     case 'SOCIAL': {
-      const act = channelActionById(a.channel, a.id);
+      const act = socialAction(s, a.channel, a.id);
       if (!act) throw new Error(t('That is not something you can say here.'));
       if ((s.askCooldowns[`soc:${a.id}`] || 0) > absWeek(s)) throw new Error(t('You said that recently. Give it a few weeks.'));
-      if (s.player.stats.energy < (act.cost?.energy || 0)) throw new Error(t('Not enough Energy.'));
+      if (act.disabled) throw new Error(act.why);
       effects(s, Object.fromEntries(Object.entries(act.cost || {}).map(([k, v]) => [k, -v])));
       const { labBond, peerBond, ...rest } = act.effects || {};
       effects(s, rest);
       if (labBond) effects(s, { labBond });
-      if (peerBond) for (const pr of s.peers) pr.bond = clamp(pr.bond + peerBond);
+      if (peerBond) for (const pr of s.peers.filter(pr => pr.status === 'active')) pr.bond = clamp(pr.bond + peerBond);
       if (act.personality) s.player.personality[act.personality]++;
       s.askCooldowns[`soc:${a.id}`] = absWeek(s) + act.cooldown;
+      s.socialVisits ||= {};
+      s.socialVisits[act.storyKey] = (s.socialVisits[act.storyKey] || 0) + 1;
       chat(s, a.channel, s.player.name, a.text || fill(s, t(act.draft)), { mine: true });
       // The room reacts on the message rather than in a sentence underneath it. "Four reactions in
       // ninety seconds" printed over a message with no reactions is the tell that nobody is there.
@@ -917,6 +1080,8 @@ export function dispatch(state, action) {
     default: throw new Error(t('Unknown game action.'));
   }
   syncProject(s);
+  if (s.stage === 'plan' && ['SUBMIT', 'REBUT', 'CLEAR_TARGET', 'SET_TARGET', 'RECYCLE', 'START_PROJECT', 'START_SIDE', 'START_THESIS', 'SET_PACE', 'PACE', 'ZOOM', 'DAY_MODE'].includes(a.type)) refreshPlanning(s);
+  if (s.stage === 'plan' && s.focus && !focusOptions(s).some(f => f.id === s.focus && !f.disabled)) s.focus = null;
   return s;
 }
 export { crunchOf, tempoOf, focusOptions, canStartMain, canStartSide };

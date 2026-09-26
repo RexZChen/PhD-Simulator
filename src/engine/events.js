@@ -4,10 +4,16 @@ import { pushbacks, hesitationLines } from '../data/minigames.js';
 import { t, provenanceOf } from '../i18n/index.js';
 import { meetings, meetingById } from '../data/meetings.js';
 import { monthOf, isTeachingTerm, isSummer, dateLabel } from '../data/calendar.js';
-import { random, roll, clamp, pickWeighted, pick } from './probability.js';
+import { random, roll, clamp, pickWeighted, pick, pickFresh } from './probability.js';
 import { meetContact } from './network.js';
 import { HARD_TA } from '../data/hardta.js';
-import { effects, log, award, finish, activeProject, absWeek, labmateById, fill, chat, lastName, setTemplateLookup, joined, firstName, draftMail, activeLabmates } from './state.js';
+import { effects, log, award, finish, activeProject, absWeek, labmateById, fill, chat, lastName, setTemplateLookup, joined, firstName, draftMail, activeLabmates, activePeers, hasPartner, textBindings, editable } from './state.js';
+import { advisorInternshipAvailable, acceptAdvisorInternship } from './internship.js';
+import { relocationQuote, commitRelocation, transferSupportActive } from './relocation.js';
+import { arrangeMedicalRecovery } from './life.js';
+import { handoverSupportActive, retirementOffer } from './supervision.js';
+import { TENURE_EVENT_IDS, tenureEventEligible, openTenureEvent, tenureAnnouncement, resolveTenureChoice } from './tenure.js';
+import { ventureEventEligible, ventureChoiceUnavailable, ventureBindings, resolveVentureChoice, ventureEnding } from './venture.js';
 
 export const templateById = { ...eventById, ...meetingById };
 setTemplateLookup(id => templateById[id]);
@@ -18,18 +24,31 @@ const cadenceRank = { whenever: 0, monthly: 1, biweekly: 2, weekly: 3 };
 // The scenes that can occupy the weekly group-meeting slot.
 const GROUP_POOL = ['group_present', 'group_nobody_read', 'group_someone_else', 'group_derail', 'group_visitor', 'group_reading', 'group_your_turn_again',
   'group_round_thin', 'group_round_strong', 'group_public_correction', 'group_laughed_at', 'group_praise_public'];
+const excusedDuringLeave = e => !!e && !e.urgent && (e.category === 'meeting' || GROUP_POOL.includes(e.id)
+  || e.id === 'firstyear_lab_first_group_meeting' || e.scene === 'office' || e.id.startsWith('lecture_'));
+const DEPARTURES = new Set(['advisor_moves', 'advisor_leaves', 'advisor_retires', 'advisor_industry', 'advisor_dies', 'advisor_tenure_denied', 'tenure_result']);
+const transferConflict = (s, e) => !!e && (
+  (s.pendingRelocation && DEPARTURES.has(e.id)) ||
+  ((transferSupportActive(s) || handoverSupportActive(s)) && (e.id === 'ra_lost' || e.conditions?.ta || e.conditions?.flag === 'hardTA'))
+);
 
 // ctx: { tempo, crunch (null|{type}), cancelled, actor }
 export function eligible(s, e, ctx = {}) {
+  if (transferConflict(s, e)) return false;
+  if (!tenureEventEligible(s, e.id)) return false;
+  if (!ventureEventEligible(s, e.id)) return false;
+  if (ctx.fullLeave && excusedDuringLeave(e)) return false;
   const c = e.conditions || {};
   const p = activeProject(s);
   const a = s.advisor;
+  if (e.remoteOnly && !s.flags.remoteAdvisor) return false;
+  if (s.flags.remoteAdvisor && e.category === 'meeting' && !e.remoteOnly && !e.remoteCompatible) return false;
   if (c.phase && c.phase !== s.phase && !(c.phase === 'application' && s.phase === 'prep')) return false;
   if (!c.phase && s.phase !== 'playing') return false;
-  if (e.once && s.seen[e.id]) return false;
+  if (e.once && s.seen[e.id] && !TENURE_EVENT_IDS.has(e.id)) return false;
   if (e.prerequisites && !e.prerequisites.every(f => s.flags[f])) return false;
   if (e.excludes && e.excludes.some(f => s.flags[f])) return false;
-  if (s.cooldowns[e.id] !== undefined && s.month - s.cooldowns[e.id] < e.cooldown) return false;
+  if (!TENURE_EVENT_IDS.has(e.id) && s.cooldowns[e.id] !== undefined && s.month - s.cooldowns[e.id] < e.cooldown) return false;
   if (c.minMonth !== undefined && s.month < c.minMonth) return false;
   if (c.maxMonth !== undefined && s.month > c.maxMonth) return false;
   if (c.months && !(ctx.monthsList || [monthOf(s.month)]).some(m => c.months.includes(m))) return false;
@@ -43,6 +62,18 @@ export function eligible(s, e, ctx = {}) {
   if (c.international !== undefined && s.player.profile.international !== c.international) return false;
   if (c.topicsIn && !c.topicsIn.includes(s.player.profile.topic)) return false;
   if (c.hasProject && !p) return false;
+  if (c.hasEditableProject && !editable(p)) return false;
+  if (c.projectAttempt && !matchesProjectAttempt(s, c.projectAttempt)) return false;
+  if (c.prelimWithin !== undefined) {
+    const until = s.milestones?.prelimMonth - s.month;
+    if (s.milestones?.prelim === 'pass' || !Number.isFinite(until) || until < 0 || until > c.prelimWithin) return false;
+  }
+  if (c.minProjectMonths !== undefined && !(editable(p) && Number.isInteger(p.startedMonth) && s.month - p.startedMonth >= c.minProjectMonths)) return false;
+  if (c.advisorFeedback && !(editable(p) && p.advisorFeedback && p.advisorFeedback.cycle === p.reviewCycle && p.advisorFeedback.advisorId === s.advisor?.id)) return false;
+  if (c.reviewedRejection) {
+    const last = p?.submissionHistory?.at(-1);
+    if (!editable(p) || last?.outcome !== 'Reject' || !last.reviewers?.length) return false;
+  }
   if (c.minProgress !== undefined && !(p && p.progress >= c.minProgress && !['Submitted', 'Rebuttal', 'Accepted', 'Abandoned'].includes(p.status))) return false;
   if (c.maxProgress !== undefined && !(p && p.progress <= c.maxProgress)) return false;
   if (c.maxHealth !== undefined && s.player.stats.health > c.maxHealth) return false;
@@ -51,6 +82,7 @@ export function eligible(s, e, ctx = {}) {
   // Optional questionnaire answers. A null answer gates nothing in either direction.
   if (c.whyHere && !c.whyHere.includes(s.player.profile.whyHere)) return false;
   if (c.household && !c.household.includes(s.player.profile.household)) return false;
+  if (c.hasPartner !== undefined && hasPartner(s) !== c.hasPartner) return false;
   if (c.firstGen !== undefined && s.player.profile.firstGen !== c.firstGen) return false;
   if (c.fear && !c.fear.includes(s.player.profile.fear)) return false;
   if (c.dealbreaker && !c.dealbreaker.includes(s.player.profile.dealbreaker)) return false;
@@ -58,6 +90,8 @@ export function eligible(s, e, ctx = {}) {
   if (c.minIgnored !== undefined && (s.counts.crisisIgnored || 0) < c.minIgnored) return false;
   if (c.minLowHealth !== undefined && (s.counts.lowHealthMonths || 0) < c.minLowHealth) return false;
   if (c.minHighStress !== undefined && (s.counts.highStressMonths || 0) < c.minHighStress) return false;
+  if (c.minLowHealthStreak !== undefined && (s.counts.lowHealthStreak || 0) < c.minLowHealthStreak) return false;
+  if (c.minHighStressStreak !== undefined && (s.counts.highStressStreak || 0) < c.minHighStressStreak) return false;
   if (c.minConditions !== undefined && (s.conditions || []).length < c.minConditions) return false;
   if (c.minScope !== undefined && !(p && p.scope >= c.minScope)) return false;
   if (c.mode && !c.mode.includes(s.advisorMode?.id)) return false;
@@ -117,7 +151,7 @@ export function eligible(s, e, ctx = {}) {
 const qualityOf = p => p.novelty * .18 + p.technicalDepth * .15 + p.evidence * .29 + p.writingQuality * .23 + p.reproducibility * .15;
 
 function actorPool(s, e) {
-  const list = e.actor.type === 'peer' ? s.peers : activeLabmates(s);
+  const list = e.actor.type === 'peer' ? activePeers(s) : activeLabmates(s);
   return list.filter(x => x.status === 'active' && (!e.actor.role || x.role === e.actor.role) && (!e.actor.trait || x.trait === e.actor.trait) && (!e.actor.fate || x.fate === e.actor.fate));
 }
 export function chooseActor(s, e) {
@@ -194,8 +228,17 @@ export function scheduleTurnEvents(s, ctx) {
   // middle years, up to 17. It is a pool now: your turn, somebody else's turn, and the weeks where
   // the meeting is about something other than what it was supposed to be about.
   if (ctx.present) {
-    const pool = GROUP_POOL.filter(id => eventById[id] && eligible(s, eventById[id], ctx));
-    if (pool.length) queue.push(pickWeighted(s, pool, id => (id === 'group_praise_public' ? 9 : id === 'group_present' ? 1.3 : 1)));
+    const pool = GROUP_POOL.filter(id => eventById[id] && !queue.includes(id) && eligible(s, eventById[id], ctx));
+    // Keep the cadence without replaying the same scene at consecutive presentations.
+    // Praise marks an actual acceptance, so its priority survives the routine-scene rotation.
+    const recent = s.recent?.['scene:group'] || [];
+    const alternatives = pool.filter(id => !recent.includes(id) || id === 'group_praise_public');
+    const id = pickWeighted(s, alternatives.length ? alternatives : pool,
+      id => freshness(s, eventById[id]) * (id === 'group_praise_public' ? 9 : id === 'group_present' ? 1.3 : 1));
+    if (id) {
+      queue.push(id);
+      s.recent = { ...(s.recent || {}), 'scene:group': [id] };
+    }
   }
   const isDay = ctx.tempo === 'day';
   const isMonth = ctx.tempo === 'month' || ctx.tempo === 'season';
@@ -237,14 +280,17 @@ export function scheduleTurnEvents(s, ctx) {
 
 // Whether this meeting gets a second, harder beat — and which one.
 export function maybePushback(s, choice) {
+  const scene = templateById[s.event];
+  // A promised break stays a break. An absent advisor cannot start a live confrontation.
+  if (!scene || scene.conditions?.cancelled || scene.tone === 'supportive') return false;
   const a = s.advisor;
   const mode = s.advisorMode?.id;
   const odds = clamp(.14 + (a.ambition - 50) / 260 + (a.toxicity - 30) / 300 + (mode === 'pressed' ? .18 : mode === 'attentive' ? .1 : 0)
-    + (s.relationship.satisfaction < 40 ? .12 : 0) + (s.crunch ? .1 : 0) - (choice.personality === 'peoplePleaser' ? .06 : 0), 0, .62);
+    + (s.relationship.satisfaction < 40 ? .12 : 0) + (s.crunch && s.crunch.type !== 'zoom' ? .1 : 0) - (choice.personality === 'peoplePleaser' ? .06 : 0), 0, .62);
   if (!roll(s, odds)) return false;
   const pool = pushbacks.filter(x => x.id !== s.lastPushback);
   const pb = pick(s, pool.length ? pool : pushbacks);
-  s.pushback = { id: pb.id, from: e_id(s), seconds: s.crunch ? 9 : 12 };
+  s.pushback = { id: pb.id, from: e_id(s), seconds: s.crunch && s.crunch.type !== 'zoom' ? 9 : 12 };
   s.lastPushback = pb.id;
   s.stage = 'pushback';
   return true;
@@ -286,18 +332,43 @@ export function hesitate(s) {
   return line;
 }
 
+function matchesProjectAttempt(s, attempt) {
+  const p = activeProject(s), history = p?.submissionHistory || [];
+  return !!editable(p) && history.length === attempt - 1
+    && history.every(entry => ['Reject', 'Desk Reject', 'Phase-One Reject'].includes(entry.outcome));
+}
+
 export function openNext(s) {
+  // A transfer can invalidate funding scenes already queued at the old campus.
+  const invalid = id => {
+    const e = templateById[id];
+    const bound = s.actorFor?.[id];
+    const physicalPeer = bound?.type === 'peer' && ['campus', 'lab', 'party', 'office'].includes(e?.scene);
+    const pool = e?.actor?.type === 'peer' ? actorPool(s, e) : activePeers(s);
+    const absentPeer = physicalPeer && !pool.some(person => person.id === bound.id);
+    const meetingDuringLeave = s.leaveWeeks > 0 && excusedDuringLeave(e);
+    const resolvedHealthScene = ['ambulance', 'flatline', 'special_care'].includes(id) && !eligible(s, e);
+    const staleAttempt = e?.conditions?.projectAttempt && !matchesProjectAttempt(s, e.conditions.projectAttempt);
+    const staleStory = e?.recheckContext && !eligible(s, e);
+    return transferConflict(s, e) || !tenureEventEligible(s, id) || !ventureEventEligible(s, id) || absentPeer || meetingDuringLeave || resolvedHealthScene || staleAttempt || staleStory;
+  };
+  while (s.eventQueue.length && invalid(s.eventQueue[0])) {
+    const stale = s.eventQueue.shift();
+    if (s.actorFor) delete s.actorFor[stale];
+  }
   s.event = s.eventQueue.shift() || null;
   s.eventActor = null;
   if (s.event) {
     const e = templateById[s.event];
+    openTenureEvent(s, s.event);
     s.eventActor = (s.actorFor && s.actorFor[s.event]) || chooseActor(s, e);
     if (s.actorFor) delete s.actorFor[s.event];
-    s.eventVariant = Array.isArray(e.text) ? Math.floor(random(s) * e.text.length) : 0;
+    s.eventVariant = Array.isArray(e.text)
+      ? pickFresh(s, `scene:text:${e.id}`, e.text.map((_, index) => index)) : 0;
     s.stage = 'event';
   } else s.stage = s.crisis && !s.crisis.resolved ? 'crisis' : (s.eventReturn || 'plan');
 }
-export const eventText = (s, e) => fill(s, Array.isArray(e.text) ? e.text[s.eventVariant % e.text.length] : e.text).replace('{draft}', String(Math.round(activeProject(s)?.draft || 0))).replace('{monthsIn}', String(s.month + 1));
+export const eventText = (s, e) => fill(s, tenureAnnouncement(s, e.id) || (Array.isArray(e.text) ? e.text[s.eventVariant % e.text.length] : e.text), { ...textBindings(s), ...ventureBindings(s, e.id) }).replace('{draft}', String(Math.round(activeProject(s)?.draft || 0))).replace('{monthsIn}', String(s.month + 1));
 
 // What the check was reading, in words, so the readout can say it.
 function checkLabel(s, check) {
@@ -323,13 +394,46 @@ function checkValue(s, check) {
 // hooks: functions injected by game.js to avoid circular imports { setTarget, startSide, startMain, shiftCadence, revealHint, addCollaborator, acceptInternship, advisorResponds, queueMeeting }
 export const hooks = {};
 
+// One reason shared by the visible choice and the engine, before any costs or RNG.
+export function choiceUnavailable(s, c) {
+  const ventureReason = ventureChoiceUnavailable(s, s.event, c);
+  if (ventureReason) return ventureReason;
+  if (c.relocate && s.pendingRelocation) return t('A transfer is already arranged.');
+  if (c.relocate && !relocationQuote(s)) return t('There is no time left to complete a transfer.');
+  if (c.requiresCoursework && s.coursework < c.requiresCoursework) return t('needs {n} coursework', { n: c.requiresCoursework });
+  if (c.requiresMoney && s.player.stats.money < c.requiresMoney) return t('You cannot afford that.');
+  if (c.requiresEditableProject && !editable(activeProject(s))) return t('Select an unfinished, editable paper to take this path.');
+  if (c.retirement === 'handover' && !retirementOffer(s).months) return t('The handover needs an editable project and time remaining in the program.');
+  if (c.advisorInternship && !advisorInternshipAvailable(s)) return s.internship
+    ? t('You already have an internship arranged.') : t('There is no full summer left before your funding ends.');
+  return null;
+}
+
 export function resolveChoice(s, id) {
   const e = templateById[s.event];
   if (!e) throw new Error('There is no event to resolve.');
   const c = e.choices.find(x => x.id === id);
   if (!c) throw new Error('That choice is not available.');
-  if (c.requiresCoursework && s.coursework < c.requiresCoursework) throw new Error(`That path needs ${c.requiresCoursework} coursework progress.`);
-  if (c.requiresMoney && s.player.stats.money < c.requiresMoney) throw new Error('You cannot afford that.');
+  if (e.conditions?.projectAttempt && !matchesProjectAttempt(s, e.conditions.projectAttempt)) {
+    s.lastRoll = null;
+    log(s, t('This discussion does not match the selected paper’s submission history. It closes without spending resources or changing the paper.'));
+    openNext(s);
+    return;
+  }
+  if (e.recheckContext && !eligible(s, e)) {
+    s.lastRoll = null;
+    log(s, t('This scene no longer matches your current situation. No resources were spent.'));
+    openNext(s);
+    return;
+  }
+  const unavailable = choiceUnavailable(s, c);
+  if (unavailable) throw new Error(unavailable);
+  if (TENURE_EVENT_IDS.has(e.id)) {
+    openTenureEvent(s, e.id);
+    if (!resolveTenureChoice(s, e.id, c.id)) throw new Error(t('This advisor decision is no longer current.'));
+  }
+  const bindings = { ...textBindings(s), ...ventureBindings(s, e.id) };
+  if (c.relocate) commitRelocation(s);
   effects(s, c.effects);
   let result = '';
   let success = null;
@@ -347,6 +451,17 @@ export function resolveChoice(s, id) {
       odds: Math.round(odds * 100), draw: Math.round(draw * 100), success };
     effects(s, success ? c.successEffects : c.failureEffects);
     result = success ? (c.successText || t('The conversation goes better than you feared.')) : (c.failureText || t('The system has other plans.'));
+  }
+  if (e.id === 'letter') {
+    // Bind the crisis to an actual outstanding recommender; older saves may lack the ID.
+    const writer = s.prep?.letters.find(l => l.id === s.applicationLetterId && l.asked && l.status === 'pending')
+      || s.prep?.letters.find(l => l.asked && l.status === 'pending');
+    if (writer) {
+      writer.status = c.id === 'nudge' && !success ? 'late' : 'on time';
+      if (writer.status === 'late') writer.strength = clamp(writer.strength - 15);
+      else if (c.id === 'backup') writer.strength = clamp(writer.strength - 10);
+    }
+    s.applicationLetterId = null;
   }
   if (c.advisorResponse) {
     const supported = hooks.advisorResponds ? hooks.advisorResponds(s) : roll(s, (s.advisor.caring + s.relationship.trust) / 200);
@@ -416,10 +531,16 @@ export function resolveChoice(s, id) {
   // The one you typed and did not send. It goes to Drafts, where it stays.
   if (c.draft) draftMail(s, fill(s, t(c.draft.to)), fill(s, t(c.draft.subject)), fill(s, t(c.draft.body)));
   const conditional = v => v === 'onSuccess' ? success === true : v === 'onFail' ? success === false : !!v;
-  for (const [flag, value] of Object.entries(c.flags || {})) {
-    if (value === 'onSuccess' || value === 'onFail') { if (conditional(value)) s.flags[flag] = true; }
-    else s.flags[flag] = value;
+  for (const [flag, value] of Object.entries({ ...c.flags, ...c.projectFlags })) {
+    // Review decisions concern this manuscript, including older meeting/crunch templates.
+    const paperFlag = flag === 'rebuttalBonus' || flag === 'marginRisk';
+    const target = paperFlag ? activeProject(s) : s.flags;
+    if (!target) continue;
+    if (value === 'onSuccess' || value === 'onFail') { if (conditional(value)) target[flag] = true; }
+    else target[flag] = value;
   }
+  const ventureResult = resolveVentureChoice(s, e.id, c.id, success);
+  if (ventureResult) result = joined(result, ' ', ventureResult);
   for (const f of c.followUps || []) if (!s.scheduled.some(x => x.id === f.id)) s.scheduled.push({ id: f.id, week: absWeek(s) + f.delay * 4, ...(s.eventActor ? { actor: s.eventActor } : {}) });
   if (c.standing) s.standing = clamp((s.standing || 60) + c.standing);
   if (c.personality) s.player.personality[c.personality]++;
@@ -428,8 +549,9 @@ export function resolveChoice(s, id) {
   if (c.skill) effects(s, { skill: c.skill });
   if (c.bond) effects(s, { bond: c.bond });
   if (c.labBond) effects(s, { labBond: c.labBond });
-  if (c.peerBond) for (const p of s.peers) p.bond = clamp(p.bond + c.peerBond);
+  if (c.peerBond) for (const p of activePeers(s)) p.bond = clamp(p.bond + c.peerBond);
   if (c.leave && conditional(c.leave)) s.leaveWeeks += typeof c.leave === 'number' ? c.leave : 1;
+  if (c.medicalRecovery) arrangeMedicalRecovery(s);
   if (c.holiday) {
     s.counts.holidaysTaken++;
     const year = Math.floor(s.month / 12);
@@ -440,6 +562,7 @@ export function resolveChoice(s, id) {
   if (c.ta === true || (c.ta === 'onFail' && success === false)) s.ta = true;
   if (c.fellowship && success) { s.flags.fellow = true; s.ta = false; }
   if (c.internship && (c.internship === 'accept' || conditional(c.internship)) && hooks.acceptInternship) hooks.acceptInternship(s);
+  if (c.advisorInternship) acceptAdvisorInternship(s, { advisorId: s.advisor.id, advisorName: s.advisor.name, company: s.company });
   if (c.funding && hooks.funding) hooks.funding(s, c.funding);
   if (c.target && hooks.setTarget && activeProject(s)) hooks.setTarget(s, activeProject(s), c.target);
   if (c.startMain && hooks.startMain) hooks.startMain(s);
@@ -449,19 +572,24 @@ export function resolveChoice(s, id) {
   if (c.collaborator && hooks.addCollaborator) hooks.addCollaborator(s);
   if (c.jobTrack !== undefined && hooks.jobTrack) hooks.jobTrack(s, c.jobTrack);
   if (c.jobOffers && hooks.jobOffers) result = hooks.jobOffers(s) || result;
-  if (c.newAdvisor && hooks.newAdvisor) result = hooks.newAdvisor(s) || result;
-  if (c.patent && hooks.openPatent) hooks.openPatent(s);
+  if (c.newAdvisor && hooks.newAdvisor) {
+    const transition = hooks.newAdvisor(s, e.id === 'advisor_dies' ? 'deceased' : e.id);
+    // Keep the authored outcome; the administrative handover has its own log entry.
+    if (!result) result = transition || '';
+  }
+  if (c.retirement && hooks.retirement) hooks.retirement(s, c.retirement, success);
+  if (c.patent && hooks.openPatent) hooks.openPatent(s, e.id.startsWith('spin_') ? s.venture?.project.id : undefined);
   if (c.travel) { if (s.flags.travelFunded) { s.flags.travelFunded = false; log(s, t('Travel covered by the lab. You still bring granola bars.')); } else effects(s, { money: -900 }); if (s.player.stats.money < 700) award(s, 'cuisine'); }
   s.cooldowns[e.id] = s.month;
   s.seen[e.id] = (s.seen[e.id] || 0) + 1;
   if (c.minigame) { s.minigame = c.minigame; s.stage = 'minigame'; s.event = null; return; }
-  const line = t('{title} — {choice}. {result}', { title: fill(s, e.title), choice: fill(s, c.text), result: fill(s, result) }).trim();
+  const line = t('{title} — {choice}. {result}', { title: fill(s, e.title, bindings), choice: fill(s, c.text, bindings), result: fill(s, result, bindings) }).trim();
   // Store the ids rather than the prose: the scene catalogs are translated by id, so the
   // line can be rebuilt in whatever language is current when it is read back.
-  const ref = { ev: e.id, ch: c.id, r: result && result === c.successText ? 'success' : result && result === c.failureText ? 'failure' : result && result === c.result ? 'result' : null };
+  const ref = { ev: e.id, ch: c.id, b: bindings, r: result && result === c.successText ? 'success' : result && result === c.failureText ? 'failure' : result && result === c.result ? 'result' : null };
   if (!ref.r && result) ref.rt = provenanceOf(result) || undefined;
   log(s, line, false, ref);
-  if (s.report) s.report.events.push({ title: fill(s, e.title), choice: fill(s, c.text), result: fill(s, result), category: e.category, i18n: ref, ...(rolled ? { rolled } : {}) });
+  if (s.report) s.report.events.push({ title: fill(s, e.title, bindings), choice: fill(s, c.text, bindings), result: fill(s, result, bindings), category: e.category, i18n: ref, ...(rolled ? { rolled } : {}) });
   s.lastRoll = rolled;
   if (c.appeal) {
     if (success) { s.probation = { since: s.month, until: s.month + 4, acceptedAt: s.counts.accepted, terms: s.probation?.terms || [] }; s.warnings = 2; log(s, t('One more term. The document goes back in the folder, face-down.')); }
@@ -472,7 +600,7 @@ export function resolveChoice(s, id) {
   if (c.ending && c.ending.startsWith('quit_') && hooks.quit) { hooks.quit(s, c.ending.slice(5)); return; }
   if (c.ending === 'fired' && hooks.fired) { hooks.fired(s); return; }
   if (c.ending) {
-    const en = exitEndings()[c.ending];
+    const en = c.ending === 'spinout' ? ventureEnding(s) : exitEndings()[c.ending];
     if (en) { finish(s, c.ending, ...en); return; }
     return;
   }

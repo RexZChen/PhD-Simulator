@@ -6,9 +6,12 @@ import { advisorPings, meetingDigests, logLines } from '../data/chatter.js';
 import { venues } from '../data/venues.js';
 import { monthOf, isTeachingTerm } from '../data/calendar.js';
 import { random, roll, clamp, pick, pickFresh, pickWeighted } from './probability.js';
-import { effects, log, chat, award, activeProject, absWeek, meetingsPerMonth, lastName, firstName, fill, labmateById, vars, activeLabmates } from './state.js';
+import { effects, log, chat, award, activeProject, absWeek, meetingsPerMonth, lastName, firstName, fill, labmateById, vars, activeLabmates, cadenceFor, newName, preserveStoryCast, joined } from './state.js';
 import { provenanceOf } from '../i18n/index.js';
-import { eligible, freshness, pushEvent } from './events.js';
+import { eligible, freshness, pushEvent, templateById } from './events.js';
+import { processRelocation, transferCoversRemainingSummer } from './relocation.js';
+import { endSupervision, handoverCoversRemainingSummer } from './supervision.js';
+import { clearAdvisorTenure } from './tenure.js';
 
 // `face` is the glance version: the mode is referenced on nearly every screen and was text only.
 export const MODES = {
@@ -100,7 +103,7 @@ export function revealHint(s) {
 export function reviewLatencyWeeks(s, crunch) {
   const a = s.advisor;
   const mode = s.advisorMode?.id;
-  let weeks = Math.ceil((110 - a.availability) / 30) + (mode === 'traveling' ? 3 : mode === 'checkedOut' ? 4 : mode === 'attentive' ? -1 : mode === 'pressed' ? -1 : 0) + (s.relationship.conflict > 60 ? 1 : 0) - (crunch ? 1 : 0);
+  let weeks = Math.ceil((110 - a.availability) / 30) + (mode === 'traveling' ? 3 : mode === 'checkedOut' ? 4 : mode === 'attentive' ? -1 : mode === 'pressed' ? -1 : 0) + (s.relationship.conflict > 60 ? 1 : 0) - (crunch && crunch.type !== 'zoom' ? 1 : 0);
   return clamp(weeks, 1, 8);
 }
 
@@ -113,7 +116,10 @@ export function advisorResponds(s) {
 // Monthly one-on-one and group meetings. Returns a digest and which scene, if any, to run.
 export function monthlyMeetings(s, ctx) {
   const a = s.advisor;
-  const expected = meetingsPerMonth(s.cadence.oneOnOne);
+  // Cadence slots belong to the unspent work interval, not another entire month after zooming out.
+  const slots = count => Math.max(0, Math.floor(Math.min(4, ctx.meetingEnd ?? 4) * count / 4 + 1e-9)
+    - Math.floor(Math.min(4, ctx.meetingStart ?? 0) * count / 4 + 1e-9));
+  const expected = slots(meetingsPerMonth(s.cadence.oneOnOne));
   const cancelChance = clamp((100 - a.availability) / 160 + modeOf(s).cancel * (1 - a.availability / 200), 0, .95);
   let held = 0, cancelled = 0;
   const lines = [];
@@ -125,18 +131,18 @@ export function monthlyMeetings(s, ctx) {
   if (s.meetingStats.cancelled >= 5) award(s, 'ghosted');
   const progressed = s.report?.before ? (activeProject(s)?.progress || 0) > (s.report.before.progress || 0) : true;
   effects(s, { satisfaction: held * (progressed ? 1 : -1), trust: -cancelled, dependency: -cancelled });
-  const groupPerMonth = { weekly: 4, biweekly: 2, monthly: 1 }[s.cadence.group] || 0;
-  const groupLine = groupPerMonth ? t('{n} group meeting(s) — {how}', { n: groupPerMonth, how: pick(s, meetingDigests.group) }) : t('no group meetings');
+  const groupPerMonth = slots({ weekly: 4, biweekly: 2, monthly: 1 }[s.cadence.group] || 0);
+  const groupLine = groupPerMonth ? t('{n} group meeting(s) — {how}', { n: groupPerMonth, how: pickFresh(s, 'meet:group', meetingDigests.group) }) : t('no group meetings');
   const present = groupPerMonth > 0 && roll(s, groupPerMonth / Math.max(a.labSize, 3) * .9);
   let meetingTemplate = null, cancelledScene = false;
   if (held > 0) meetingTemplate = pickMeeting(s, { ...ctx, cancelled: false });
   else if (expected > 0 && roll(s, .8)) { cancelledScene = true; meetingTemplate = pickMeeting(s, { ...ctx, cancelled: true }); }
-  else if (expected === 0 && roll(s, .5)) meetingTemplate = pickMeeting(s, { ...ctx, cancelled: false });
+  else if (expected === 0 && s.cadence.oneOnOne === 'whenever' && roll(s, .5 * (ctx.workWeeks ?? 4) / 4)) meetingTemplate = pickMeeting(s, { ...ctx, cancelled: false });
   return { expected, held, cancelled, lines, groupLine, present, meetingTemplate, cancelledScene };
 }
 export function weeklyMeeting(s, ctx) {
   const chance = { weekly: .4, biweekly: .25, monthly: .12, whenever: 0 }[s.cadence.oneOnOne];
-  if (!roll(s, chance)) return { meetingTemplate: null, held: 0, cancelled: 0 };
+  if (!roll(s, chance * (ctx.workWeeks ?? 1))) return { meetingTemplate: null, held: 0, cancelled: 0 };
   const cancelChance = clamp((100 - s.advisor.availability) / 160 + modeOf(s).cancel * (1 - s.advisor.availability / 200), 0, .95);
   if (roll(s, cancelChance)) { s.meetingStats.cancelled++; effects(s, { trust: -1 }); return { meetingTemplate: roll(s, .5) ? pickMeeting(s, { ...ctx, cancelled: true }) : null, held: 0, cancelled: 1 }; }
   s.meetingStats.held++;
@@ -144,7 +150,7 @@ export function weeklyMeeting(s, ctx) {
 }
 function pickMeeting(s, ctx) {
   const pool = meetings.filter(m => eligible(s, m, ctx) && (!ctx.cancelled || m.conditions.cancelled) && (ctx.cancelled || !m.conditions.cancelled));
-  const crunchPool = ctx.crunch ? pool.filter(m => m.conditions.crunch === ctx.crunch.type) : [];
+  const crunchPool = ctx.crunch && ctx.crunch.type !== 'zoom' ? pool.filter(m => m.conditions.crunch === ctx.crunch.type) : [];
   const m = pickWeighted(s, crunchPool.length ? crunchPool : pool, x => freshness(s, x));
   return m ? m.id : null;
 }
@@ -154,7 +160,7 @@ export function generateRequests(s, weeks, ctx) {
   const a = s.advisor;
   const open = s.requests.filter(r => r.status === 'open');
   if (open.length >= 3) return;
-  const base = .55 * (a.ambition / 60) * (1 + a.toxicity / 150) * modeOf(s).requests * (ctx.crunch ? 1.8 : 1) * (s.pressure > 60 ? 1.4 : 1) * (s.cadence.oneOnOne === 'whenever' ? .6 : 1);
+  const base = .55 * (a.ambition / 60) * (1 + a.toxicity / 150) * modeOf(s).requests * (ctx.crunch && ctx.crunch.type !== 'zoom' ? 1.8 : 1) * (s.pressure > 60 ? 1.4 : 1) * (s.cadence.oneOnOne === 'whenever' ? .6 : 1);
   const chance = clamp(base * weeks / 4, 0, .95);
   if (!roll(s, chance)) return;
   const pool = requestTemplates.filter(t => eligible(s, { id: `req_${t.id}`, conditions: t.conditions, cooldown: 0, prerequisites: null }, ctx) && !open.some(r => r.templateId === t.id) && !(t.conditions.season === 'teaching' && !isTeachingTerm(s.month)));
@@ -168,7 +174,7 @@ export function generateRequests(s, weeks, ctx) {
   // whatever language is current, not the one it was written in.
   const bodyRef = provenanceOf(body);
   const i18n = bodyRef ? { ...bodyRef, ...(suffix ? { x: provenanceOf(suffix) || undefined } : {}) } : null;
-  const req = { id: `req-${absWeek(s)}-${s.requests.length}`, templateId: tpl.id, kind: tpl.kind, text: body + suffix, createdWeek: absWeek(s), dueWeek: absWeek(s) + tpl.due, status: 'open', tone, ...(i18n ? { i18n } : {}) };
+  const req = { id: `req-${absWeek(s)}-${s.requests.length}`, advisorId: a.id, advisorName: a.name, templateId: tpl.id, kind: tpl.kind, text: body + suffix, createdWeek: absWeek(s), dueWeek: absWeek(s) + tpl.due, status: 'open', tone, ...(i18n ? { i18n } : {}) };
   s.requests.push(req);
   chat(s, 'advisor', a.name, req.text, { request: req.id, ...(i18n ? { i18n } : {}) });
   log(s, vars(t(pickFresh(s, 'log:reqNew', logLines.requestArrived)), { name: lastName(a.name), kind: t(tpl.kind), n: tpl.due }));
@@ -205,7 +211,7 @@ export function pushbackRequest(s, id, composed = '') {
   const tpl = requestById[r.templateId];
   const chance = clamp(.45 + (s.player.stats.confidence - 50) * .004 + (s.relationship.trust - 50) * .003 - s.advisor.toxicity * .003 - (s.pressure - 50) * .002, .08, .9);
   r.pushed = true;
-  chat(s, 'advisor', s.player.name, composed || pick(s, [t('Could this wait until after the deadline?'), t('I’m at capacity this week — can it be next week?'), t('Is this needed before the meeting, or is it a nice-to-have?')]), { mine: true });
+  chat(s, 'advisor', s.player.name, composed || pick(s, [t('Could this wait until I finish the work I have already planned?'), t('I’m at capacity this week — can it be next week?'), t('Is this needed before the meeting, or is it a nice-to-have?')]), { mine: true });
   if (roll(s, chance)) {
     r.status = 'deferred'; applyReward(s, tpl, .5); effects(s, { trust: 3, pressure: -2 });
     s.player.personality.boundarySetter++;
@@ -317,12 +323,23 @@ export function advisorPing(s) {
   if (roll(s, chance)) chat(s, 'advisor', a.name, fill(s, freshPing(s, pool)));
 }
 
+// Keep the advice attached to the decision it addresses, including across saves.
+export function canDiscussRejection(s) {
+  const p = activeProject(s), decision = p?.submissionHistory?.at(-1);
+  // Desk and phase-one rejections do not contain the reviewer reports this exchange discusses.
+  return p?.status === 'Rejected' && decision?.outcome === 'Reject' && !decision.rejectionDiscussed;
+}
+
 export function ask(s, id, composed = '') {
   const spec = askById[id];
   if (!spec) throw new Error(t('Unknown request.'));
+  if (id === 'summer_money' && transferCoversRemainingSummer(s)) throw new Error(t('Your departmental transfer guarantee already covers the remaining summer months.'));
+  if (id === 'summer_money' && handoverCoversRemainingSummer(s)) throw new Error(t('Your handover guarantee already covers the remaining summer months.'));
+  if (id === 'after_reject' && !canDiscussRejection(s)) throw new Error(t('Open a rejected paper whose decision you have not yet discussed.'));
   if ((s.askCooldowns[id] || 0) > absWeek(s)) throw new Error(t('You asked recently. Give it a few weeks.'));
   const c = spec.conditions || {};
   const p = activeProject(s);
+  if (c.months && !c.months.includes(monthOf(s.month))) throw new Error(t('Summer funding requests are available from March through August.'));
   if (c.maxEnergy !== undefined && s.player.stats.energy > c.maxEnergy) throw new Error(t('You are not sick enough for that, medically speaking.'));
   if (c.notFlag && s.flags[c.notFlag]) throw new Error(t('You already have that.'));
   if (c.hasProject && !p) throw new Error(t('Start a project first.'));
@@ -333,14 +350,17 @@ export function ask(s, id, composed = '') {
   effects(s, Object.fromEntries(Object.entries(spec.cost).map(([k, v]) => [k, -v])));
   s.askCooldowns[id] = absWeek(s) + spec.cooldown;
   const a = s.advisor, ch = spec.chance;
-  let chance = ch.base + (ch.caring || 0) * a.caring + (ch.trust || 0) * s.relationship.trust + (ch.pressure || 0) * s.pressure + (ch.toxicity || 0) * a.toxicity + (ch.funding || 0) * a.funding + (ch.availability || 0) * a.availability + (ch.management || 0) * a.management + (ch.ambition || 0) * a.ambition + (ch.dependency || 0) * s.relationship.dependency + (ch.crunch && s.tempo === 'week' ? ch.crunch : 0) + (ch.freeze && s.mutators.includes('freeze') ? ch.freeze : 0) + modeOf(s).ask;
+  let chance = ch.base + (ch.caring || 0) * a.caring + (ch.trust || 0) * s.relationship.trust + (ch.pressure || 0) * s.pressure + (ch.toxicity || 0) * a.toxicity + (ch.funding || 0) * a.funding + (ch.availability || 0) * a.availability + (ch.management || 0) * a.management + (ch.ambition || 0) * a.ambition + (ch.dependency || 0) * s.relationship.dependency + (ch.crunch && s.crunch && s.crunch.type !== 'zoom' ? ch.crunch : 0) + (ch.freeze && s.mutators.includes('freeze') ? ch.freeze : 0) + modeOf(s).ask;
   chance = ch.base >= 1 ? 1 : clamp(chance, .05, .95);
   chat(s, 'advisor', s.player.name, composed || fill(s, spec.draft || t('Hi — {ask}?', { ask: spec.name })), { mine: true });
   const mode = s.advisorMode?.id;
-  const silent = (mode === 'checkedOut' || mode === 'traveling') && spec.id !== 'update' && roll(s, .6);
-  const success = !silent && roll(s, chance);
+  const silent = (mode === 'checkedOut' || mode === 'traveling') && (spec.id === 'update' || roll(s, .6));
+  // A written update is delivered even when nobody acknowledges it. Keep its earned
+  // effects without inventing a reply from an unavailable advisor.
+  const success = (!silent || spec.id === 'update') && roll(s, chance);
   const branch = success ? spec.success : (spec.failure || spec.success);
   effects(s, branch.effects || {});
+  if (id === 'after_reject' && success) p.submissionHistory.at(-1).rejectionDiscussed = true;
   Object.assign(s.flags, branch.flags || {});
   if (branch.award) award(s, branch.award);
   if (Object.keys(s.askCooldowns).filter(k => !k.startsWith('soc:')).length >= 12) award(s, 'askedeverything');
@@ -349,28 +369,72 @@ export function ask(s, id, composed = '') {
   if (branch.personality) s.player.personality[branch.personality]++;
   if (branch.meeting) pushEvent(s, pickMeeting(s, { tempo: s.tempo, crunch: null, cancelled: false }) || 'meet_progress');
   if (branch.collaborator && p) { const mate = pick(s, activeLabmates(s)); if (mate && !p.collaborators.includes(mate.name)) { p.collaborators.push(mate.name); mate.bond = clamp(mate.bond + 8); } }
-  const reply = silent ? pick(s, [t('(no reply)'), t('(read, no reply)'), t('Auto-reply: I am currently away with limited access to email.')]) : fill(s, pick(s, branch.text));
-  chat(s, 'advisor', a.name, reply);
-  log(s, `${spec.name}: ${silent ? t('no reply.') : success ? t('yes.') : t('no.')} ${reply}`);
+  let reply, outcome, kind;
+  if (silent) {
+    const index = pick(s, [0, 1, 2]);
+    reply = [t('(no reply)'), t('(read, no reply)'), t('Auto-reply: I am currently away with limited access to email.')][index];
+    outcome = reply; kind = index === 2 ? 'automatic-reply' : 'conversation-note';
+  } else {
+    const index = pick(s, branch.text.map((_, i) => i));
+    outcome = fill(s, branch.text[index]);
+    reply = branch.reply?.[index] ? fill(s, branch.reply[index]) : outcome;
+    if (!branch.reply?.[index]) kind = 'conversation-note';
+  }
+  chat(s, 'advisor', kind === 'conversation-note' ? t('Conversation note') : a.name, reply,
+    { ...(kind ? { kind } : {}), allowedReplyIds: [], askId: id });
+  log(s, joined(spec.name, ': ', silent ? t('no reply.') : success ? t('yes.') : t('no.'), ' ', outcome));
   if (!success && spec.id !== 'update') s.player.personality.boundarySetter++;
   return { success, silent, reply };
 }
 export const askList = () => asks;
 
 // Replace the advisor with another professor at the same school (the old one left).
-export function newAdvisor(s) {
-  const candidates = s.advisors.filter(a => a.schoolId === s.program.id && a.id !== s.advisor.id);
-  const next = candidates[0] ? structuredClone(candidates[0]) : { ...s.advisor, name: `${firstName(s.advisor.name)} Replacement`, archetype: 'parent', caring: 80, toxicity: 15, availability: 70, ambition: 50, management: 60 };
-  const old = s.advisor.name;
+export function newAdvisor(s, reason = 'reassigned') {
+  endSupervision(s);
+  clearAdvisorTenure(s, reason);
+  preserveStoryCast(s);
+  const old = structuredClone(s.advisor);
+  s.formerAdvisors ||= [];
+  const excluded = new Set([old.id, ...s.formerAdvisors.map(a => a.id)]);
+  const candidates = s.advisors.filter(a => a.schoolId === s.program.id && !excluded.has(a.id));
+  const next = candidates[0] ? structuredClone(candidates[0]) : {
+    ...old, id: `${s.program.id}-successor-${s.formerAdvisors.length + 1}`, name: newName(s),
+    archetype: 'parent', stage: 'mid_career', caring: 80, toxicity: 15, availability: 70, ambition: 50, management: 60,
+  };
+  s.formerAdvisors.push({ ...old, departedMonth: s.month, reason, relationship: { ...s.relationship },
+    ...(s.jobs?.secret ? { searchDisclosure: structuredClone(s.jobs.secret) } : {}) });
+  for (const m of s.chatMessages) if (m.sender === old.name && !m.senderId) m.senderId = old.id;
+  for (const r of s.requests) {
+    r.advisorId ||= old.id; r.advisorName ||= old.name;
+    if (r.status === 'open') { r.status = 'withdrawn'; r.closedWeek = absWeek(s); }
+  }
+  // A submitted manuscript keeps its authors and reviewers. A pending internal read needs
+  // a fresh invitation; its predecessor cannot send feedback through the successor's account.
+  for (const p of s.projects) if (p.status === 'Advisor Review') {
+    p.status = 'Drafting'; p.reviewDueWeek = null;
+    log(s, t('The pending advisor read of “{title}” is closed. The draft is intact; send it to your new advisor when you are ready.', { title: p.title }));
+  }
+  const oldAppointment = id => {
+    const e = templateById[id];
+    return e && (e.category === 'meeting' || e.category === 'advisor' || e.speaker === 'advisor' || id.startsWith('group_'));
+  };
+  s.eventQueue = s.eventQueue.filter(id => !oldAppointment(id));
+  s.scheduled = s.scheduled.filter(x => !oldAppointment(x.id));
+  s.askCooldowns = Object.fromEntries(Object.entries(s.askCooldowns || {}).filter(([id]) => id.startsWith('soc:')));
+  for (const key of ['remoteAdvisor', 'coadvised', 'labInheritor', 'tenureDenied', 'followingAdvisor', 'racingClock', 'letterDrag']) delete s.flags[key];
+  delete s.advisorDeparture;
+  s.letterDrag = 0;
+  s.mutators = s.mutators.filter(id => !['tenure', 'sabbatical'].includes(id));
+  if (s.jobs?.secret) s.jobs.secret = { disclosed: false, discovered: false };
+  s.doorScene = null;
   s.advisor = { ...next, known: [] };
+  processRelocation(s); // A transfer signed with the former PI is refunded immediately.
   s.relationship = { trust: 40, satisfaction: 55, dependency: 5, conflict: 0 };
   s.advisorMode = { id: 'attentive', until: s.month + 2, since: s.month };
   s.pressure = 25;
-  s.requests = s.requests.filter(r => r.status !== 'open');
-  s.cadence = { oneOnOne: ['weekly', 'biweekly', 'monthly', 'whenever'][3 - Math.min(3, Math.round(s.advisor.availability / 25))], group: 'weekly' };
-  for (const p of s.projects) if (!p.collaborators.includes(s.advisor.name)) p.collaborators.push(s.advisor.name);
+  s.cadence = cadenceFor(s.advisor);
   award(s, 'orphaned');
-  log(s, t('{old} left. Prof. {name} is your advisor now. The relationship starts over, which is both the bad news and the good news.', { old: lastName(old), name: s.advisor.name }));
-  chat(s, 'advisor', s.advisor.name, t('Hi — I know this is a transition. Let’s meet this week and figure out where things are. I have read one of your papers, which is one more than most people.'));
+  log(s, t('Prof. {name} is now your advisor of record. Your completed milestones and paper authors stay as they were. Open requests from Prof. {old} are closed.', { old: lastName(old.name), name: s.advisor.name }));
+  chat(s, 'advisor', s.advisor.name, t('Could you send me your current draft and a list of deadlines? We can use our first meeting to work out what needs attention first.'));
   return t('Your new advisor is Prof. {name}.', { name: s.advisor.name });
 }

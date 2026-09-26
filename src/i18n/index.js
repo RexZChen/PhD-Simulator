@@ -43,6 +43,7 @@ export function provenanceOf(text) {
 // the slot a line came from keeps resolving in whatever language is current. Every string
 // leaf is indexed by a dotted path after each language switch.
 const roots = {};
+const sourceRoots = {};
 const slotIndex = new Map();
 function indexNode(name, node, path) {
   if (typeof node === 'string') { if (node) slotIndex.set(node, path ? `${name}.${path}` : name); return; }
@@ -51,7 +52,10 @@ function indexNode(name, node, path) {
 }
 // Data modules register themselves at load, so the index exists even before a language
 // is ever applied, and is rebuilt whenever the catalogs are re-translated.
-export function registerCatalog(name, obj) { roots[name] = obj; reindex(); }
+export function registerCatalog(name, obj) {
+  if (!Object.hasOwn(sourceRoots, name)) sourceRoots[name] = copy(obj);
+  roots[name] = obj; reindex();
+}
 function reindex() {
   slotIndex.clear();
   for (const [name, obj] of Object.entries(roots)) indexNode(name, obj, '');
@@ -62,6 +66,27 @@ export function readSlot(ref) {
   let node = roots[parts[0]];
   for (let i = 1; i < parts.length && node != null; i++) node = node[parts[i]];
   return typeof node === 'string' ? node : null;
+}
+
+// Gameplay categorization reads source wording, never the currently displayed translation.
+// This intentionally resolves only text provenance; it neither translates nor mutates catalogs.
+export function readSource(text, meta) {
+  if (!meta) return text ?? '';
+  let out = meta.j ? meta.j.map(part => part?.r ? readSource('', part.r) : String(part)).join('') : meta.s;
+  if (!meta.j && meta.p) {
+    const [root, ...path] = String(meta.p).split('.');
+    let node = sourceRoots[root];
+    for (const key of path) node = node?.[key];
+    out = typeof node === 'string' ? node : undefined;
+  }
+  if (typeof out !== 'string') return text ?? '';
+  for (const vars of [meta.v, meta.m]) {
+    for (const [key, value] of Object.entries(vars || {})) {
+      out = out.split(`{${key}}`).join(String(value?.r ? readSource('', value.r) : value));
+    }
+  }
+  if (meta.x) out += readSource('', meta.x);
+  return out;
 }
 export function rememberSource(result, meta) {
   if (!recording || typeof result !== 'string' || !result) return result;
@@ -149,8 +174,12 @@ function translateAsks(list, dict) {
   for (const a of list) {
     const base = remember(a); const tr = dict?.[a.id];
     a.name = tr?.name ?? base.name; a.desc = tr?.desc ?? base.desc;
-    a.success = { ...copy(base.success), ...(tr?.success ? { text: tr.success.text } : {}) };
-    if (base.failure) a.failure = { ...copy(base.failure), ...(tr?.failure ? { text: tr.failure.text } : {}) };
+    a.draft = tr?.draft ?? base.draft;
+    for (const outcome of ['success', 'failure']) if (base[outcome]) {
+      a[outcome] = { ...copy(base[outcome]),
+        text: copy(tr?.[outcome]?.text ?? base[outcome].text),
+        reply: copy(tr?.[outcome]?.reply ?? base[outcome].reply) };
+    }
   }
 }
 

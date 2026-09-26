@@ -1,6 +1,7 @@
 import { icon } from './icons.js';
 import { t } from '../i18n/index.js';
 import { dateLabel } from '../data/calendar.js';
+import { activeProject, editable } from '../engine/state.js';
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // Speech is the message. Everything else is the camera.
@@ -87,7 +88,7 @@ export const titlebar = (title, ic, { controls = true, inactive = false, right =
 // every item under it does the thing it says.
 export const menubar = (menus, right = '', open = null) => `<div class="menubar">${menus.map(m => typeof m === 'string'
   ? `<span>${m}</span>`
-  : `<span class="mb-menu${open === m.id ? ' open' : ''}"><button data-action="menu" data-id="${m.id}">${esc(m.label)}</button>${open === m.id ? `<div class="mb-drop">${m.items.map(it => it.sep
+  : `<span class="mb-menu${open === m.id ? ' open' : ''}"><button data-action="menu" data-id="${m.id}" aria-expanded="${open === m.id}" aria-controls="window-menu-${m.id}">${esc(m.label)}</button>${open === m.id ? `<div class="mb-drop" id="window-menu-${m.id}">${m.items.map(it => it.sep
       ? '<hr>'
       : `<button class="mb-item${it.checked ? ' checked' : ''}" data-action="${it.action}"${it.id ? ` data-id="${it.id}"` : ''}${it.app ? ` data-app="${it.app}"` : ''}${it.disabled ? ' disabled' : ''}>${esc(it.label)}${it.hint ? `<small>${esc(it.hint)}</small>` : ''}</button>`).join('')}</div>` : ''}</span>`).join('')}${right ? `<span class="mb-right">${right}</span>` : ''}</div>`;
 export const statusbar = panes => `<div class="statusbar">${panes.map(p => `<span class="pane">${p}</span>`).join('')}</div>`;
@@ -112,6 +113,32 @@ export function oddsTag(chance) {
 
 const pillMeta = { progress: ['Progress', 1], draft: ['Draft', 1], evidence: ['Evidence', 1], writingQuality: ['Writing', 1], reproducibility: ['Rigor', 1], novelty: ['Novelty', 1], hope: ['Hope', 1], energy: ['Energy', 1], stress: ['Stress', -1], money: ['Money', 1], confidence: ['Confidence', 1], satisfaction: ['Advisor', 1], trust: ['Trust', 1], dependency: ['Dependency', -1], conflict: ['Conflict', -1], pressure: ['Pressure', -1], academicCapital: ['Capital', 1], readiness: ['Readiness', 1], coursework: ['Coursework', 1], career: ['Career', 1], scope: ['Scope', -1], hype: ['Hype', 0], rentDelta: ['Rent', -1], commute: ['Commute', -1], bond: ['Bond', 1], labBond: ['Lab bond', 1], peerBond: ['Cohort', 1] };
 const order = Object.keys(pillMeta);
+// resolveChoice applies these deltas to the active manuscript before target/new-paper
+// hooks run. A different editable project elsewhere in the run cannot receive them.
+const paperPillKeys = new Set(['progress', 'draft', 'evidence', 'writingQuality', 'reproducibility', 'novelty', 'scope', 'hype']);
+function scenePaperEffects(s, choice) {
+  const paper = activeProject(s);
+  const shown = {}, ignored = [];
+  for (const [key, value] of Object.entries(choice.effects || {})) {
+    const playerEffect = key in s.player.stats || key in s.player.hidden || key in s.relationship;
+    if (value && paperPillKeys.has(key) && !playerEffect && (!editable(paper) || typeof paper[key] !== 'number')) ignored.push(key);
+    else shown[key] = value;
+  }
+  return { paper, shown, ignored };
+}
+export function sceneEffectPills(s, choice, limit = 5) {
+  const { shown, ignored } = scenePaperEffects(s, choice);
+  const pills = effectPills(shown, choice, limit);
+  return ignored.length ? `${pills}<span class="pill neutral paper-effect-note">${esc(t('Paper unchanged'))}</span>` : pills;
+}
+export function scenePaperEffectNote(s, choices) {
+  if (!choices.some(choice => scenePaperEffects(s, choice).ignored.length)) return '';
+  const paper = activeProject(s);
+  const note = paper
+    ? t('“{title}” is {status}. Choices below cannot change this paper.', { title: paper.title, status: t(paper.status) })
+    : t('No active paper. Choices below have no paper effect.');
+  return `<p class="small muted scene-paper-note">${esc(note)}</p>`;
+}
 // Compact, colored summary of a choice or plan: "▲ Progress ++" etc.
 export function effectPills(effects = {}, extra = {}, limit = 5) {
   const all = { ...effects };

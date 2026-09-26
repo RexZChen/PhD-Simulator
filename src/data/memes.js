@@ -49,9 +49,11 @@ export const memeOverrides = {
   meet_first: ['advisor', '“LET’S FIND YOU SOMETHING”', 'CHOOSE CAREFULLY'], meet_progress: ['advisor', '“SO. WHERE ARE WE?”', 'NOBODY KNOWS'], meet_deadline: ['deadline', '“WE’RE SUBMITTING”', 'NOT A QUESTION'], meet_scope: ['idea', '“JUST ADD THE OTHER METHOD”', 'NO PUBLIC CODE'], meet_praise: ['trophy', '“THIS IS GOOD”', 'NOW THE HARD PART'], meet_criticism: ['reviewer2', '“I’M GOING TO BE DIRECT”', 'NOTHING GOOD FOLLOWS'], meet_pivot: ['idea', 'THE NAPKIN', 'FORGET WHAT I SAID LAST TIME'], meet_cancelled: ['ghost', 'CANCELLED, TEN MINUTES BEFORE', 'YOU ARE STILL IN THE ROOM'], meet_reading: ['inbox', '“DID YOU READ THE PAPERS?”', 'ONE WAS A BOOK'], meet_rest: ['sleep', '“TAKE A FEW DAYS”', 'SERIOUSLY'], meet_plan_paper: ['calendar', 'TOP VENUE OR FAST VENUE?', 'FAST SOUNDS LIKE A DISEASE'], meet_rejection: ['reviewer2', '“REVIEWERS.”', 'THE WAY SAILORS SAY THE SEA'], meet_acceptance: ['trophy', 'A HANDSHAKE', 'NOW: CAMERA-READY'], meet_late: ['phone', 'SUNDAY 9 P.M.', '“ONLY SLOT I HAVE”'], meet_other_student: ['scale', '“CAN YOU HELP THEM?”', 'THE DAYS ARE YOURS'], meet_prelim: ['calendar', '“THE PRELIM IS A FORMALITY”', 'EVERYONE WHO FAILED HEARD THIS'], meet_grant_deadline: ['form', 'YOUR SLOT: THEIR PROOFREADING', 'BROADER IMPACTS × 4'], meet_silence: ['ghost', 'FIFTEEN QUIET MINUTES', 'CAMERA OFF, “GREAT THANKS”'], meet_crunch: ['deadline', '“WHAT CAN WE CUT?”', 'ELEVEN MINUTES ON TABLE 2'], meet_rebuttal: ['reviewer2', 'READING REVIEWER 2 ALOUD', 'IN A VOICE'], meet_prelim_week: ['advisor', 'QUESTION THREE IS UNFAIR', 'PREPARE ANYWAY'],
 };
 export function memeFor(e) {
+  if (e.noMeme) return null;
   const o = memeOverrides[e.id] || memeDefaults[e.category] || memeDefaults.life;
   return { art: o[0], top: o[1], bottom: o[2] };
 }
 export function memeCard(meme) {
+  if (!meme) return '';
   return `<div class="meme">${memeArt[meme.art] || memeArt.lab}<span class="meme-text top">${meme.top}</span><span class="meme-text bottom">${meme.bottom}</span></div>`;
 }

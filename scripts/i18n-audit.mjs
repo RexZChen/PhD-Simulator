@@ -14,7 +14,7 @@ import { setAppLanguage } from '../src/i18n/apply.js';
 import { createRun, activeProject } from '../src/engine/state.js';
 import { dispatch, focusOptions } from '../src/engine/game.js';
 import { schools } from '../src/data/catalog.js';
-import { templateById } from '../src/engine/events.js';
+import { templateById, choiceUnavailable } from '../src/engine/events.js';
 import { pushbacks } from '../src/data/minigames.js';
 import { questioners } from '../src/data/conference.js';
 import { currentBeat } from '../src/engine/epilogue.js';
@@ -34,7 +34,7 @@ globalThis.__I18N_MISS = new Set();
 setAppLanguage('zh');
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const resolveAll = s => { let n = 0; while (s.event && n++ < 40) { const e = templateById[s.event]; const ok = e.choices.find(c => !c.ending && !c.minigame && !(c.requiresCoursework && s.coursework < c.requiresCoursework)) || e.choices[0]; s = dispatch(s, { type: 'CHOICE', id: ok.id }); if (s.stage === 'minigame') s = dispatch(s, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 }); } return s; };
+const resolveAll = s => { let n = 0; while (s.event && n++ < 40) { const e = templateById[s.event]; const available = e.choices.filter(c => !choiceUnavailable(s, c)); const ok = available.find(c => !c.ending && !c.minigame) || available[0]; if (!ok) throw new Error(`No available choice: ${e.id}`); s = dispatch(s, { type: 'CHOICE', id: ok.id }); if (s.stage === 'minigame') s = dispatch(s, { type: 'LECTURE', worked: 9, attention: 5, caught: 1 }); } return s; };
 const act = (s, a) => resolveAll(dispatch(s, a));
 const try_ = (s, a) => { try { return act(s, a); } catch { return s; } };   // energy, cooldowns, "not yet"
 function advance(s) {
@@ -186,7 +186,16 @@ function playSeed(seed) {
         { const th = s.projects.find(p => p.kind === 'thesis');
           if (th && th.status === 'Drafting' && th.draft >= 90) { s = try_(s, { type: 'SELECT_PROJECT', id: th.id }); s = try_(s, { type: 'SEND_ADVISOR' }); }
           if (th && th.status === 'Ready' && s.milestones.defenseMonth == null) s = try_(s, { type: 'SCHEDULE_DEFENSE' }); }
-        if (s.stage === 'plan') { try { s = act(s, { type: 'CONTINUE' }); } catch { row.stopped = 'CONTINUE refused'; break; } }
+        if (s.stage === 'plan') {
+          // Sending/submitting a manuscript can invalidate the focus selected above. Re-read
+          // the same enabled plans as the UI before continuing, without bypassing engine locks.
+          const legalPlans = focusOptions(s).filter(f => !f.disabled);
+          if (!legalPlans.some(f => f.id === s.focus)) {
+            const fallback = legalPlans.find(f => ['research', 'experiments', 'writing', 'write'].includes(f.id)) || legalPlans[0];
+            if (fallback) s = try_(s, { type: 'PLAN', id: fallback.id });
+          }
+          try { s = act(s, { type: 'CONTINUE' }); } catch { row.stopped = 'CONTINUE refused'; break; }
+        }
       }
       if (s.stage === 'report') s = act(s, { type: 'DISMISS_REPORT' });
       if (s.stage === 'milestone') s = act(s, { type: 'MILESTONE', id: 'balanced' });

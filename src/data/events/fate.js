@@ -1,9 +1,7 @@
 // The endings nobody plans for, and the ones you cannot argue with.
 //
-// Everything else in this game is a trade you make. These are not. They fire because of what has
-// already happened to you — money you started with, a body you kept overdrawing, a mind nobody
-// checked on — and most of them do not offer you a real choice, because at that point there is not
-// one. The register is the same as everywhere else: the institution is absurd, the person never is.
+// These interruptions arise from the run, but the player still has choices about what follows.
+// The institution is the target of the satire; illness is not a verdict on a person.
 const c = (id, text, hint, effects = {}, extra = {}) => ({ id, text, hint, effects, ...extra });
 export default [
   // ── The one where the money calls ──────────────────────────────────────────────────────────
@@ -24,31 +22,35 @@ export default [
       c('stay', 'Stay. Let it wind down.', 'A cost that does not appear on any bar in this game', { hope: -10, stress: 10, money: 9000, confidence: 4 }, { personality: 'grinder' }),
     ] },
 
-  // ── The one where the body stops asking ────────────────────────────────────────────────────
-  { id: 'ambulance', title: 'You do not remember the corridor', category: 'life', scene: 'home', urgent: true,
-    probability: 1, once: true, cooldown: 99, conditions: { maxHealth: 30, minLowHealth: 12, minMonth: 14 },
-    text: ['A labmate finds you and does not spend any time deciding. The ceiling tiles of the fourth floor become the ceiling tiles of a corridor become a ceiling you have not seen before, and there is a plastic band on your wrist with your name spelled almost right.\n\nA doctor uses the phrase “for some time now.” A form on the tray says MEDICAL WITHDRAWAL and has been filled in by someone in an office, on your behalf, correctly.',
-      'The last thing you remember clearly is deciding to finish the paragraph. You did not finish the paragraph.\n\nSomeone from the department comes on Thursday with a plant and a form. The plant is nice. The form has already been signed by three people and processed by a fourth, and your name is on the line where the student agrees.'],
+  // Sustained strain interrupts the plan; it does not determine the rest of a life.
+  { id: 'ambulance', title: 'The work cannot continue on the same terms', category: 'life', scene: 'home', urgent: true,
+    probability: 1, once: true, cooldown: 99, conditions: { maxHealth: 30, minLowHealthStreak: 4, minMonth: 14 },
+    text: ['Your health has stayed low through several months. Today the work stops. When you contact student support, the first form asks for an expected return date before asking what needs to change.',
+      'The next deadline is on the calendar. So is a health appointment. The department asks whether you need leave or withdrawal; the two forms look almost identical, but they do very different things.'],
     choices: [
-      c('withdraw', 'There is nothing to decide', 'The decision was made without you, which is the point', {}, { ending: 'hospital' }),
-      c('discharge', 'Sign yourself out against advice', 'There is a form for this too. It is one page and you can leave in an hour.', { health: -6, stress: 14, hope: -8, energy: -6 },
-        { flags: { signedOut: true }, personality: 'grinder', achievement: 'signedout',
-          result: 'The nurse does not argue, which is worse than arguing. You sign the page that says you were advised and declined, and you are at your desk on Monday, and the paragraph is still not finished.' }),
+      c('recover', 'Arrange four weeks of leave and care', 'Continue the run with recovery support; care costs apply', {}, { medicalRecovery: true,
+        result: 'You choose leave, not withdrawal. You send a list of work that needs to wait. The office asks you to put the same list into its own template.' }),
+      c('withdraw', 'Choose medical withdrawal and end this run', 'Leave the programme; your completed work remains part of your record', {}, { ending: 'hospital' }),
+      c('discharge', 'Postpone the support plan and keep working for now', 'No leave now; health and stress worsen, and support may need revisiting', { health: -6, stress: 14, hope: -8, energy: -6 },
+        { flags: { signedOut: true }, result: 'You postpone the arrangement. The work stays on the calendar, along with the unresolved need for support. You can still change course.' }),
     ] },
-  { id: 'flatline', title: 'The acknowledgements section', category: 'life', scene: 'home', urgent: true,
-    probability: 1, once: true, cooldown: 99, conditions: { flag: 'signedOut', maxHealth: 14, minLowHealth: 22 },
-    text: 'You have told three people this month that you are fine. Two of them believed you because it was easier and one of them did not and said so, and you told them you would go on Monday.\n\nThere is a copy of the form you signed in a file somewhere with your signature on the line that says you were advised and declined.\n\nIt is not Monday.',
+  // Keep this id for saved runs. It now offers renewed support, never a scripted death.
+  { id: 'flatline', title: 'The support plan needs another look', category: 'life', scene: 'home', urgent: true,
+    probability: 1, once: true, cooldown: 99, conditions: { flag: 'signedOut', maxHealth: 14, minLowHealthStreak: 3 },
+    text: 'You postponed a support plan, and your health is still very low. That earlier answer does not have to be your answer now. Student support reopens the case. The system asks for a new form because the old form has been closed.',
     choices: [
-      c('end', '—', 'There is no move here. That is the whole point of this one.', {}, { ending: 'posthumous' }),
+      c('recover', 'Reopen the plan: four weeks of leave and care', 'Continue with support; the earlier postponement does not lock you out', {}, { medicalRecovery: true,
+        result: 'You accept help and arrange the leave. The previous refusal stays in an old form; it does not decide what you are allowed to ask for today.' }),
+      c('withdraw', 'Choose medical withdrawal and end this run', 'Step away from the programme rather than resume the workload', {}, { ending: 'hospital' }),
     ] },
-
-  // ── The one where nobody asked how you were ────────────────────────────────────────────────
-  { id: 'special_care', title: 'A room with a window that opens four inches', category: 'life', scene: 'home', urgent: true,
-    probability: 1, once: true, cooldown: 99, conditions: { minStress: 91, maxHope: 8, minHighStress: 18, minMonth: 20 },
-    text: ['You are not sure how you got to the counselling centre and you are quite sure you did not walk there alone. The intake person is kind and fast and has a laminated card of questions, and somewhere around question nine the tone of the room changes and a second person comes in.\n\nThey use the phrase “a higher level of care.” It is nobody\'s fault that this is the first time in four years anyone has asked you these questions in this order.',
-      'It is a Tuesday and you have been awake since Sunday and you have written two thousand words that are not words. Someone from the lab calls a number that is on a poster in the kitchen that you have walked past six hundred times.\n\nThe facility is forty minutes away and pleasant in the way of places that have thought hard about not looking like what they are. The window opens four inches. There is a reason the window opens four inches.'],
+  { id: 'special_care', title: 'Making room for support', category: 'life', scene: 'home', urgent: true,
+    probability: 1, once: true, cooldown: 99, conditions: { minStress: 91, maxHope: 8, minHighStressStreak: 6, minMonth: 20 },
+    text: ['High stress has become the background of the work, and there is very little hope left in it. In the support appointment, someone asks what could stop for a while. It is a different question from what you could finish faster.',
+      'You ask for help changing the workload. The support office discusses leave and withdrawal as separate options. The department wants a completion estimate. For now, you are trying to make a plan for the next month.'],
     choices: [
-      c('go', 'Go, because everyone in the room has already decided', 'Ends the run somewhere safe, which is not nothing', {}, { ending: 'institution' }),
+      c('recover', 'Arrange four weeks of leave and support', 'Continue the run with less immediate strain; care costs apply', {}, { medicalRecovery: true,
+        result: 'You choose time away from the workload. There will be another conversation about what comes next. Today, you do not have to supply the whole answer.' }),
+      c('go', 'Choose medical withdrawal and end this run', 'End this programme here; care and your future are not graded by the degree', {}, { ending: 'institution' }),
     ] },
 
   // ── The one where nobody notices you are still here ────────────────────────────────────────

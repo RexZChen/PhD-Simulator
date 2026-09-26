@@ -1,0 +1,15 @@
+export const crisisAftermathZh = {
+  'Thank them; no work update': '道谢，暂不汇报工作',
+  'Thank you. I do not have a work update to add right now.': '谢谢你。我现在没有工作进度可以补充。',
+  'No need to answer again now.': '现在不用再回复了。',
+  'I have moved our pending requests back by your leave period. Conference deadlines still need a separate decision.': '我们尚未完成的任务已按你的休假时长顺延。会议截止日期还得另作安排。',
+  'There are no pending requests from me to move. Take your leave; we can review the next steps afterward.': '我这边没有待完成的任务需要顺延。先休假，之后我们再商量下一步。',
+  'If you decide to take time away, tell me which commitments need revisiting.': '如果你决定休息一段时间，告诉我哪些安排需要重新商量。',
+  'Thanks for telling me. You do not need to attach a work update to this message.': '谢谢你告诉我。这次不用附上工作进度。',
+  'I have seen your message. When you can, tell me what this means for the current work plan.': '消息看到了。方便的时候，告诉我目前的工作计划会受什么影响。',
+  'Your message to Prof. {name} is sent. There is no reply yet.': '给{name}教授的消息已发出，暂时还没有回复。',
+  'Could I bring you something to eat? No work update needed.': '我给你送点吃的好吗？不用汇报工作。',
+  'Is there a small task I could take off your list?': '有没有哪件小事，我可以帮你接过去？',
+  'You do not need to keep up with the lab chat today. I can pass along anything that needs an answer.': '今天不用跟上实验室群聊。有需要答复的事，我可以转告你。',
+  'Prof. {name} extended {count} open request deadlines by {weeks} weeks. Venue deadlines are unchanged.': '{name}教授将{count}项待完成任务的截止日期顺延了{weeks}周。投稿截止日期不变。',
+};

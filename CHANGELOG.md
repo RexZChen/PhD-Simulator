@@ -4,6 +4,40 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.12.0] — 2026-09-26
+
+A browser release checkpoint after the gameplay, accessibility, and story refinement pass.
+
+### Added
+- Connected desktop navigation, clearer next actions, and redesigned Scholar, LabChat, and
+  ChatPHD screens with more discoverable tools and conversations.
+- Reading and comfort settings, self-paced activities, keyboard focus management, and improved
+  layouts for narrow screens and enlarged English/Chinese text.
+- Distinct, skippable meeting entrances for private, group, and remote meetings, with reduced
+  motion support and decision timers held until the entrance finishes.
+- Portable save backups, import previews, recovery handling, and clearer save failures.
+- Playable supervision, relocation, tenure, venture, recovery, and career follow-through, with
+  paired English and Simplified Chinese narrative.
+- A submission receipt that preserves the submitted manuscript's title, venue, and review
+  dates when the next work target changes.
+
+### Changed
+- Manual calendar pacing now scales ordinary work and recovery without inventing deadline
+  pressure. Publication, examination, and dissertation flows expose the next available action.
+- Advisor and peer interactions, holidays, venue references, endings, and event prerequisites
+  were reviewed for continuity, repetition, and truthful consequences.
+- Graduation agreements now use feasible future dates and distinguish planning from booking,
+  defense, revisions, and deposit.
+
+### Fixed
+- Admissions follow-up costs and advisor indicators, inaccessible or overlapping controls,
+  premature/stale scenes, review context, and several progression and save/reload failures.
+- Manuscript scenes no longer spend work on unrelated or locked papers; teaching, exam, pet,
+  partner, and climate scenes require the relevant run context.
+
+This is a checkpoint, not the end of the refinement effort. Remaining playtesting and known
+limitations are tracked in [release readiness](docs/release-readiness.md).
+
 ## [1.10.0] — 2026-09-07
 
 Scene art that carries state.

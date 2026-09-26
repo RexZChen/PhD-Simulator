@@ -1,3 +1,4 @@
+import { activityControls } from '../activity.js';
 import { esc, btn, group, tag, money, note, bar } from '../helpers.js';
 import { icon } from '../icons.js';
 import { avatar } from '../avatars.js';
@@ -42,22 +43,22 @@ function visaScreen(s) {
 }
 
 // ── The talk ──────────────────────────────────────────────────────────────────
-function talkIntro(s) {
+function talkIntro(s, selfPaced) {
   const p = tripProject(s), venue = tripVenue(s);
   return `<div class="trip talk-intro">
     <div class="trip-head"><h1>${t('Your session')}</h1><p class="muted">${t('“{title}” · {venue} · a room whose name is a number', { title: p?.title || '', venue: venue?.name || '' })}</p></div>
     <div class="stage-strip"><div class="stage-screen">${esc(p?.title || '')}<small>${esc(s.player.name.toUpperCase())} · ${esc(s.program.name.toUpperCase())}</small></div><div class="stage-seats">${Array.from({ length: 18 }, (_, i) => `<i class="${i % 5 === 3 ? 'empty' : ''}"></i>`).join('')}</div><span class="scene-caption">${t('TWELVE MINUTES. THEN QUESTIONS.')}</span></div>
-    ${note(t('You have twelve minutes and six slides. Build the talk by picking the phrase that belongs in each section before the clock runs out. Hype words play well in the room and badly in the Q&A.'))}
+    ${note(selfPaced ? t('Build six slides at your own pace. Phrase choices still affect the talk and the questions afterward.') : t('You have twelve minutes and six slides. Build the talk by picking the phrase that belongs in each section before the clock runs out. Hype words play well in the room and badly in the Q&A.'))}
     <div class="row" style="margin-top:8px">${btn(t('Take the podium →'), 'talk-start', { cls: 'primary', attrs: 'data-default="1"' })}</div>
   </div>`;
 }
 
 // The live minigame board. main.js paints it on an interval; this is only the frame.
 export function talkBoard(s) {
-  return `<div class="trip talkgame">
-    <div class="tg-head"><b data-tg-slot>${t('Motivation')}</b><span class="tg-clock"><i data-tg-bar></i></span><span data-tg-score class="tg-score">0</span></div>
+  return `<div class="trip talkgame">${activityControls()}
+    <div class="tg-head"><b data-tg-slot tabindex="0">${t('Motivation')}</b><span class="tg-clock"><i data-tg-bar></i></span><span data-tg-score class="tg-score">0</span></div>
     <div class="tg-stage"><div class="tg-audience">${Array.from({ length: 24 }, (_, i) => `<i class="a${i % 4}"></i>`).join('')}</div><div class="tg-slide" data-tg-slide></div></div>
-    <div class="tg-words" data-tg-words></div>
+    <div class="tg-words" data-tg-words></div><p data-tg-feedback tabindex="0" hidden></p><button class="btn primary" data-action="talk-advance" data-tg-advance hidden></button>
     <p class="tiny muted" data-tg-note>${t('Click the phrase that belongs in this section. Filler wastes the slot; hype costs you later.')}</p>
   </div>`;
 }
@@ -73,14 +74,14 @@ function talkResult(s) {
   </div>`;
 }
 
-function qaScreen(s) {
+function qaScreen(s, selfPaced) {
   const trip = s.trip;
   const qid = trip.qa[trip.qaIndex];
   const q = questioners.find(x => x.id === qid);
   const last = trip.qaResults?.at(-1);
-  return `<div class="trip qa">
+  return `<div class="trip qa">${activityControls()}
     <div class="trip-head"><h1>${t('Questions')}</h1><p class="muted">${t('Question {n} of {m}', { n: trip.qaIndex + 1, m: trip.qa.length })}</p></div>
-    ${last ? `<div class="qa-prev ${last.good ? 'good' : 'bad'}">${esc(last.line)}</div>` : ''}
+    ${last ? `<div class="qa-prev ${last.good ? 'good' : 'bad'}" tabindex="0">${esc(last.line)}</div>` : ''}
     <div class="qa-ask ${q.tone}">
       ${avatar(q.id + s.seed, 44)}
       <div><span class="qa-who">${esc(t(q.who))}</span><p>${esc(t(q.text))}</p></div>
@@ -88,8 +89,7 @@ function qaScreen(s) {
     <div class="choices timed" data-timer="14">
       ${Object.entries(q.options).map(([id, o], i) => `<button class="btn choice" data-action="trip-qa" data-id="${id}" data-hotkey="${i + 1}"><span><kbd>${i + 1}</kbd></span><span><b>${esc(t(o.label))}</b></span><span class="arrow">→</span></button>`).join('')}
     </div>
-    <div class="timer-bar"><i data-qa-timer></i></div>
-    <p class="tiny muted">${t('Fourteen seconds. Silence is also an answer, and a worse one.')}</p>
+    ${selfPaced ? `<p class="small">${t('Take your time. Choose when you are ready.')}</p>` : `<div class="timer-bar"><i data-qa-timer></i></div><p class="tiny muted">${t('Fourteen seconds. Silence is also an answer, and a worse one.')}</p>`}
   </div>`;
 }
 
@@ -119,6 +119,7 @@ function daysScreen(s) {
       <h1>${icon('plane', 20)} ${esc(t(city.name))} · ${esc(trip.venueName)}</h1>
       <p class="muted">${DAY_LABEL(trip.day)} ${t('of {n}', { n: trip.days || TRIP_DAYS })} · ${esc(t(city.blurb))}</p>
     </div>
+    ${trip.qaDone && trip.day === trip.talkDay ? `<section class="qa-complete" data-qa-result tabindex="0"><h2>${t('Q&A complete · {n}/{m} answers landed', { n: trip.qaResults.filter(r => r.good).length, m: trip.qaResults.length })}</h2><p>${esc(trip.qaResults.at(-1)?.line || '')}</p><p class="small muted">${t('The session is over. The rest of the day is yours.')}</p></section>` : ''}
     <div class="cols main-side">
       <div>
         ${isTalkDay ? `<div class="talk-today">${icon('warn', 18)}<div><b>${t('You present today.')}</b><span class="muted small">${t('“{title}” — {bar}', { title: p?.title || '', bar: p ? diamondBar(diamonds(p)) : '' })}</span></div>${btn(t('Go to your session →'), 'talk-intro', { cls: 'primary', attrs: 'data-default="1"' })}</div>`
@@ -148,10 +149,10 @@ export function tripScreen(s, ui) {
   if (!trip) return '';
   if (trip.phase === 'visa') return visaScreen(s);
   if (trip.caughtScene) return caughtScreen(s);
-  if (ui.talkStage === 'intro' && !trip.talkDone) return talkIntro(s);
+  if (ui.talkStage === 'intro' && !trip.talkDone) return talkIntro(s, ui.selfPaced);
   if (ui.talkStage === 'game' && !trip.talkDone) return talkBoard(s);
   if (trip.talk && !trip.qa) return talkResult(s);
-  if (trip.talkDone && trip.qa && !trip.qaDone && ui.talkStage === 'qa') return qaScreen(s);
+  if (trip.talkDone && trip.qa && !trip.qaDone && ui.talkStage === 'qa') return qaScreen(s, ui.selfPaced);
   if (trip.talk && trip.qa && !trip.qaDone && ui.talkStage !== 'qa') return talkResult(s);
   return daysScreen(s);
 }

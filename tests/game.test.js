@@ -256,7 +256,7 @@ test('asking the advisor respects cooldowns and produces a reply', () => {
   assert.throws(() => dispatch(s, { type: 'ASK', id: 'update' }), /recently/);
 });
 
-test('content catalogs are large, well-formed, and every scene has a meme card', () => {
+test('content catalogs are well-formed and scenes explicitly choose illustration or a quiet treatment', () => {
   assert.ok(events.length >= 120);
   assert.ok(meetings.length >= 18);
   assert.ok(requests.length >= 12 && asks.length >= 10);
@@ -264,7 +264,8 @@ test('content catalogs are large, well-formed, and every scene has a meme card',
   for (const e of [...events, ...meetings]) {
     assert.ok(e.choices.length >= 1 && e.choices.length <= 6, `${e.id} choice count`);
     assert.ok(e.choices.length <= 4 || e.id === 'job_market' || e.id === 'the_decision', `${e.id} has more than four choices, which only the declaration scenes may`);
-    assert.ok(memeArt[memeFor(e).art], `${e.id} meme art`);
+    if (e.noMeme) assert.equal(memeFor(e), null, `${e.id} deliberately omits the meme`);
+    else assert.ok(memeArt[memeFor(e).art], `${e.id} meme art`);
     for (const c of e.choices) assert.ok(c.text && c.hint !== undefined, `${e.id}/${c.id} text`);
   }
   assert.ok(events.some(e => e.choices.some(c => c.followUps?.length)));
@@ -316,7 +317,8 @@ test('save and load preserves the exact run and retires malformed data gracefull
   values.set('phdsim.academic-os.v2', '{"version":2,"run":{"phase":"playing"},"meta":{"achievements":[],"archetypes":[],"endings":[],"seenEvents":[]}}');
   const retired = loadSave(storage);
   assert.equal(retired.run, null);
-  assert.match(retired.notice, /set aside/);
+  assert.match(retired.notice, /preserved in recovery storage/);
+  assert.equal(retired.recoveryCount, 1);
 });
 
 // Drives every stage the game can be in, including the ones added later.
@@ -1074,6 +1076,8 @@ test('the spinout arc walks from a disclosure form to a company, and the advisor
   const beat = (st, id) => { st.event = id; st.stage = 'event'; st.eventVariant = 0; st.eventReturn = 'plan'; return st; };
   let s = enterProgram(31);
   s.month = 26; s.counts.accepted = 1;
+  s = dispatch(s, { type: 'START_PROJECT' });
+  Object.assign(s.projects.find(p => p.id === s.activeProjectId), { status: 'Accepted', novelty: 60, evidence: 65 });
   s = dispatch(beat(s, 'spin_disclosure'), { type: 'CHOICE', id: 'file' });
   assert.ok(s.flags.ipDisclosed, 'the form is filed');
   assert.ok(s.patent, 'and filing it opens the patent process, which is the same paperwork');
@@ -2464,7 +2468,7 @@ test('the outcome of a choice is actually shown, and it is shown in Chinese', as
   // untranslated tail away before the assertion could see it.
   const { entryText } = await import('../src/engine/state.js');
   const { events } = await import('../src/data/events.js');
-  const { events: zhEvents } = await import('../src/i18n/zh/events.js');
+  const { zh: { events: zhEvents } } = await import('../src/i18n/zh/index.js');
 
   // Every authored outcome has a Chinese counterpart. 131 of these had none and were reachable.
   const missing = [];
@@ -2550,7 +2554,7 @@ test('a month spent on Research always does something, or says why it cannot', a
   // months on a plan that advertises "▲ Progress +++" and silently yields nothing.
   const { focusOptions } = await import('../src/engine/time.js');
   const s = enterProgram(9);
-  s.month = 20;
+  s.month = 19; // Calm month, before the month-20 prelim replaces normal work plans.
   if (!s.projects.length) Object.assign(s, dispatch(s, { type: 'START_PROJECT' }));
   for (const p of s.projects) { p.status = 'Accepted'; p.progress = 100; }
   for (const id of ['research', 'write']) {

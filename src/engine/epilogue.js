@@ -1,16 +1,16 @@
 // What you leave with, what it is worth on a market, and the twenty years after.
-import { t } from '../i18n/index.js';
+import { t, provenanceOf } from '../i18n/index.js';
 import { internTypes } from '../data/internships.js';
 import { fundingLines, fundingScore } from './funding.js';
 import { cvSections, epilogueBeats, advisorNews } from '../data/epilogue.js';
 import { SECTION_MAX } from '../data/employers.js';
 import { employers, employersFor, slateOdds, gateFor, drawWeather, weatherLine } from './market.js';
-import { trackById, ACADEMIC } from '../data/tracks.js';
 import { venueById } from '../data/venues.js';
 import { random, roll, clamp, pick, shuffle } from './probability.js';
 import { effects, log, message, award, lastName, firstName, fill, activeLabmates } from './state.js';
 import { myProfile } from './scholar.js';
 import { diamonds } from './paper.js';
+import { ventureOffer, chooseVentureCareer, ventureOfferView } from './venture.js';
 
 // ── The CV ────────────────────────────────────────────────────────────────────
 // Every line is something that happened in the run. The score is the argument the CV makes.
@@ -49,7 +49,7 @@ export function buildCV(s) {
     else lines.push({ section: 'awards', text: t('{label}, {company}', { label: t(ty.label), company: h.employer }), points: 3 });
     if (h.returned) lines.push({ section: 'people', text: t('A return offer from {company}, held open past the point of politeness', { company: h.employer }), points: 2 });
   }
-  const intern = !(s.intern?.history || []).length && (s.internship || s.lastInternship);
+  const intern = !(s.intern?.history || []).length && s.lastInternship;
   if (intern) lines.push({ section: 'awards', text: t('Research internship, {company}', { company: intern.company || s.company }), points: 5 });
   // Money is its own section. On an academic search it is the line read first; in industry
   // nobody opens it. Lumping it in with awards made a grant compete with a best-paper.
@@ -57,6 +57,9 @@ export function buildCV(s) {
   if (s.flags.fellow && !fundingLines(s).length) lines.push({ section: 'funding', text: t('Departmental fellowship'), points: 6 });
   if (s.achievements.includes('accepted') && tier1 >= 2) lines.push({ section: 'awards', text: t('Two top-venue papers, which is the whole ballgame on this market'), points: 6 });
   if (s.flags.collabOffer) lines.push({ section: 'awards', text: t('External collaboration, begun at a coffee break'), points: 4 });
+
+  if (s.venture?.commitment === 'board' && s.venture.terms) lines.push({ section: 'people',
+    text: t('Board member, spinout from “{project}.” A separate role alongside your main career.', { project: s.venture.project.title }), points: 0 });
 
   const trust = s.relationship.trust, sat = s.relationship.satisfaction;
   const letter = trust > 68 && sat > 60 ? { text: t('A letter from {advisor} that says the specific things, not the general ones', { advisor: t('Prof. {name}', { name: lastName(s.advisor.name) }) }), points: 12 }
@@ -67,7 +70,7 @@ export function buildCV(s) {
   if ((s.conferenceConnections || 0) >= 6) lines.push({ section: 'people', text: t('A letter from someone at another institution who has never met your advisor'), points: 3 });
 
   const score = clamp(lines.reduce((a, l) => a + l.points, 0), 0, 100);
-  return { lines, score, sections: cvSections, axes: axesOf(lines) };
+  return { lines: lines.map(line => ({ ...line, i18n: provenanceOf(line.text) })), score, sections: cvSections, axes: axesOf(lines) };
 }
 
 // The file as a reader sees it: each axis normalised to 0-100 against what buildCV can
@@ -84,6 +87,41 @@ function salary(s, range) {
   const [lo, hi] = range;
   return Math.round((lo + random(s) * (hi - lo)) / 1000) * 1000;
 }
+// Advisor promises survive the market lottery; an existing offer from this lab is retained.
+function includePromisedPostdoc(s, offers) {
+  if (!s.flags.postdocOffered || offers.some(o => o.employerId === 'pd_same_lab')) return offers;
+  const e = employers.find(x => x.id === 'pd_same_lab');
+  const local = { kind: e.track, employerId: e.id, name: e.name, org: t(e.kind), where: t(e.where),
+    salary: Math.round((e.salary[0] + e.salary[1]) / 2000) * 1000,
+    months: e.months ?? 12, equity: e.equity || 'none', catch: t(e.catch), hook: t(e.hook),
+    prestige: e.prestige, permanence: e.permanence, ceiling: e.ceiling };
+  return [...offers.filter(o => o.kind !== 'unplaced'), local];
+}
+
+// A thesis-first agreement creates an optional founding route only once the dissertation is
+// deposited. It adds a choice alongside earned jobs; it does not turn equity into a salary.
+function includeVentureOffer(s, offers) {
+  const venture = ventureOffer(s);
+  if (!venture || offers.some(o => o.employerId === venture.employerId)) return offers;
+  // With no employment offer, continuing the search is a real alternative to unpaid founding.
+  const alternatives = offers.some(o => o.kind !== 'unplaced') ? offers.filter(o => o.kind !== 'unplaced') : offers;
+  return [...alternatives, venture];
+}
+
+// New controls identify the actual employer. Old saves/actions can still name a career track.
+export const offerFor = (s, id) => (s.jobs?.market || []).find(o => o.employerId === id)
+  || (s.jobs?.market || []).find(o => o.kind === id);
+
+// Re-read wording by identity after loading or changing language, without regenerating
+// offers, changing the salary, or consuming another market draw.
+export function offerView(s, offer) {
+  if (!offer || offer.venture) return ventureOfferView(s, offer);
+  const employer = employers.find(e => e.id === offer.employerId);
+  if (!employer) return offer;
+  return { ...offer, name: t(employer.name), org: t(employer.kind), where: t(employer.where),
+    catch: t(employer.catch), hook: t(employer.hook) };
+}
+
 export function generateOffers(s, cv) {
   s.jobs = s.jobs || {};
   if (!s.jobs.weather) drawWeather(s);
@@ -92,12 +130,13 @@ export function generateOffers(s, cv) {
   // what you got is what you got, and the applications tab already told you.
   const landed = (s.jobs.apps || []).filter(a => a.stage === 'offer');
   if (landed.length) {
-    const offers = landed.map(a => {
+    let offers = landed.map(a => {
       const e = employers.find(x => x.id === a.employerId);
       return { kind: e.track, employerId: e.id, name: e.name, org: t(e.kind), where: t(e.where),
         salary: salary(s, e.salary), months: e.months ?? 12, equity: e.equity || 'none',
         catch: t(e.catch), hook: t(e.hook), prestige: e.prestige, permanence: e.permanence, ceiling: e.ceiling };
     }).slice(0, 4);
+    offers = includeVentureOffer(s, includePromisedPostdoc(s, offers));
     s.jobs.market = offers;
     s.jobs.offers = [...new Set(offers.map(o => o.kind))];
     s.jobs.weatherLine = weatherLine(s);
@@ -107,12 +146,13 @@ export function generateOffers(s, cv) {
   // A search that produced nothing is not the same as never having searched. Say which.
   if ((s.jobs.apps || []).length >= 5) {
     const gap = employers.find(e => e.id === 'open_cycle');
-    const offers = [{ kind: 'unplaced', employerId: gap ? gap.id : null, name: gap ? gap.name : t('nothing signed yet'),
+    let offers = [{ kind: 'unplaced', employerId: gap ? gap.id : null, name: gap ? gap.name : t('nothing signed yet'),
       org: t(gap ? gap.kind : 'the cycle, still open'), where: t(gap ? gap.where : 'your apartment, your inbox'),
       salary: 0, months: 12, equity: 'none', catch: t(gap ? gap.catch : ''), hook: t(gap ? gap.hook : ''),
       prestige: 1, permanence: 0, ceiling: 5 }];
+    offers = includeVentureOffer(s, includePromisedPostdoc(s, offers));
     s.jobs.market = offers;
-    s.jobs.offers = ['unplaced'];
+    s.jobs.offers = [...new Set(offers.map(o => o.kind))];
     s.jobs.weatherLine = weatherLine(s);
     s.jobs.fromSearch = true;
     return offers;
@@ -143,7 +183,7 @@ export function generateOffers(s, cv) {
     if (w.e.track !== track && kept.some(k => k.e.track === w.e.track)) continue;
     kept.push(w);
   }
-  const offers = kept.map(({ e }) => ({
+  let offers = kept.map(({ e }) => ({
     kind: e.track, employerId: e.id, name: e.name, org: t(e.kind), where: t(e.where),
     salary: salary(s, e.salary), months: e.months ?? 12, equity: e.equity || 'none',
     catch: t(e.catch), hook: t(e.hook), prestige: e.prestige, permanence: e.permanence, ceiling: e.ceiling,
@@ -155,6 +195,7 @@ export function generateOffers(s, cv) {
       salary: 0, months: 12, equity: 'none', catch: t(gap ? gap.catch : ''), hook: t(gap ? gap.hook : ''),
       prestige: 1, permanence: 0, ceiling: 5 });
   }
+  offers = includeVentureOffer(s, includePromisedPostdoc(s, offers));
   s.jobs.market = offers;
   s.jobs.offers = [...new Set(offers.map(o => o.kind))];
   s.jobs.weatherLine = weatherLine(s);
@@ -163,13 +204,15 @@ export function generateOffers(s, cv) {
 
 // ── The years after ───────────────────────────────────────────────────────────
 export function startEpilogue(s, chosen) {
-  const offer = (s.jobs.market || []).find(o => o.kind === chosen) || (s.jobs.market || [])[0];
-  s.jobs.chosen = chosen;
+  const offer = offerView(s, offerFor(s, chosen) || (s.jobs.market || [])[0]);
+  chooseVentureCareer(s, offer);
+  s.jobs.chosen = offer?.kind || chosen;
   s.jobs.taken = offer || null;
   s.phase = 'epilogue';
   s.stage = 'epilogue';
-  s.epilogue = { year: 0, index: 0, beats: pickBeats(s), done: [], citations: myProfile(s).total, note: null };
-  log(s, offer && offer.salary ? t('You take the job at {name}. {salary} a year, which is more money than you have ever seen and less than your undergraduate roommate makes.', { name: offer.name, salary: `$${offer.salary.toLocaleString('en-US')}` })
+  s.epilogue = { year: 0, index: 0, beats: pickBeats(s), done: [], citations: myProfile(s).total, note: null,
+    advisorNewsIndex: pick(s, eligibleAdvisorNews(s)) };
+  log(s, offer?.venture ? t('You choose to found {name}. The salary is $0; the equity is ownership, not income.', { name: offer.name }) : offer && offer.salary ? t('You take the job at {name}. {salary} a year, which is more money than you have ever seen and less than your undergraduate roommate makes.', { name: offer.name, salary: `$${offer.salary.toLocaleString('en-US')}` })
     : t('You graduate without an offer in hand. September is further away than it sounds and closer than it feels.'));
   return s.epilogue;
 }
@@ -177,13 +220,12 @@ export function startEpilogue(s, chosen) {
 function pickBeats(s) {
   const has = {
     abandoned: s.projects.some(p => p.status === 'Abandoned' || (p.status !== 'Accepted' && p.kind === 'side')),
-    faculty: ACADEMIC.includes(s.jobs.chosen),   // 'faculty' is not a track id; the real ones are tenure_track etc.
     deferredCeremony: !!(s.thesis && s.thesis.deferred),
     // Filed and not yet decided when you left. Thirty months is longer than anybody's last two
     // years, so this is the only place the process can honestly finish.
     patentPending: !!s.patent && !['granted', 'abandoned'].includes(s.patent.stage),
   };
-  const pool = epilogueBeats.filter(b => !b.needs || has[b.needs]);
+  const pool = epilogueBeats.filter(b => (!b.needs || has[b.needs]) && (!b.tracks || b.tracks.includes(s.jobs.chosen)));
   const finals = pool.filter(b => b.choices.some(c => c.final));
   const rest = shuffle(s, pool.filter(b => !b.choices.some(c => c.final)));
   // Two beats are promised rather than drawn. The hooding is the ceremony you deferred, and the
@@ -191,9 +233,10 @@ function pickBeats(s) {
   // Leaving either to the shuffle means a player who did the whole thing hears nothing about it.
   const hood = pool.find(b => b.id === 'hooding');
   const pat = pool.find(b => b.id === 'patent_granted');
-  const promised = [hood, pat].filter(Boolean);
+  const career = pool.find(b => b.tracks?.includes(s.jobs.chosen));
+  const promised = [hood, pat, career].filter(Boolean);
   const chosen = rest.filter(b => !promised.includes(b)).slice(0, 4 - promised.length)
-    .concat(pat ? [pat] : []).sort((a, b) => a.when - b.when);
+    .concat([pat, career].filter(Boolean)).sort((a, b) => a.when - b.when);
   // The hooding leads, ahead of anything else in its year: a ceremony you were not at is the first
   // thing your advisor writes to you about, and sorting it in among the other year-one beats loses
   // that. The patent takes its place in the ordinary run of years.
@@ -204,14 +247,26 @@ function pickBeats(s) {
 
 export const currentBeat = s => epilogueBeats.find(b => b.id === s.epilogue?.beats?.[s.epilogue.index]) || null;
 
+function eligibleAdvisorNews(s) {
+  const stage = s.advisor?.stage;
+  return advisorNews.map((_, index) => index).filter(index =>
+    index === 0 ? stage === 'pre_tenure' : index === 4 ? stage === 'late'
+      : index === 3 ? ['newly_tenured', 'mid_career', 'late'].includes(stage) : true);
+}
+
 export function beatText(s, beat) {
   const mate = activeLabmates(s)[0]?.name || t('a labmate');
   const accepted = s.projects.filter(p => p.status === 'Accepted');
   const venue = venueById[accepted.at(-1)?.venueId]?.name || t('a venue you know');
+  const eligibleNews = eligibleAdvisorNews(s);
+  // Old saves have no news ID: choose a stable fallback without consuming the run RNG.
+  const savedNews = s.epilogue?.advisorNewsIndex;
+  const news = Number.isInteger(savedNews) && eligibleNews.includes(savedNews)
+    ? savedNews : eligibleNews[(s.seed >>> 0) % eligibleNews.length];
   return fill(s, t(beat.text))
     .replace('{labmate}', firstName(mate))
     .replace('{venue}', venue)
-    .replace('{advisorNews}', t(pick(s, advisorNews)));
+    .replace('{advisorNews}', t(advisorNews[news]));
 }
 
 export function answerBeat(s, choiceId) {

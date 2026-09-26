@@ -2,7 +2,7 @@
 // Both are latent. Both are reachable from month four. Neither is a punishment.
 import { t } from '../i18n/index.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, chat, finish, award, activeProject, absWeek, lastName, firstName } from './state.js';
+import { effects, log, message, chat, finish, award, activeProject, absWeek, lastName, firstName, hasPartner } from './state.js';
 import { pushEvent } from './events.js';
 import { dateLabel } from '../data/calendar.js';
 
@@ -102,7 +102,7 @@ export function updateQuitPressure(s) {
   p -= s.counts.accepted * 7;
   p -= s.milestones.prelim === 'pass' ? 6 : 0;
   p -= s.milestones.proposal === 'pass' ? 8 : 0;
-  p -= s.flags.partner ? 5 : 0;
+  p -= hasPartner(s) ? 5 : 0;
   p -= s.flags.therapy ? 4 : 0;
   const target = clamp(p, 0, 100);
   s.quitPressure = clamp((s.quitPressure || 0) * .68 + target * .32);

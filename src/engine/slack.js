@@ -1,9 +1,10 @@
 // Being in the channel: reacting, answering one person rather than the room, and the DMs that
 // are not with your advisor.
-import { t } from '../i18n/index.js';
+import { t, readSource } from '../i18n/index.js';
 import { reactions, reactionById, replyKinds, replyKindById, repliesFor, dmOpeners, DM_NOTE } from '../data/slack.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, chat, award, chatBody, firstName, labmateById, joined, activeLabmates } from './state.js';
+import { effects, log, chat, award, firstName, labmateById, joined, activeLabmates } from './state.js';
+import { isConversationNote, isAutomaticReply } from './conversation.js';
 
 export const REACT_COST = 0;
 
@@ -12,6 +13,7 @@ export function react(s, messageId, reactionId) {
   const m = s.chatMessages.find(x => x.id === messageId);
   const r = reactionById(reactionId);
   if (!m || !r) throw new Error(t('That message is gone.'));
+  if (isConversationNote(m) || isAutomaticReply(m)) throw new Error(t('This is a conversation note, not a message to answer.'));
   if (m.mine) throw new Error(t('Reacting to your own message is a choice, and not one this game supports.'));
   m.reacts = m.reacts || [];
   if (m.reacts.some(x => x.id === reactionId && x.mine)) {
@@ -26,7 +28,7 @@ export function react(s, messageId, reactionId) {
   if (r.personality) s.player.personality[r.personality]++;
   // Sometimes someone piles on, which is the whole social physics of a channel.
   if (roll(s, .35)) {
-    const others = [...activeLabmates(s), ...s.peers].filter(x => x.name !== m.sender);
+    const others = [...activeLabmates(s), ...s.peers.filter(p => ['active', 'remote'].includes(p.status))].filter(x => x.name !== m.sender);
     if (others.length) m.reacts.push({ id: reactionId, by: firstName(pick(s, others).name) });
   }
   s.counts.reactions = (s.counts.reactions || 0) + 1;
@@ -35,8 +37,14 @@ export function react(s, messageId, reactionId) {
 }
 
 // Answer one person. Most messages invite nothing; the ones that do are worth the energy.
-export const replyOptionsFor = (s, m) => (m && !m.mine && !m.repliedWith)
-  ? repliesFor(chatBody(s, m)).map(id => replyKinds[id]).filter(Boolean) : [];
+export function archivedMessage(s, m) {
+  if (!m || m.mine) return false;
+  const former = (s.formerAdvisors || []).find(a => m.senderId ? a.id === m.senderId : a.name === m.sender);
+  return !!former && (m.channel === 'advisor' || former.reason === 'deceased');
+}
+export const replyOptionsFor = (s, m) => (m && !m.mine && !m.repliedWith && !isConversationNote(m) && !isAutomaticReply(m) && !archivedMessage(s, m))
+  ? (Array.isArray(m.allowedReplyIds) ? m.allowedReplyIds : repliesFor(readSource(m.body, m.i18n)))
+    .map(id => replyKinds[id]).filter(Boolean) : [];
 
 export function replyTo(s, messageId, kindId, composed = '') {
   const m = s.chatMessages.find(x => x.id === messageId);
@@ -52,9 +60,12 @@ export function replyTo(s, messageId, kindId, composed = '') {
   effects(s, { ...rest, ...(labBond ? { [key]: labBond } : {}) });
   if (kind.personality) s.player.personality[kind.personality]++;
   chat(s, m.channel, s.player.name, composed || t(pick(s, kind.drafts)), { mine: true, replyTo: m.id });
-  const n = roomReacts(s, kindId, m.channel);
+  const n = kind.quietReply ? 0 : roomReacts(s, kindId, m.channel);
   const back = t(pick(s, kind.replies));
-  chat(s, m.channel, m.sender, back);
+  chat(s, m.channel, m.sender, back, {
+    ...(m.senderId ? { senderId: m.senderId } : {}),
+    ...(kind.quietReply ? { allowedReplyIds: [] } : {}),
+  });
   return { line: back, reacts: n };
 }
 
@@ -74,7 +85,7 @@ const REACT_FOR = {
 export function roomReacts(s, kindId, channel) {
   const mine = [...s.chatMessages].reverse().find(m => m.mine && m.channel === channel);
   if (!mine) return 0;
-  const room = [...activeLabmates(s), ...(channel === 'cohort' ? s.peers || [] : [])].filter(x => x.status === 'active');
+  const room = [...activeLabmates(s), ...(channel === 'cohort' ? (s.peers || []).filter(p => ['active', 'remote'].includes(p.status)) : [])];
   if (!room.length) return 0;
   const bond = room.reduce((a, x) => a + (x.bond || 50), 0) / room.length;
   // A well-liked person in a good month gets three or four; a stranger in a bad one gets nothing,
@@ -94,21 +105,27 @@ export function roomReacts(s, kindId, channel) {
 
 // ── Direct messages with people who are not your advisor ──────────────────────
 export const dmChannel = id => `dm:${id}`;
+const canDm = (s, p) => p && (p.status === 'active' || p.status === 'remote' && (s.peers || []).some(x => x.id === p.id));
 export const dmPeople = s => [...(s.labmates || []), ...(s.peers || [])]
-  .filter(p => p.status === 'active' && (dmOpeners[p.role] || dmOpeners[p.fate ? 'peer' : 'peer']))
+  .filter(p => canDm(s, p) && (dmOpeners[p.role] || dmOpeners[p.fate ? 'peer' : 'peer']))
   .map(p => ({ ...p, channel: dmChannel(p.id), kind: dmOpeners[p.role] ? p.role : 'peer' }));
 
 export function dmOptions(s, personId) {
   const who = labmateById(s, personId);
-  if (!who) return [];
+  if (!canDm(s, who)) return [];
   const kind = dmOpeners[who.role] ? who.role : 'peer';
   const used = s.dmUsed?.[personId] || [];
-  return (dmOpeners[kind] || []).map(o => ({ ...o, done: used.includes(o.id) }));
+  const milestones = s.milestones || {};
+  const pastQualifier = ['pass', 'conditional'].includes(milestones.prelim);
+  const stage = milestones.defense === 'pass' ? 'finished'
+    : milestones.proposal === 'pass' ? 'defense' : pastQualifier ? 'proposal' : 'qualifier';
+  return (dmOpeners[kind] || []).filter(o => !o.stage || o.stage === stage)
+    .map(o => ({ ...o, done: used.includes(o.id) }));
 }
 
 export function sendDm(s, personId, openerId, composed = '') {
   const who = labmateById(s, personId);
-  if (!who) throw new Error(t('You cannot message them.'));
+  if (!canDm(s, who)) throw new Error(t('You cannot message them.'));
   const opts = dmOptions(s, personId);
   const o = opts.find(x => x.id === openerId);
   if (!o) throw new Error(t('That is not something you would ask them.'));
@@ -118,9 +135,9 @@ export function sendDm(s, personId, openerId, composed = '') {
   s.dmUsed[personId] = [...(s.dmUsed[personId] || []), openerId];
 
   effects(s, { energy: -o.energy });
-  const key = s.peers.some(p => p.id === personId) ? 'peerBond' : 'labBond';
   const { labBond, peerBond, ...rest } = o.effects;
-  effects(s, { ...rest, ...((labBond || peerBond) ? { [key]: labBond || peerBond } : {}) });
+  effects(s, rest);
+  if (labBond || peerBond) who.bond = clamp(who.bond + (labBond || peerBond));
   const ch = dmChannel(personId);
   chat(s, ch, s.player.name, composed || t(o.draft), { mine: true });
   chat(s, ch, who.name, t(o.reply));

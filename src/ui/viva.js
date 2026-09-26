@@ -12,13 +12,15 @@ import { vivaQuestions, vivaMoves, vivaSilence, VIVA_SECONDS, examiners } from '
 import { exams, decks, talkLines, badCop, corridor, EXAM_TICK } from '../data/exams.js';
 import { t } from '../i18n/index.js';
 import { voiced } from './helpers.js';
+import { activityPaused } from './activity.js';
 
 const TICK = EXAM_TICK;
 let live = null, timer = null;
 
-export const vivaRunning = () => !!timer;
+export const vivaRunning = () => !!live;
 export const examPhase = () => (live ? live.phase : null);
 export const examLive = () => live;
+export const repaintViva = () => paint();
 
 const SKILL = { own: 'research', method: 'math', field: 'research', motivation: 'communication' };
 const CONCEDE_OK = { own: false, method: true, field: true, motivation: true };
@@ -50,6 +52,7 @@ function paint() {
   const set = (sel, fn) => { const el = root.querySelector(sel); if (el) fn(el); };
   root.dataset.phase = live.phase;
   const s = seg();
+  if (live.selfPaced) paintPacing(root);
   set('[data-vv-seg]', el => { el.textContent = t('{label} · {mins} min', { label: t(s.label), mins: s.minutes }); });
   set('[data-vv-segsub]', el => { el.textContent = t(s.sub); });
   set('[data-vv-progress]', el => {
@@ -73,6 +76,7 @@ function paint() {
   if (live.phase === 'clear' || live.phase === 'intro') paintClear(root, set);
   root.classList.toggle('resolving', !!live.holdUntil);
   for (const b of root.querySelectorAll('[data-action="viva-move"],[data-action="exam-talk"],[data-action="exam-interrupt"]')) b.disabled = !!live.holdUntil;
+  if (live.selfPaced && live.interrupt) for (const b of root.querySelectorAll('[data-action="exam-talk"]')) b.disabled = true;
   // Panels for the other phases are display:none, but their buttons were still enabled and still
   // carried data-hotkey 1..3 — and the hotkey handler takes the first match in the document, so
   // the number keys during the questions were pressing the hidden talk buttons.
@@ -80,6 +84,70 @@ function paint() {
     const off = !panel.classList.contains(`ex-${live.phase}`);
     for (const b of panel.querySelectorAll('button')) if (off) b.disabled = true;
   }
+}
+
+function paintPacing(root) {
+  let controls = root.querySelector('[data-vv-pacing]');
+  if (!controls) {
+    controls = document.createElement('div');
+    controls.dataset.vvPacing = '';
+    controls.innerHTML = '<p class="tiny muted" data-vv-pacing-note></p><button class="btn primary" data-action="exam-advance"></button><button class="btn" data-action="exam-interrupt" data-id="ignore"></button>';
+    root.append(controls);
+  }
+  // The timed-room footer describes silence and a running clock; replace that instruction with
+  // the mode-specific note below, including after a shell re-render.
+  const timedNote = root.querySelector(':scope > p.tiny.muted');
+  if (timedNote) timedNote.hidden = true;
+  const note = controls.querySelector('[data-vv-pacing-note]');
+  note.setAttribute('role', 'status');
+  note.setAttribute('aria-live', 'polite');
+  note.setAttribute('aria-atomic', 'true');
+  const noteText = live.phase === 'talk'
+    ? t('Self-paced. Budget: {n}/30. Next slide costs 1; explaining costs 4; answering an interruption costs 2.', { n: Math.max(0, 30 - live.elapsed) })
+    : t('Self-paced. Take your time; continue when you are ready.');
+  if (note.textContent !== noteText) note.textContent = noteText;
+  const advance = controls.querySelector('[data-action="exam-advance"]');
+  advance.textContent = t('Continue');
+  advance.hidden = !(live.holdUntil || ['intro', 'clear', 'corridor'].includes(live.phase));
+  const ignore = controls.querySelector('[data-id="ignore"]');
+  ignore.textContent = t('Leave the interruption unanswered');
+  ignore.hidden = !live.interrupt || !!live.holdUntil;
+  const label = root.querySelector('[data-vv-clocklabel]');
+  if (label) label.textContent = live.phase === 'talk' ? t('Talk budget') : t('No timer');
+  for (const b of root.querySelectorAll('[data-action="exam-talk"]')) {
+    const hint = b.querySelector('small');
+    if (hint) hint.textContent = b.dataset.id === 'hold' ? t('Spend 4 budget to explain this slide.') : t('Spend 1 budget to move past this slide.');
+  }
+  const hint = root.querySelector('[data-action="exam-interrupt"] small');
+  if (hint) hint.textContent = t('Spend 2 budget to answer the interruption.');
+}
+
+// Deliberate self-paced actions move to the new reading, never interval paints or refreshes.
+function orientPaced() {
+  if (!live?.selfPaced) return;
+  const root = document.querySelector('[data-vv]');
+  if (!root || root.closest('[inert]')) return;
+  const selector = live.holdUntil || (live.phase === 'corridor' && live.flash) ? '[data-vv-flash]'
+    : live.interrupt ? '[data-vv-interrupt]'
+      : live.phase === 'qa' ? '[data-vv-q]'
+        : live.phase === 'talk' ? '[data-vv-slidebox]' : '[data-vv-who]';
+  const target = root.querySelector(selector);
+  if (!target || !target.getClientRects().length) return;
+  for (const old of root.querySelectorAll('[data-vv-reading]')) {
+    old.removeAttribute('tabindex'); old.removeAttribute('data-vv-reading');
+  }
+  target.dataset.vvReading = '';
+  target.tabIndex = 0;
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ block: 'nearest' });
+}
+
+export function examAdvance() {
+  if (!live?.selfPaced) return;
+  if (live.holdUntil) afterQuestion();
+  else if (['intro', 'clear', 'corridor'].includes(live.phase)) nextSegment();
+  paint();
+  orientPaced();
 }
 
 function paintTalk(root, set) {
@@ -129,7 +197,7 @@ function paintClear(root, set) {
 
 // ── the clock ─────────────────────────────────────────────────────────────────────────────────
 function step() {
-  if (!live) return;
+  if (!live || activityPaused('[data-vv]')) return;
   live.elapsed += TICK;
   if (live.holdUntil) { if (live.elapsed >= live.holdUntil) afterQuestion(); paint(); return; }
 
@@ -156,33 +224,43 @@ function missInterrupt() {
   say(badCop.ignored, 'bad');
 }
 
-export function examInterrupt() {
+export function examInterrupt(move) {
   if (!live || live.phase !== 'talk' || live.holdUntil || !live.interrupt) return;
+  if (move === 'ignore') {
+    if (live.selfPaced) { missInterrupt(); paint(); orientPaced(); }
+    return;
+  }
   live.interrupt = null; live.interruptDone = true; live.badCop = 'handled';
-  live.elapsed += INTERRUPT_COST;                       // it costs you two minutes of the talk
+  live.elapsed += live.selfPaced ? 2 : INTERRUPT_COST;
   live.composure = Math.min(100, live.composure + 8);
   say(badCop.handled, 'good');
+  if (live.selfPaced && live.elapsed >= live.deadline) endTalk('cut');
   paint();
+  orientPaced();
 }
 
 export function examTalk(move) {
   if (!live || live.phase !== 'talk' || live.holdUntil) return;
+  if (!['hold', 'next'].includes(move) || (live.selfPaced && live.interrupt)) return;
   const slide = live.deck[live.slideIndex];
   if (!slide) return;
   if (move === 'hold') {
-    live.elapsed += HOLD_COST;
+    live.elapsed += live.selfPaced ? 4 : HOLD_COST;
     if (slide.w === 'core') { live.covered++; live.composure = Math.min(100, live.composure + 4); say(talkLines.holdCore, 'good'); }
     else if (slide.w === 'trap') { live.trapSeen = true; live.composure = Math.max(0, live.composure - 6); say(talkLines.holdTrap, 'bad'); }
     else { live.wasted++; say(talkLines.holdFiller, 'ok'); }
   } else {
+    if (live.selfPaced) live.elapsed += 1;
     if (slide.w === 'core') { live.skipped++; say(talkLines.skipCore, 'ok'); }
     else if (slide.w === 'trap') { live.trapSkipped = true; say(talkLines.skipTrap, 'ok'); }
     else say(talkLines.skipFiller, 'ok');
   }
   live.slideIndex++;
-  if (!live.interruptDone && !live.interrupt && live.slideIndex >= live.interruptSlide && live.slideIndex < live.deck.length) { raiseInterrupt(); paint(); return; }
+  if (live.selfPaced && live.elapsed >= live.deadline) { endTalk('cut'); paint(); orientPaced(); return; }
+  if (!live.interruptDone && !live.interrupt && live.slideIndex >= live.interruptSlide && live.slideIndex < live.deck.length) { raiseInterrupt(); paint(); orientPaced(); return; }
   if (live.slideIndex >= live.deck.length) endTalk(live.elapsed < live.deadline * .7 ? 'rushed' : 'clean');
   paint();
+  orientPaced();
 }
 
 function endTalk(how) {
@@ -226,7 +304,9 @@ function answer(move) {
   paint();
 }
 
-export function vivaMove(id) { if (live && live.phase === 'qa' && !live.holdUntil && vivaMoves[id]) answer(id); }
+export function vivaMove(id) {
+  if (live && live.phase === 'qa' && !live.holdUntil && vivaMoves[id]) { answer(id); orientPaced(); }
+}
 
 function afterQuestion() {
   if (live.pendingSegment) { live.pendingSegment = false; nextSegment(); return; }
@@ -246,6 +326,7 @@ export function examCorridor(id) {
   say(thing.line, id === 'nothing' ? 'good' : 'ok');
   if (id === 'nothing') live.composure = Math.min(100, live.composure + 6);
   paint();
+  orientPaced();
 }
 
 // ── the timetable ─────────────────────────────────────────────────────────────────────────────
@@ -267,7 +348,7 @@ function nextSegment() {
 function startTalk(s) {
   live.deck = decks[s.deck] || decks.prelim;
   live.slideIndex = 0;
-  live.deadline = (s.seconds || 28) * 1000;
+  live.deadline = live.selfPaced ? 30 : (s.seconds || 28) * 1000;
   live.interruptSlide = 3 + Math.floor(live.rand() * 3);
   live.interrupt = null; live.interruptDone = false;
 }
@@ -313,13 +394,13 @@ function finish() {
   done(out);
 }
 
-export function startViva(seed, kind, skills, onDone) {
+export function startViva(seed, kind, skills, onDone, { selfPaced = false } = {}) {
   stopViva();
   let x = (seed >>> 0) || 1;
   const rand = () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return ((x >>> 0) % 1e6) / 1e6; };
   const exam = exams[kind] || exams.prelim;
   live = {
-    kind, plan: exam.segments, segIndex: -1, phase: 'talk',
+    kind, selfPaced, plan: exam.segments, segIndex: -1, phase: 'talk',
     elapsed: 0, deadline: 1, holdUntil: null, flash: null, flashKind: null,
     composure: 62, skills, rand, onDone,
     tally: { land: 0, concede: 0, caught: 0, silent: 0 },
@@ -327,7 +408,7 @@ export function startViva(seed, kind, skills, onDone) {
     interrupt: null, interruptSlide: 3, interruptUntil: 0, interruptDone: false, badCop: null, badCopWho: null,
     questions: [], index: 0, touched: [], asked: [],
   };
-  timer = setInterval(step, TICK);
+  if (!selfPaced) timer = setInterval(step, TICK);
   nextSegment();
 }
 

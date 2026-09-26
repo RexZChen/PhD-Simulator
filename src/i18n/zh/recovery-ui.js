@@ -1,0 +1,18 @@
+export const recoveryUiZh = {
+  'Continue to use your leave. Research and meetings wait.': '点击继续度过休假时间。科研和会议暂时放下。',
+  'Season paused after {n} month(s). The remaining planned work has not been applied.': '连续推进在完成{n}个月后暂停。剩余计划尚未执行。',
+  'Leave used: {n} week(s). Work resumes only in the remaining time.': '已休假{n}周。只在剩余时间恢复工作。',
+  'Four weeks of medical leave arranged. Care costs ${bill}; open advisor requests move back four weeks. The run continues, and external deadlines keep their dates.': '已安排四周医疗休假。自付医疗费用为${bill}，未完成的导师任务顺延四周。本局继续，外部截止日期保持不变。',
+  'Recovery arrangement': '休养安排',
+  'Take leave. Continue this run.': '请假休养，继续这一局。',
+  'Medical leave': '医疗休假',
+  '{n} weeks': '{n}周',
+  'Care bill (USD)': '自付医疗费用（美元）',
+  '{cash} from cash · {debt} added to debt': '支付现金 {cash} · 新增债务 {debt}',
+  'Open advisor requests get {n} more weeks.': '未完成的导师任务再延长{n}周。',
+  'External deadlines keep their dates.': '外部截止日期保持不变。',
+  'Recovery leave': '休养假期',
+  '1 workday remaining': '还剩1个工作日',
+  '{n} workdays remaining': '还剩{n}个工作日',
+  'Work pauses during leave. Your run continues.': '休假期间暂停工作，这一局会继续。',
+};

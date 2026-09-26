@@ -1,0 +1,18 @@
+export const rebuttalZh = {
+  'Thank you for the detailed feedback. Our responses follow.': '感谢各位提出详细意见。以下逐一回应。',
+  'We prioritize the review with the most serious reservations in the space available.': '受篇幅所限，我们优先回应保留意见最强烈的评审。',
+  'We will focus the remaining response period on the requested checks and report both supporting and negative findings.': '我们将在剩余回复期内重点开展所要求的核查，并如实报告支持性与负面结果。',
+  'We appreciate the scrutiny. Our response focuses on the scope of the contribution and the evidence required to support it.': '感谢各位的审慎评阅。我们的回应着重说明贡献的范围，以及支撑它所需的证据。',
+  'Thank you for your comments. We address the points below and apologize for the brevity.': '感谢各位的意见。以下简要回应，篇幅有限，敬请谅解。',
+  'Thank you for the careful reading. We respond below to the main points about the contribution and its limitations.': '感谢各位认真阅读。以下回应关于本文贡献及其局限性的主要意见。',
+  'We will clarify which comparisons support the result and which evaluations remain outstanding. The claims should be limited to the settings actually evaluated.': '我们将明确哪些比较支持当前结果、哪些评估仍待完成。论断应限于实际评估过的设定。',
+  'We will make the assumptions and scope of the argument more explicit, and distinguish the contribution from the related results.': '我们将更明确地说明假设与论证的适用范围，并区分本文贡献与相关已有结果。',
+  'We will check the reported reproducibility issue against the code, configuration and instructions, and clarify any missing information.': '我们将依据代码、配置和说明核查所指出的复现问题，并补充说明缺失的信息。',
+  'We will sharpen the statement of contribution and its relationship to prior work, and make the limitations more explicit.': '我们将更清楚地阐述本文贡献及其与已有工作的关系，并明确说明局限性。',
+  'Thank you for the encouraging assessment and for taking the time to examine the work.': '感谢您给予积极评价，也感谢您花时间审阅这项工作。',
+  'Thank you for raising this point. We will clarify the relevant claims and distinguish current evidence from proposed follow-up work.': '感谢您提出这一点。我们将澄清相关论断，并区分现有证据与拟议的后续工作。',
+  '{reviewer}: {response}': '{reviewer}：{response}',
+  'No individual reviews are recorded for this manuscript. We cannot draft reviewer-specific answers from missing comments.': '这篇稿件没有记录具体评审意见。缺少意见时，无法起草针对某位评审的回复。',
+  'Response for “{title}”': '关于《{title}》的回复',
+  '{n} reviewers have read this paper. The rebuttal window closes at the end of the month.': '{n} 位评审已阅读这篇论文。回复窗口将在本月结束时关闭。',
+};

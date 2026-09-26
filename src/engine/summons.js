@@ -16,23 +16,24 @@ export function maybeSummons(s, { crunch } = {}) {
   if (s.phase !== 'playing' || s.summons || s.month < 3) return null;
   if (s.tempo === 'season') return null;                    // a season is not a calendar you can interrupt
   const a = s.advisor;
+  const urgent = !!crunch && crunch.type !== 'zoom';
   // Busier, more managerial advisors interrupt more. A crunch makes it likelier, not less.
   // About six a run rather than ten: often enough to be a real feature of the calendar, not so
   // often that it becomes the calendar. At ~42% of a turn each, ten of these cost four turns of
   // output over a run, which showed up as diligent players defending and never depositing.
-  const base = .055 + (a.ambition - 50) / 700 + (a.management - 50) / 900 + (crunch ? .045 : 0)
+  const base = .055 + (a.ambition - 50) / 700 + (a.management - 50) / 900 + (urgent ? .045 : 0)
     + (s.advisorMode?.id === 'pressed' ? .04 : 0) - (s.advisorMode?.id === 'checkedOut' ? .04 : 0);
   if (random(s) >= clamp(base, .01, .18)) return null;
   const contacts = activeContacts(s);
   const pool = Object.values(summonsKinds).filter(k =>
-    (!k.crunchOnly || !!crunch) && (!k.needsContact || contacts.length > 0));
+    (!k.crunchOnly || urgent) && (!k.crunchTypes || k.crunchTypes.includes(crunch?.type)) && (!k.needsContact || contacts.length > 0));
   if (!pool.length) return null;
   const kind = pickWeighted(s, pool, k => k.weight);
   const who = kind.needsContact ? contactLabel(pick(s, contacts)) : null;
   s.summons = {
     id: kind.id, from: kind.from, who,
     variant: Math.floor(random(s) * kind.text.length),
-    hard: !!crunch, answered: false, move: null,
+    hard: urgent, answered: false, move: null,
   };
   return s.summons;
 }
@@ -59,7 +60,7 @@ export function answerSummons(s, moveId) {
     return sm;
   }
 
-  // Going costs the turn. Saying you are close to a deadline sometimes shortens it.
+  // Going costs the turn. Asking to keep it short sometimes works.
   let keep = 1 - bite;
   let good = roll(s, clamp(.45 + (s.advisor.caring - 50) / 200, .15, .8));
   if (moveId === 'late') {

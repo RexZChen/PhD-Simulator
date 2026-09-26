@@ -11,16 +11,16 @@ export const ensureFunding = s => (s.funding = s.funding || { records: [], appli
 
 // What each kind is worth to a committee. A fellowship you won yourself outranks being named on
 // somebody else's grant, which outranks being thanked in one, which outranks a travel award.
-export const FUNDING_WEIGHT = { fellowship: 26, named: 18, acknowledged: 9, small: 4, declined: 6 };
+export const FUNDING_WEIGHT = { fellowship: 26, named: 18, acknowledged: 9, small: 4, declined: 6, recognition: 2 };
 
 export function addFunding(s, kind, { source = '', name = '', amount = 0, note = '' } = {}) {
   ensureFunding(s);
   if (!FUNDING_WEIGHT[kind]) throw new Error(t('That is not a kind of funding.'));
-  const rec = { kind, source, name, amount: Math.round(amount), month: s.month, note };
+  const rec = { kind, source, name, amount: kind === 'recognition' ? 0 : Math.round(amount), month: s.month, note };
   s.funding.records.push(rec);
   if (kind === 'fellowship') { s.flags.fellow = true; award(s, 'fundedyourself'); }
   if (kind === 'named') award(s, 'namedonit');
-  if (s.funding.records.filter(r => r.kind !== 'small').length >= 3) award(s, 'thefundedone');
+  if (s.funding.records.filter(r => !['small', 'recognition'].includes(r.kind)).length >= 3) award(s, 'thefundedone');
   return rec;
 }
 
@@ -28,7 +28,7 @@ export function addFunding(s, kind, { source = '', name = '', amount = 0, note =
 // having brought it in, so it counts for a fraction of its face value.
 export const claimable = r => r.kind === 'fellowship' || r.kind === 'named' ? r.amount
   : r.kind === 'acknowledged' ? Math.round(r.amount * .15)
-    : r.kind === 'declined' ? 0 : r.amount;
+    : ['declined', 'recognition'].includes(r.kind) ? 0 : r.amount;
 export const fundingTotal = s => (s.funding?.records || []).reduce((a, r) => a + claimable(r), 0);
 
 // 0-100, the number the CV and the market read. Diminishing: the first grant is the one that
@@ -141,6 +141,7 @@ export function recordRejection(s, name = '') {
 export function fundingLines(s) {
   const recs = s.funding?.records || [];
   const out = [];
+  for (const r of recs.filter(x => x.kind === 'recognition')) out.push({ section: 'awards', text: t('{name} — honorable mention (unfunded)', { name: r.name || t('Fellowship') }), points: 2 });
   const money = n => `$${n.toLocaleString('en-US')}`;
   for (const r of recs.filter(x => x.kind === 'fellowship')) out.push({ text: t('{name} — {amount}, held for the duration', { name: r.name || t('Graduate fellowship'), amount: money(r.amount) }), points: 12 });
   for (const r of recs.filter(x => x.kind === 'named')) out.push({ text: t('Named personnel, {name} ({amount})', { name: r.name || t('an awarded grant'), amount: money(r.amount) }), points: 9 });

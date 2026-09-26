@@ -1,3 +1,4 @@
+import { recoveryStatus } from '../recovery.js';
 import { esc, btn, bar, group, tag, money, note, gauge } from '../helpers.js';
 import { icon } from '../icons.js';
 import { conditions as conditionDefs, clinics, budgets, lifeActions, recharges, housingMoves, COFFEE } from '../../data/life.js';
@@ -63,7 +64,7 @@ function insuranceBox(s) {
 function moneyBox(s) {
   const l = s.ledger;
   const b = budgetOf(s);
-  const rows = l ? [[t('Stipend (gross)'), l.stipend, 1], ...(l.tax ? [[t('Withholding'), -l.tax]] : []), ...(l.refund ? [[t('Tax refund'), l.refund, 1]] : []), [t('Rent'), -l.rent], [t('Food ({mode})', { mode: t(b.name).toLowerCase() }), -l.food], [t('Insurance premium'), -l.premium], ...(l.fees ? [[t('Term fees'), -l.fees]] : []), ...(l.visa ? [[t('Visa and immigration fees'), -l.visa]] : []), ...(l.remit ? [[t('Sent home'), -l.remit]] : []), ...(l.interest ? [[t('Card interest'), -l.interest]] : []), ...(l.repaid ? [[t('Paid off the card'), -l.repaid]] : []), [t('Everything else'), -l.other]] : [];
+  const rows = l ? [[t('Stipend (gross)'), l.stipend, 1], ...(l.tax ? [[t('Withholding'), -l.tax]] : []), ...(l.refund ? [[t('Tax refund'), l.refund, 1]] : []), ...(l.support ? [[t('Hardship support'), l.support, 1]] : []), [t('Rent'), -l.rent], [t('Food ({mode})', { mode: t(b.name).toLowerCase() }), -l.food], [t('Insurance premium'), -l.premium], ...(l.fees ? [[t('Term fees'), -l.fees]] : []), ...(l.visa ? [[t('Visa and immigration fees'), -l.visa]] : []), ...(l.remit ? [[t('Sent home'), -l.remit]] : []), ...(l.interest ? [[t('Card interest'), -l.interest]] : []), ...(l.repaid ? [[t('Paid off the card'), -l.repaid]] : []), [t('Everything else'), -l.other]] : [];
   const net = rows.reduce((a, r) => a + r[1], 0);
   return `${l ? `<table class="grid money-table">${rows.map(([k, v]) => `<tr><td>${k}</td><td class="num ${v < 0 ? 'down' : 'up'}">${v < 0 ? '−' : '+'}${money(Math.abs(v))}</td></tr>`).join('')}<tr class="total"><td><b>${t('Net this month')}</b></td><td class="num ${net < 0 ? 'down' : 'up'}"><b>${net < 0 ? '−' : '+'}${money(Math.abs(net))}</b></td></tr></table>` : `<p class="muted small">${t('The first statement arrives at the end of the month.')}</p>`}
   <div class="row between" style="margin-top:8px"><span>${t('In the account')}</span><b class="${s.player.stats.money < 500 ? 'low' : ''}">${money(s.player.stats.money)}</b></div>
@@ -120,17 +121,23 @@ function reflection(s) {
   <p class="tiny muted">${t('Leaving a PhD is a decision, not a defeat. So is staying. Both deserve to be chosen rather than defaulted into.')}</p>`;
 }
 
+function deskActions(s) {
+  if (s.phase !== 'playing') return '';
+  const actions = [['plant', 'Water the plant'], ['chair', 'Adjust your chair'], ['fridge', 'Check the fridge'], ['board', 'Open the whiteboard']];
+  return group(t('Around your desk'), `<p class="small muted">${t('Small rituals and a place to sketch. Try an object to see what happens.')}</p><div class="row desk-actions">${actions.map(([id, label]) => btn(esc(t(label)), 'fixture', { id, cls: 'small', disabled: s.stage !== 'plan' })).join('')}</div>`);
+}
+
 export function lifeApp(s, ui) {
   const intl = s.player.profile.international;
   const tab = ui.lifeTab || 'body';
   const tabs = [['body', t('Body'), 'heart'], ['money', t('Money'), 'money'], ['living', t('Living'), 'home'], ...(intl ? [['visa', t('Visa'), 'plane']] : [])];
   const head = `<div class="tabs">${tabs.map(([id, label, ic]) => `<button class="btn tab ${tab === id ? 'active' : ''}" data-action="life-tab" data-id="${id}">${icon(ic, 14)} ${esc(label)}</button>`).join('')}</div>`;
   const body = {
-    body: `<div class="cols two"><div>${group(t('Vitals'), vitals(s))}${group(t('Getting it back'), `<p class="tiny muted">${t('None of these costs Energy. All of them cost something.')}</p>` + actionList(s, recharges))}</div>
+    body: `${recoveryStatus(s)}<div class="cols two"><div>${group(t('Vitals'), vitals(s))}${group(t('Getting it back'), `<p class="tiny muted">${t('None of these costs Energy. All of them cost something.')}</p>` + actionList(s, recharges))}</div>
       <div>${group(t('What is currently wrong'), conditionList(s))}${group(t('Where you could go'), clinicList(s))}${group(t('Your insurance, explained'), insuranceBox(s))}</div></div>`,
     money: `<div class="cols two"><div>${group(t('This month'), moneyBox(s))}</div>
       <div>${group(t('How you are living'), budgetBox(s))}${group(t('Where you live'), `<p class="tiny muted">${t('Rent is the largest line on the ledger and the only one you can actually move.')}</p>` + actionList(s, housingMoves))}${group(t('Ways to make it through'), actionList(s))}</div></div>`,
-    living: `<div class="cols two"><div>${group(t('Getting it back'), actionList(s, recharges))}${group(t('Things you could do that are not the PhD'), actionList(s))}</div>
+    living: `${deskActions(s)}<div class="cols two"><div>${group(t('Getting it back'), actionList(s, recharges))}${group(t('Things you could do that are not the PhD'), actionList(s))}</div>
       <div>${group(t('Vitals'), vitals(s))}${group(t('How you are doing, honestly'), reflection(s))}${s.lifeOutcome ? note(esc(s.lifeOutcome)) : note(t('The life side is not a reward for finishing the work. It is the thing that lets you finish the work.'))}</div></div>`,
     visa: `<div class="cols two"><div>${group(t('Immigration status'), `<table class="grid">
       <tr><td>${t('Status')}</td><td class="num">F-1</td></tr>

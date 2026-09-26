@@ -59,7 +59,7 @@ export const decisionZh = {
   "Thank you for your interest in the Ph.D. program in Computer Science at {school}.\n\nThe admissions committee has completed its review. We received {volume} applications for approximately {seats} positions this year, and were unable to offer you admission.\n\nWe wish you every success in your academic career.": "感谢您对 {school} 计算机科学博士项目的关注。\n\n招生委员会已完成评审。本年度我们共收到 {volume} 份申请，可录取名额约 {seats} 个，很遗憾无法向您发出录取通知。\n\n祝您学术之路一切顺利。",
   "Graduate Admissions, {school}": "{school} 研究生招生办公室",
   "Four sentences. Somebody wrote them once, in about 2016, and they have been sent several thousand times since, and the third one is doing all the work.": "四句话。有人在大约 2016 年写过它们一次，此后被发出去了好几千遍，而真正起作用的是第三句。",
-  "The number in the second paragraph is there so that the decision reads as arithmetic rather than as a judgement of you. It is arithmetic. It is also a judgement of you.": "第二段里的那个数字之所以在那儿，是为了让这个决定读起来像算术，而不像是对你的评判。它确实是算术。它也确实是对你的评判。",
+  "You divide the positions by the applications. The calculator gives you a percentage. The portal gives you the same letter.": "你把名额数除以申请人数。计算器给出一个百分比。系统里还是那封信。",
   "You close the tab. Then you open it again, twenty minutes later, to check that it says what it said.": "你关掉了标签页。二十分钟后你又打开一次，确认它写的确实是它写的那句。",
   "You look for the sentence that explains it. There is no sentence that explains it. There never is; that is a policy, and the policy is correct, and it does not help.": "你在找那句解释原因的话。没有那句话。从来都没有；这是一项政策，这项政策是对的，而它一点忙都帮不上。",
   "Your application status": "您的申请状态",

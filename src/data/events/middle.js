@@ -68,7 +68,7 @@ export default [
         { personality: 'grinder', result: 'Still them. Four years later, in a different country, at eleven at night. That is a lot of fuel and it does burn dirty.' }),
     ] },
   { id: 'opt_partner_far', title: 'Two cities', category: 'life', scene: 'home',
-    probability: .5, cooldown: 10, conditions: { minMonth: 14, household: ['partnerFar'] },
+    probability: .5, cooldown: 10, conditions: { minMonth: 14, household: ['partnerFar'], hasPartner: true, notFlag: 'relationshipChanged' },
     text: ['A flight every six weeks, a shared calendar, and a running argument about whose turn it is that neither of you is actually having.',
       'They ask, not for the first time, roughly how long this has left. You give the honest number. There is a pause on the line that is about four seconds longer than the connection.'],
     choices: [

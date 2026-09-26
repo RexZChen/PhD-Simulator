@@ -3,13 +3,15 @@ import { icon } from '../icons.js';
 import { avatar } from '../avatars.js';
 import { cvSections } from '../../data/epilogue.js';
 import { trackById } from '../../data/tracks.js';
-import { currentBeat, beatText } from '../../engine/epilogue.js';
-import { lastName, activeLabmates } from '../../engine/state.js';
+import { currentBeat, beatText, offerView } from '../../engine/epilogue.js';
+import { weatherLine } from '../../engine/market.js';
+import { lastName, activeLabmates, say } from '../../engine/state.js';
 import { t } from '../../i18n/index.js';
+import { dateLabel } from '../../data/calendar.js';
 
 const usd = n => n ? `$${n.toLocaleString('en-US')}` : t('no salary, yet');
 
-// The ceremony: your name is read out, and the CV assembles itself line by line.
+// Degree conferral and the ceremony can be months apart. The CV belongs to both paths.
 export function commencementScreen(s, ui) {
   const cv = s.cv;
   const step = ui.cvStep ?? 0;
@@ -21,16 +23,18 @@ export function commencementScreen(s, ui) {
 
   return `<div class="commence">
     <div class="ceremony">
-      <div class="cer-stage"><div class="cer-banner">${esc(s.program.name.toUpperCase())} · ${t('COMMENCEMENT')}</div>
+      <div class="cer-stage"><div class="cer-banner">${esc(s.program.name.toUpperCase())} · ${s.thesis?.deferred ? t('DEGREE CONFERRED') : t('COMMENCEMENT')}</div>
         <div class="cer-figures">${avatar(s.player.name, 56)}<span class="cer-hood"></span>${avatar(s.advisor.id, 46)}</div>
         <div class="cer-read">${t('“{name}, Doctor of Philosophy, advised by Professor {advisor}.”', { name: s.player.name, advisor: lastName(s.advisor.name) })}</div>
       </div>
-      <p class="muted small">${t('The hood goes over your head backwards on the first try. Somebody in the third row shouts your name. Nine seconds, after six years.')}</p>
+      <p class="muted small">${s.thesis?.deferred
+        ? t('Your degree is conferred. The ceremony is in {month}; for now, the library has your dissertation and you have an email.', { month: dateLabel(s.thesis.ceremonyMonth) })
+        : t('The hood goes over your head backwards on the first try. Somebody in the third row shouts your name. Nine seconds, after all that.')}</p>
     </div>
 
     <div class="cols main-side">
       <div>${group(t('Curriculum vitae'), `<div class="cv ${done ? 'all-at-once' : ''}">
-        ${bySection.map(sec => `<div class="cv-sec"><h3>${esc(t(sec.label))}</h3>${sec.lines.map(l => `<div class="cv-line"><span>${esc(l.text)}</span>${l.points ? `<b>+${l.points}</b>` : ''}</div>`).join('')}</div>`).join('')
+        ${bySection.map(sec => `<div class="cv-sec"><h3>${esc(t(sec.label))}</h3>${sec.lines.map(l => `<div class="cv-line"><span>${esc(say(s, l.text, l.i18n))}</span>${l.points ? `<b>+${l.points}</b>` : ''}</div>`).join('')}</div>`).join('')
       || `<p class="muted small">${t('The page is blank for a moment. Then it is not.')}</p>`}
       </div>`)}</div>
       <div>
@@ -45,22 +49,22 @@ export function commencementScreen(s, ui) {
 }
 
 function offersBlock(s) {
-  const offers = s.jobs.market || [];
+  const offers = (s.jobs.market || []).map(offer => offerView(s, offer));
   return `<div class="offers">
-    <h2>${t('What happens in September')}</h2>
+    <h2>${t('What comes next')}</h2>
     <p class="muted small">${t('The market ran while you were finishing. Here is what came back.')}</p>
     <div class="offer-grid">${offers.map((o, i) => {
       const tr = trackById[o.kind];
-      const clock = o.permanence === 0 ? t('no clock — it restarts in about two years') : o.permanence === 2 ? t('no clock at all') : t('there is a clock and it can end');
-      return `<button class="offer" data-action="take-offer" data-id="${esc(o.kind)}" data-hotkey="${i + 1}">
+      const clock = o.kind === 'unplaced' ? t('No position signed yet') : o.venture ? t('Company work after the doctorate') : o.permanence === 0 ? t('no clock — it restarts in about two years') : o.permanence === 2 ? t('no clock at all') : t('there is a clock and it can end');
+      return `<button class="offer" data-action="take-offer" data-id="${esc(o.employerId || o.kind)}" data-hotkey="${i + 1}">
       <div class="row between"><b>${esc(t(o.name))}</b>${tag(t(o.org))}</div>
-      ${tr ? `<div class="offer-track">${esc(t(tr.name))} <span class="muted">· ${esc(t(tr.subtitle))}</span></div>` : ''}
+      ${o.venture ? `<div class="offer-track">${esc(o.hook)}</div>` : tr ? `<div class="offer-track">${esc(t(tr.name))} <span class="muted">· ${esc(t(tr.subtitle))}</span></div>` : ''}
       <div class="offer-pay">${esc(usd(o.salary))}<span class="muted small">${o.months === 9 ? ' · ' + t('nine months of it') : ''} · ${esc(o.where)}</span></div>
-      <div class="offer-meta"><span>${esc(clock)}</span>${o.equity && o.equity !== 'none' ? `<span>${o.equity === 'lottery' ? t('equity: a story') : t('equity: possibly a house')}</span>` : ''}</div>
+      <div class="offer-meta"><span>${esc(clock)}</span>${o.equity && o.equity !== 'none' ? `<span>${o.venture ? esc(o.equity) : o.equity === 'lottery' ? t('equity: a story') : t('equity: possibly a house')}</span>` : ''}</div>
       <p class="small muted">${esc(o.catch)}</p>
-      <span class="offer-take">${t('Take it')} →</span>
+      <span class="offer-take">${t(o.kind === 'unplaced' ? 'Keep searching' : o.venture ? 'Choose founding' : 'Take it')} →</span>
     </button>`; }).join('')}</div>
-    ${s.jobs.weatherLine ? `<p class="tiny muted">${esc(s.jobs.weatherLine)}</p>` : ''}
+    ${s.jobs.weatherLine ? `<p class="tiny muted">${esc(weatherLine(s))}</p>` : ''}
     ${(s.jobs.shortlists || []).length ? `<p class="tiny muted">${t('You were shortlisted at {n} more and heard nothing. They hired someone internal, or their first choice said yes.', { n: s.jobs.shortlists.length })}</p>` : ''}
   </div>`;
 }
@@ -70,11 +74,11 @@ export function epilogueScreen(s, ui) {
   const ep = s.epilogue;
   const beat = currentBeat(s);
   const froms = { advisor: () => t('Prof. {name}', { name: s.advisor.name }), labmate: () => activeLabmates(s)[0]?.name || t('a labmate'), venue: () => t('Programme Committee'), system: () => t('Gaggle Scholar'), stranger: () => t('someone you have never met'), self: () => t('Your office, {school}', { school: s.jobs.taken?.name || s.program.name }) };
-  const job = s.jobs.taken;
+  const job = offerView(s, s.jobs.taken);
   return `<div class="epilogue">
     <div class="epi-head">
       <h1>${t('After')}</h1>
-      <p class="muted">${job && job.salary ? t('{name} · {org} · {where}', { name: t(job.name), org: job.org, where: job.where }) : t('Between things, for a while.')}</p>
+      <p class="muted">${job && (job.salary || job.venture) ? t('{name} · {org} · {where}', { name: t(job.name), org: job.org, where: job.where }) : t('Between things, for a while.')}</p>
       <div class="epi-years">${ep.done.map(d => `<span class="epi-dot" title="${esc(d.subject)}">${t('+{n}y', { n: d.year })}</span>`).join('')}${beat ? `<span class="epi-dot now">${t('+{n}y', { n: beat.when })}</span>` : ''}</div>
     </div>
     ${ep.note ? `<div class="epi-note">${esc(ep.note)}</div>` : ''}

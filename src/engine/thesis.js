@@ -3,7 +3,10 @@ import { t } from '../i18n/index.js';
 import { revisionItems, formatFaults, postDefensePings, hooding } from '../data/thesis.js';
 import { monthOf, nextIndexFor, dateLabel } from '../data/calendar.js';
 import { random, roll, clamp, pick, pickWeighted, shuffle } from './probability.js';
-import { effects, log, message, chat, award, lastName, vars, joined } from './state.js';
+import { effects, log, message, chat, award, lastName, vars, joined, TOTAL_MONTHS } from './state.js';
+
+export const defenseScheduleUnavailable = s => s.month + 1 >= TOTAL_MONTHS
+  ? t('There is no remaining defense date before funding ends. An approved draft is not a completed defense.') : null;
 
 export const COMMENCEMENT_MONTH = 5;   // May, when the robes come out
 

@@ -15,7 +15,7 @@
 <table>
 <tr><td width="50%" valign="top">
 
-### Six years. One decision a month.
+### Six years. One decision at a time.
 
 You apply, you pick an advisor with incomplete information, you run projects, you publish or you don't, you sit three exams, and you find out what you become.
 
@@ -25,7 +25,7 @@ Then it keeps going, because a PhD does not end at graduation and neither does y
 
 |  |  |
 |---|---|
-| **357** written scenes | **116** achievements |
+| **360** written scenes | **118** achievements |
 | **32** programs | **12** career endings |
 | **2** languages | **0** microtransactions |
 
@@ -93,13 +93,14 @@ npm run dev
 
 | | |
 |---|---|
-| `npm test` | 118 engine tests |
-| `npm run test:e2e` | 45 Playwright tests |
+| `npm test` | engine, save and activity tests |
+| `npm run test:e2e` | browser gameplay and usability checks |
 | `npm run i18n` | plays real runs in Chinese; must print zero |
 | `npm run balance` | 40 seeds × 3 playstyles |
 | `npm run reach` | which written content anybody actually reaches |
 
-Vanilla ES modules and Vite. No framework, no backend, no dependencies at runtime. Data in `src/data/`, rules in `src/engine/`, rendering in `src/ui/`.
+Vanilla ES modules and Vite. No framework or backend. Data in `src/data/`, rules in `src/engine/`, rendering in `src/ui/`.
+
 
 **[Contributing →](CONTRIBUTING.md)** · [Report a bug](https://github.com/RexZChen/PhD-Simulator/issues/new?template=bug.yml) · [Suggest a scene](https://github.com/RexZChen/PhD-Simulator/issues/new?template=content.yml) · [Argue with a number](https://github.com/RexZChen/PhD-Simulator/issues/new?template=balance.yml)
 

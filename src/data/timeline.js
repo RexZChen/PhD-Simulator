@@ -16,18 +16,18 @@ export const stances = {
     id: 'conditional',
     label: 'They name a condition',
     lines: [
-      '“I think so — with one thing.” They name it. It is specific, it is achievable, and it is written down before you leave the room. This is what a fair answer looks like.',
-      '“Realistically? Yes, if {condition}. I am not going to move that once we agree it.” They do not move it. Not every advisor is the story you have heard.',
-      'They think for a long time. “Get me {condition} and I will write the letter in October.” It is more than you wanted to do and less than you feared.',
+      '“I think so — with one condition: {condition}.” You write it down. For once, “nearly there” has something attached that can be checked.',
+      '“Yes, if {condition}. Let us put that in the plan.” You ask them to confirm the wording. A shared sentence is a better starting point than two memories.',
+      'They think for a long time. “Here is what I need before we agree a date: {condition}.” You write it down before either of you can remember it differently.',
     ],
   },
   notReady: {
     id: 'notReady',
-    label: 'They say not yet, and they are right',
+    label: 'They say the record is not ready',
     lines: [
-      '“Honestly? No. Not because of you — because there is not a thesis there yet.” They walk you through what is missing. It is a short list and every item on it is true.',
-      '“I would be doing you harm.” They mean it. You go home angry and, four days later, look at your own record and stop being angry.',
-      'They turn the laptop round and show you the shape of what you have. It is not a dissertation. It is three quarters of one, and three quarters is not a number the university accepts.',
+      '“Not yet. I need a stronger research record before I can support that target.” They point to the work rather than your character. It is still not the answer you wanted.',
+      '“I do not want us to agree a date the work cannot support.” You look back at the record together. The conversation is disappointing without needing a villain.',
+      'They turn the laptop round to the research record. “This is what we can point to today. I need more before I can back the earlier target.” The calendar remains open beside it.',
     ],
   },
   deflect: {
@@ -36,8 +36,8 @@ export const stances = {
     lines: [
       '“Let’s see how the year goes.” You ask what specifically would need to be true. “You’ll know.” You will not know. That is the point.',
       '“You’re not ready.” You ask what ready looks like. They say “more mature.” You ask what that means in deliverables. They look at the window.',
-      '“It would be a shame to rush it after all this work.” They said the same sentence last year about a different piece of work.',
-      '“I have never had a student finish in five.” This is presented as a law of nature rather than a description of their own practice.',
+      '“It would be a shame to rush it after all this work.” You leave a space under “remaining work” in your notes. They do not fill it.',
+      '“A serious thesis takes the time it takes.” You ask how to turn that into a plan. They repeat it more slowly, as if the problem were the delivery.',
     ],
   },
 };
@@ -46,8 +46,8 @@ export const stances = {
 export const conditions = [
   { id: 'onepaper', text: 'one more accepted paper', check: 'accepted', line: 'One more acceptance. Not a submission — an acceptance.' },
   { id: 'submitted', text: 'the last chapter submitted somewhere real', check: 'submitted', line: 'It has to be out the door, at a venue you would name at a party.' },
-  { id: 'draft', text: 'a complete dissertation draft by the winter', check: 'draft', line: 'All of it. Bad, but all of it. Bad and complete beats good and partial.' },
-  { id: 'handover', text: 'the pipeline documented and handed to someone', check: 'handover', line: 'You are the only person who can run it. That is a problem they are asking you to solve before you leave.' },
+  { id: 'draft', text: 'a complete dissertation draft', check: 'draft', line: 'All of it. Bad, but all of it. Bad and complete beats good and partial.' },
+  { id: 'handover', text: 'the pipeline documented and handed to someone', check: 'handover', line: 'Write down how the pipeline runs and make it usable by someone else. The exit plan needs fewer things that depend on finding you in the corridor.' },
 ];
 
 // How the player can answer. This is the whole mechanic.
@@ -55,7 +55,7 @@ export const moves = {
   evidence: {
     id: 'evidence', label: 'Come back with the record, written down',
     hint: 'Communication + your actual file. The strongest move if the file is real.',
-    line: 'You do not argue. You send a one-page document: papers, status, citations, teaching, the timeline, the gap. It is impossible to answer with a feeling.',
+    line: 'You put the research record and proposed timeline on one page, including the gaps. There is now something specific to discuss. Whether they discuss it is another question.',
     good: 'They read it twice. “Alright. This is a case.” The tone in the room changes because the thing on the table is now evidence rather than your character.',
     bad: 'They skim it. “I don’t disagree with any of this.” Nothing happens. A document is only as strong as the person’s willingness to be moved by one.',
   },
@@ -69,14 +69,14 @@ export const moves = {
   committee: {
     id: 'committee', label: 'Take it to your committee',
     hint: 'Networking. Real leverage, and it changes the relationship.',
-    line: 'You email the two committee members who answered every email and ask, neutrally, what they would want to see before signing. They answer in three days with a list.',
-    good: 'The list is shorter than your advisor’s and it is in writing from people your advisor cannot easily overrule. A meeting is scheduled. The word “timeline” appears in an agenda.',
-    bad: 'One of them forwards your email to your advisor with “thought you should see this.” The next meeting is cold in a way that lasts a term.',
+    line: 'You ask for committee input on the finishing criteria, keeping the request about the work and the proposed timeline. Even carefully neutral wording announces that this is no longer a private conversation.',
+    good: 'Committee backing gives your proposal more weight. Your advisor is less pleased about how it arrived. You have gained support, not a booked defense.',
+    bad: 'The request gets back to your advisor without the backing you hoped for. “We could have discussed this here.” You thought that was what you were trying to do.',
   },
   second: {
     id: 'second', label: 'Ask someone who left the lab',
     hint: 'Costs nothing. Tells you whether the objection is real.',
-    line: 'You find the student who graduated two years ago and ask the only question that matters: was it about the work?',
+    line: 'You ask a former lab member how to read this response: a research gap, or a moving target? They can offer a perspective, not a signature.',
     good: null, bad: null,
   },
   offer: {
@@ -84,7 +84,7 @@ export const moves = {
     hint: 'The strongest move available and the one with a shadow. Once per run.',
     line: 'You do not threaten. You say the date on the offer letter out loud, and then you stop talking, which is the whole move.',
     good: 'Something reorders itself behind their eyes. “Right. Then we make it work for spring.” The year you have been asking for arrives in nine seconds, having refused to arrive in nine months.',
-    bad: '“Then you should take it.” Said evenly, and meant as an ending. The room is very quiet and you have spent something you cannot get back.',
+    bad: '“An offer does not settle the research question.” They do not agree to the target. The offer is still there; the conversation has become harder.',
   },
   accept: {
     id: 'accept', label: 'Accept the extra year',
@@ -96,12 +96,12 @@ export const moves = {
 // What the ex-student tells you, which is the truth the game otherwise hides.
 export const secondOpinions = {
   fair: [
-    'They think for a second. “With mine? It was about the work. When I had the papers, they signed. Annoying, but straight.”',
-    '“Honestly — if they said not yet, it is probably not yet. Mine never played games with the timeline.”',
+    'They look over what you describe. “I would start with the work they are asking for. There seems to be a real gap to discuss, even if you dislike the answer.”',
+    '“Ask for the remaining work in writing. From what you have told me, I would not assume the objection is just a way to keep you.”',
   ],
   unfair: [
-    'A pause on the line. “It was never about the work. I finished the year I stopped asking and started telling.”',
-    '“Same words. Word for word, actually — ‘more mature.’ I got out by going to the committee. I would do it a year earlier if I could.”',
-    '“They kept me a seventh year and I had more papers than you do now. Get it in writing or it is not real.”',
+    'A pause. “You have a record worth discussing. If the answer never becomes a list of work, I would stop treating another paper as the whole solution.”',
+    '“Ask what would count as enough, and who else can assess it. A committee can be useful when one person keeps the definition to themselves.”',
+    '“Get the criteria in writing. Not because a document works miracles, but because it is harder to quietly change something both of you can read.”',
   ],
 };
