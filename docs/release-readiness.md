@@ -2,6 +2,56 @@
 
 Goal: a polished, replayable browser game hosted on GitHub Pages. “Steam-releasable grade” describes gameplay and presentation quality, not a Steam launch or a native desktop target. This is a working quality checklist, not a claim that the game is finished.
 
+## v1.12.2 checkpoint and pause — October 2
+
+Refinement pauses after this release is committed, synced, and deployed to GitHub Pages.
+This checkpoint adds one-task-at-a-time preparation, a sticky Energy/cash budget, and faculty
+filters based on the actual advisors generated in each run. Search, filters, and section
+navigation are free; school selection and keyboard return preserve their context. English
+and Chinese checks cover desktop and 390px phone layouts, including a corrected overlap
+between the budget and the return button.
+
+Natural first-run play in English and Chinese reached preparation and application browsing.
+Those sessions found the overwhelming school list, hidden budget, and an outreach email using
+the school's primary field instead of the chosen professor's. These are scoped first-run
+observations, not complete natural playthroughs.
+
+Payroll now records each withheld payment, prevents a duplicate refund after a successful
+advance, and restores documented unpaid incidents. Family visa scenes require a booked
+defense; streaming follows the actual defense, and optional home celebrations follow deposit.
+Older saves retain previously paid travel and the elapsed epilogue year. Patent records keep
+the original inventor across advisor changes. Unknown historical facts remain unknown rather
+than assigning them to the current advisor or inventing an undocumented payroll debt.
+
+Startup now displays a bilingual loading/recovery panel before the game bundle arrives.
+Under the audited 1.6 Mbps/150ms-latency/4×-CPU profile, first content moved from 6.17s to
+0.73s; full startup remained about 8s. This improves feedback, not download size.
+
+All eight README images were recaptured from the final production build at `/PhD-Simulator/`
+and visually inspected, with no page errors or failed asset responses. Preparation is now
+included; screenshots whose pixels remained identical naturally produce no Git diff.
+The repeatable capture script is `scripts/capture-readme.mjs`.
+
+Final engine checks: **469 unit tests passed**. Translation audit: **0 reached misses /
+0 UI literal misses**, across 12 runs, 1,021 planning turns and 1,784 UI literals.
+Production build passed (225 modules, JS 2,956.85 kB / gzip 1,120.16 kB), with the existing
+bundle-size warning. Logs use `/tmp/phdsim-v1.12.2-{unit,i18n,browser,balance,build,screenshots}.log`.
+
+All **165 browser scenarios** are verified: 161 passed in the full run, and the remaining
+four passed on a targeted rerun. Three tests needed their old preparation selectors updated;
+the timed Room 214 scenario passed unchanged after a transient corridor-timing failure.
+The new nine-case preparation suite also passed independently, with visual EN/ZH checks.
+
+All 120 scripted balance runs completed without a stuck/error outcome. Comparing the same
+40 seeds per policy against v1.12.1, PhD endings were 34 → 34 for diligent, 10 → 10 for lazy,
+and 9 → 10 for grinder. These distributions describe the sample; they do not prove improved
+balance or enjoyment. The legacy epilogue chronology correction left these results unchanged.
+
+Remaining limits for a future resumption: full natural playthroughs and outside-player feedback;
+large initial bundle; rescue export when browser storage cannot be read; polished creator/license
+credits; and broader late-game and cross-schema save compatibility evidence. This release
+does not add a save-schema migration or establish that the overall quality goal is complete.
+
 ## v1.12.1 checkpoint and pause — October 2
 
 This checkpoint includes the completed graduation-agreement fixes and updated README images.

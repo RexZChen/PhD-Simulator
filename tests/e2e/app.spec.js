@@ -125,7 +125,9 @@ test('application phase: prepare, email a professor, apply, interview, decide', 
   await page.getByRole('button', { name: /Generate applicant/ }).click();
   await closeDialogs(page);
   await page.locator('[data-action="prep"]:not([data-guide])[data-id="sop_draft"]').click();
+  await page.locator('.prep-nav [data-action="prep-section"][data-id="letters"]').click();
   await page.locator('[data-action="prep"]:not([data-guide])[data-id="letter_ask"]').first().click();
+  await page.locator('.prep-nav [data-action="prep-section"][data-id="advisors"]').click();
   await page.locator('[data-action="ga-school"]').first().click();
   const wrappedAdvisorRatings = await page.locator('.advisor-card .traits b').evaluateAll(nodes => nodes.filter(node => {
     const range = document.createRange();
@@ -782,18 +784,22 @@ test('GradApply guides a new player, shows Energy as a meter, and marks what the
   await expect(guide).toContainText(/recommendation letter/i);
 
   // Seven recommenders to choose between, each with a hint about what they would write.
+  await guide.locator('[data-action="prep-section"][data-id="letters"]').click();
   const recs = page.locator('.request');
   expect(await recs.count()).toBeGreaterThan(4);
   await expect(recs.first().locator('.rec-note')).not.toBeEmpty();
 
   // Researching a school yields real insider notes, and the school is then visibly done.
-  await page.locator('.school-pick button').first().click();
+  await page.locator('.prep-nav [data-action="prep-section"][data-id="advisors"]').click();
+  const researchedSchool = await page.locator('.prep-school').first().getAttribute('data-id');
+  await page.locator('.prep-school').first().click();
   await page.locator('[data-action="prep"]:not([data-guide])[data-id="research"]').first().click();
   await resolveScenes(page);
   const insider = page.locator('.insider li');
   expect(await insider.count()).toBeGreaterThan(0);
   await expect(insider.first()).not.toBeEmpty();
-  await expect(page.locator('.school-pick button.researched, .school-pick button.primary').first()).toBeVisible();
+  await page.locator('[data-action="prep-school-back"]').click();
+  await expect(page.locator(`.prep-school[data-id="${researchedSchool}"] .prep-school-state`)).toHaveText('Researched');
 
   // The statement can now be pushed past the old ceiling of 63.
   const sopAfter = await page.evaluate(async () => {
@@ -1216,6 +1222,8 @@ test('every school is a different place, and every interview is a different conv
   await closeDialogs(page);
 
   // Researching a program tells you what the place is like, not only what it ranks.
+  await page.locator('.prep-nav [data-action="prep-section"][data-id="advisors"]').click();
+  await page.locator('[data-action="prep-school-reset"]').click();
   await page.locator('[data-action="ga-school"]').first().click();
   await page.locator('[data-action="prep"][data-id="research"]').first().click();
   const vibe = page.locator('.campus');
@@ -1224,6 +1232,7 @@ test('every school is a different place, and every interview is a different conv
   const first = await vibe.innerText();
 
   // A different school is a different place.
+  await page.locator('[data-action="prep-school-back"]').click();
   await page.locator('[data-action="ga-school"]').nth(3).click();
   await page.locator('[data-action="prep"][data-id="research"]').first().click();
   await expect(page.locator('.campus')).toBeVisible();

@@ -4,6 +4,30 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.12.2] — 2026-10-02
+
+A smaller preparation screen and more consistent story consequences.
+
+### Changed
+- Preparation shows one task at a time, visible task progress, and an Energy/cash budget that
+  stays in view. Faculty browsing starts with the applicant's field, supports school search,
+  and keeps every program available without spending Energy.
+- Startup has a bilingual loading screen, download/error recovery, and a JavaScript-disabled
+  explanation. Retrying preserves saved runs.
+- Recaptured all eight README images from the production build, including the new preparation
+  screenshot; retained identical image files where the rendered screen did not change.
+
+### Fixed
+- Prospective-advisor emails use that professor's research field.
+- Delayed pay is refunded once per incident; a successful advance cannot earn a second payment.
+- Family visits follow a booked defense and actual degree deposit. Planned travel is charged
+  only when taken, and older saves preserve payments and epilogue chronology.
+- Patent inventor names remain attached to the original disclosure after an advisor change.
+- The preparation budget no longer covers the phone's return-to-programs button.
+
+Validation and remaining limitations are recorded in [release readiness](docs/release-readiness.md).
+Refinement pauses at this checkpoint after repository sync and GitHub Pages deployment.
+
 ## [1.12.1] — 2026-10-02
 
 Graduation agreements now track the work actually promised.

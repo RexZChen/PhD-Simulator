@@ -1,4 +1,4 @@
-import { schools } from '../data/catalog.js';
+import { schools, topics } from '../data/catalog.js';
 import { UPDATE_SUBJECT, UPDATE_BODY, letters, volumeFor, seatsFor, acceptedNote, declinedNote, declinedMail } from '../data/decisions.js';
 import { t, t as tr } from '../i18n/index.js';
 import { emailOpeners, emailFollowUps, studentOpeners, studentFlavor, interviewQuestions, visitQuestions, INTERVIEW_QUESTIONS } from '../data/threads.js';
@@ -122,7 +122,7 @@ export function nextStep(s) {
     if (p.letters.filter(l => l.asked).length < LETTERS_EXPECTED)
       return { title: t('You are short of letters'), detail: t('Most programs want three. Two is a file with a hole in it.'), action: 'prep-section', id: 'letters', label: t('Recommendation letters') };
     if (p.gre === null)
-      return { title: t('Decide about the GRE'), detail: t('“Optional” is a word with a range of meanings. Exam-style programs still peek at it; everyone else genuinely does not care.'), action: null, label: t('Take it or skip it, in the middle column') };
+      return { title: t('Decide about the GRE'), detail: t('“Optional” is a word with a range of meanings. Exam-style programs still peek at it; everyone else genuinely does not care.'), action: 'prep-section', id: 'logistics', label: t('Tests & fees') };
     if (s.player.stats.energy > 12)
       return { title: t('Keep improving the statement, or go to the programs'), detail: t('Every remaining Energy point is worth more in the statement than it is in December. But you can leave now if you would rather spread the applications wider.'), action: 'prep', id: 'proceed', label: t('Proceed to applications →') };
     return { title: t('You are nearly out of Energy. Go to the programs.'), detail: t('Nothing left here is worth the last of it. December is where the money goes.'), action: 'prep', id: 'proceed', label: t('Proceed to applications →') };
@@ -166,8 +166,7 @@ export function email(s, advisorId, templateId) {
   const key = `${advisorId}:email`;
   const t = s.threads[key] || (s.threads[key] = { kind: 'email', advisorId, schoolId: a.schoolId, messages: [], stage: 0, followUp: null, done: false });
   if (t.done) throw new Error(tr('This thread has run its course. Faculty inboxes are finite; yours is not.'));
-  const school = schools.find(x => x.id === a.schoolId);
-  const fill = txt => txt.replace('{last}', lastName(a.name)).replace('{topic}', school.topics[0]).replace('{student}', t.student || 'a student').replace('{openingsLine}', openingsLine(a)).replace('{fundingWord}', fundingWord(a)).replace('{hint}', () => hintFor(s, a));
+  const fill = txt => txt.replace('{last}', lastName(a.name)).replace('{topic}', topics[a.topic]).replace('{student}', t.student || 'a student').replace('{openingsLine}', openingsLine(a)).replace('{fundingWord}', fundingWord(a)).replace('{hint}', () => hintFor(s, a));
   if (t.stage === 0) {
     const tpl = emailOpeners.find(x => x.id === templateId); if (!tpl) throw new Error(tr('Choose a template.'));
     if (s.player.stats.energy < tpl.cost) throw new Error(tr('Not enough Energy ({n}).', { n: tpl.cost }));

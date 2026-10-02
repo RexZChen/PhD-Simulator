@@ -4,6 +4,7 @@ import { revisionItems, formatFaults, postDefensePings, hooding } from '../data/
 import { monthOf, nextIndexFor, dateLabel } from '../data/calendar.js';
 import { random, roll, clamp, pick, pickWeighted, shuffle } from './probability.js';
 import { effects, log, message, chat, award, lastName, vars, joined, TOTAL_MONTHS } from './state.js';
+import { familyDefense } from './family-visit.js';
 
 export const defenseScheduleUnavailable = s => s.month + 1 >= TOTAL_MONTHS
   ? t('There is no remaining defense date before funding ends. An approved draft is not a completed defense.') : null;
@@ -41,6 +42,7 @@ export function beginRevisions(s) {
   message(s, t('Graduate Studies'), t('Defense result: PASS (conditional on revisions)'),
     t('Congratulations, Doctor. Your degree is conferred once the revised dissertation is deposited and passes the format review. The deposit deadline for this term is {month}. You are, until then, in a state the university has a form for and no word for.', { month: dateLabel(s.thesis.dueMonth) }),
     'portal', 'inbox', 'policies');
+  familyDefense(s);
   return s.thesis;
 }
 

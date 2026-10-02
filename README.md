@@ -6,9 +6,9 @@
 
 **[▶ Play it in your browser](https://rexzchen.github.io/PhD-Simulator/)** · no install · no account · nothing leaves your machine
 
-<img src="docs/screens/desktop.png" width="820" alt="Academic OS v1.12.1: a connected workspace sidebar, planning choices, research projects, advisor status, and a plant on the desk.">
+<img src="docs/screens/desktop.png" width="820" alt="Academic OS v1.12.2: a connected workspace sidebar, planning choices, research projects, advisor status, and a plant on the desk.">
 
-*Captured in Chrome from v1.12.1 using prepared game checkpoints.*
+*Captured in Chrome from the v1.12.2 production build using prepared game checkpoints.*
 
 </div>
 
@@ -39,6 +39,10 @@ Then it keeps going, because a PhD does not end at graduation and neither does y
 <div align="center">
 
 ### The decision arrives the way it actually arrives
+
+<img src="docs/screens/preparation.png" width="760" alt="GradApply preparation: four tasks with progress, a persistent Energy and cash budget, and programs filtered by their faculty's research fields.">
+
+*One task at a time. Read the faculty list before spending the energy to write the email.*
 
 <img src="docs/screens/portal.png" width="760" alt="An applicant portal showing an offer of admission, opened from an email that only said there was an update.">
 

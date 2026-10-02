@@ -26,21 +26,23 @@ async function seed(page, phase = 'playing') {
   await resume(page);
 }
 
-test('phone navigation keeps readable app names and phase tabs', async ({ page }) => {
+test('phone navigation keeps readable app names and application stages', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await seed(page, 'prep');
   const dock = page.locator('.desk-icon');
   const widths = await dock.evaluateAll(nodes => nodes.map(n => n.getBoundingClientRect().width));
   expect(Math.min(...widths), 'app icons must scroll rather than shrink into single-letter columns').toBeGreaterThanOrEqual(60);
-  const tabs = page.locator('.ga-tabs');
-  await expect(tabs).toBeVisible();
-  expect(await tabs.innerText()).not.toContain(',');
-  const bounds = await tabs.boundingBox();
+  const stages = page.locator('.prep-journey');
+  await expect(stages).toBeVisible();
+  await expect(stages.locator('li')).toHaveCount(4);
+  await expect(stages.locator('[aria-current="step"]')).toHaveText('Prepare');
+  expect(await stages.innerText()).not.toContain(',');
+  const bounds = await stages.boundingBox();
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
   const window = await page.locator('.window').boundingBox();
   const dockBounds = await page.locator('.desktop-icons').boundingBox();
   expect(window.y + window.height).toBeLessThanOrEqual(dockBounds.y);
-  await page.locator('[data-action="prep-section"][data-id="advisors"]:not([data-guide])').click();
+  await page.locator('.prep-nav [data-action="prep-section"][data-id="advisors"]').click();
   await expect(page.locator('#prep-advisors')).toBeInViewport();
 });
 

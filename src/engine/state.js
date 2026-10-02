@@ -107,6 +107,7 @@ export function createRun(seed = Date.now() >>> 0, answers = {}) {
     focus: null, actions: {}, typed: 0, applications: [], offers: [], advisors: [], program: null, advisor: null,
     labmates: [], peers: [], projects: [], activeProjectId: null, requests: [], askCooldowns: {}, pressure: 20,
     flags: {}, scheduled: [], cooldowns: {}, seen: {}, persistedSeen: {}, event: null, eventActor: null, eventReturn: null, eventQueue: [],
+    payrollDelay: null, familyVisit: null,
     history: [], inbox: [], chatMessages: [], achievements: [],
     coursework: 0, readiness: 0, career: 0, burnoutMonths: 0, exhaustedMonths: 0, leaveWeeks: 0,
     relationship: { trust: 50, satisfaction: 60, dependency: 10, conflict: 0 }, housing: { rentDelta: 0, commute: 0 },

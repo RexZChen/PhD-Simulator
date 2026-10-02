@@ -6,7 +6,7 @@ import { chromium, expect } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import { candidate, conditional } from '../tests/timeline-fixtures.js';
 import { createRun } from '../src/engine/state.js';
-import { dispatch } from '../src/engine/game.js';
+import { dispatch, prepareRun } from '../src/engine/game.js';
 import { createProject } from '../src/engine/paper.js';
 import { decisions } from '../src/engine/apply.js';
 import { schools } from '../src/data/catalog.js';
@@ -68,6 +68,13 @@ try {
   await shot('chatphd');
   await page.locator('.desk-icon[data-app="scholar"]').click();
   await shot('scholar');
+
+  const preparation = prepareRun(createRun(4252236273, { name: 'Morgan Chen', background: 'masters', topic: 'hci', international: true }));
+  await open(preparation);
+  await page.locator('[data-action="prep-section"][data-id="advisors"]').click();
+  await expect(page.locator('#prep-topic-filter')).toHaveValue('hci');
+  await page.locator('.client').evaluate(el => { el.scrollTop = 0; });
+  await shot('preparation');
 
   const applicant = createRun(77, { name: 'Morgan Chen', background: 'masters', topic: 'ml', international: false });
   applicant.phase = 'application';

@@ -107,7 +107,7 @@ export const tipsDialog = (s = null) => {
   const applying = s && ['prep', 'application', 'interviews', 'admissions'].includes(s.phase);
   const tips = applying ? [
     t('You are applying to graduate school. It is autumn 2027 and the deadlines are in December.'),
-    t('The blue bar at the top is Energy. It is the entire budget for this phase and it does not come back — every action spends some, and December arrives whether you are ready or not.'),
+    t('Energy is your preparation budget. Browsing is free; paid actions show their cost. You move to December when you choose to proceed.'),
     t('The blue box under the tabs always names the single next thing worth doing, with the button that does it. Follow it if you are unsure; ignore it once you are not.'),
     t('Your statement of purpose is the one document everyone reads. Draft it first, then improve it — naming an actual research question is worth more than anything else you can do to it.'),
     t('Research a program before you write to it. One Energy, and it tells you what people who are actually there say — which is not what the website says.'),

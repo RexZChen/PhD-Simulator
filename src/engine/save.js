@@ -5,6 +5,9 @@ import { validVenture, ventureEventEligible } from './venture.js';
 import { normalizeChatHistory } from './conversation.js';
 import { focusOptions } from './time.js';
 import { reviewTimelineCondition } from './timeline.js';
+import { normalizePayrollDelay, validPayrollDelay } from './payroll-delay.js';
+import { normalizeFamilyVisit, validFamilyVisit } from './family-visit.js';
+import { normalizePatent, validPatentProvenance } from './patent.js';
 export const SAVE_KEY = 'phdsim.academic-os.v2';
 export const SAVE_MAX_BYTES = 5 * 1024 * 1024;
 const KEY = SAVE_KEY;
@@ -27,6 +30,9 @@ const validTenure = a => a == null || (record(a) && typeof a.advisorId === 'stri
 function normalizeRun(s) {
   if (!s) return s;
   normalizeChatHistory(s);
+  normalizePayrollDelay(s);
+  normalizeFamilyVisit(s);
+  normalizePatent(s);
   if (s.phase !== 'playing') return s;
   reviewTimelineCondition(s);
   maintainTenure(s);
@@ -57,6 +63,7 @@ export function validRun(s) {
     && ['offers', 'achievements', 'eventQueue'].every(k => s[k].every(id => typeof id === 'string'))
     && ['flags', 'actions', 'cooldowns', 'relationship', 'housing', 'counts', 'cadence', 'milestones', 'jobs'].every(k => record(s[k]))
     && validAgreement(s.supervision) && validTenure(s.advisorTenure) && validVenture(s.venture)
+    && validPayrollDelay(s.payrollDelay) && validFamilyVisit(s.familyVisit) && validPatentProvenance(s.patent)
     && ['supervisionHistory', 'advisorTenureHistory'].every(k => s[k] === undefined || (Array.isArray(s[k]) && s[k].every(record)))
     && (!['playing', 'epilogue'].includes(s.phase) || (record(s.program) && record(s.advisor))));
 }

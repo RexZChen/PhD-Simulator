@@ -7,11 +7,37 @@
 import { PATENT, patentFiled, patentGranted, patentAbandoned, patentMeetings, officeAction } from '../data/patent.js';
 import { t } from '../i18n/index.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, award, activeProject, lastName } from './state.js';
+import { effects, log, message, award, activeProject, lastName, firstName } from './state.js';
 
 export const ensurePatent = s => s.patent || null;
 export const patentStage = s => s.patent?.stage || null;
 export const patentPending = s => !!s.patent && !['granted', 'abandoned'].includes(s.patent.stage);
+const identity = person => person ? { id: person.id, name: person.name } : null;
+export const validPatentProvenance = p => p == null || (typeof p === 'object' && !Array.isArray(p)
+  && (p.inventor == null || (typeof p.inventor === 'object'
+    && typeof p.inventor.id === 'string' && typeof p.inventor.name === 'string')));
+
+function recordedInventor(s) {
+  const pt = s.patent;
+  if (!pt) return null;
+  if (pt.inventor !== undefined) return pt.inventor;
+  const disclosures = (s.history || []).filter(h => h.month === pt.startedMonth
+    && h.i18n?.ev === 'spin_disclosure' && ['file', 'read'].includes(h.i18n.ch)
+    && typeof h.i18n.b?.project === 'string' && h.i18n.b.project.length > 0
+    && typeof pt.title === 'string' && pt.title.toLowerCase().includes(h.i18n.b.project.toLowerCase()));
+  if (disclosures.length !== 1) return null;
+  const b = disclosures[0].i18n.b;
+  const surname = b.advisor?.r?.s === 'Prof. {name}' ? b.advisor.r.v?.name : null;
+  const people = [...new Map([s.advisor, ...(s.advisors || []), ...(s.formerAdvisors || [])]
+    .filter(p => p?.id && p?.name).map(p => [p.id, p])).values()];
+  const matches = people.filter(p => b.advisor === p.name
+    || (surname && lastName(p.name) === surname && firstName(p.name) === b.advisorFirst));
+  return matches.length === 1 ? identity(matches[0]) : null;
+}
+
+export function normalizePatent(s) {
+  if (s.patent && s.patent.inventor === undefined) s.patent.inventor = recordedInventor(s);
+}
 
 // Starts when the disclosure is filed. `quality` carries how well the meetings went into the odds.
 export function openPatent(s, projectId) {
@@ -19,6 +45,7 @@ export function openPatent(s, projectId) {
   const p = s.projects.find(x => x.id === projectId) || activeProject(s);
   s.patent = {
     stage: 'meetings', meeting: 0, quality: 0,
+    inventor: identity(s.advisor), project: p ? { id: p.id, title: p.title } : null, school: identity(s.program),
     title: p ? t('Method and system for {t}', { t: (p.title || '').toLowerCase() }) : t('Method and system'),
     startedMonth: s.month, filedMonth: null, actionMonth: null, decidedMonth: null,
     outcome: null, share: { advisor: PATENT.advisorShare, you: 100 - PATENT.advisorShare },
@@ -106,12 +133,14 @@ export function patentMonth(s) {
 export function patentEntry(s) {
   const pt = s.patent;
   if (!pt || !pt.filedMonth || s.month < pt.filedMonth) return null;
+  const inventor = recordedInventor(s);
   const year = 2028 + Math.floor((pt.filedMonth + 8) / 12);
   return {
     title: pt.title,
     venue: pt.stage === 'granted' ? t('US Patent — granted') : pt.stage === 'abandoned' ? t('US Patent Application — abandoned') : t('US Patent Application — pending'),
     year, patent: true,
-    inventors: t('{advisor} and you, in that order', { advisor: s.advisor ? t('Prof. {n}', { n: lastName(s.advisor.name) }) : t('your advisor') }),
+    inventors: inventor ? t('{advisor} and you, in that order', { advisor: t('Prof. {n}', { n: lastName(inventor.name) }) })
+      : t('Inventor names are unavailable in this record.'),
     n: pt.stage === 'granted' ? 1 + Math.floor(random(s) * 3) : 0,
   };
 }

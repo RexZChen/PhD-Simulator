@@ -48,7 +48,7 @@ for (const lang of ['en', 'zh']) test(`${lang}: unsupported original survives se
   await page.locator('[data-action="wiz-next"]').click();
   await page.locator('#eula').check();
   await page.locator('[data-action="wiz-next"]').click();
-  await expect(page.locator('.ga-tabs')).toBeVisible();
+  await expect(page.locator('.prep-journey')).toBeVisible();
   const afterNewRun = JSON.parse(await disk());
   expect(afterNewRun.run.version).toBeLessThan(JSON.parse(original).run.version);
   expect(afterNewRun.recovery).toEqual([original]);

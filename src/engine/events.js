@@ -14,6 +14,8 @@ import { arrangeMedicalRecovery } from './life.js';
 import { handoverSupportActive, retirementOffer } from './supervision.js';
 import { TENURE_EVENT_IDS, tenureEventEligible, openTenureEvent, tenureAnnouncement, resolveTenureChoice } from './tenure.js';
 import { ventureEventEligible, ventureChoiceUnavailable, ventureBindings, resolveVentureChoice, ventureEnding } from './venture.js';
+import { payrollEventEligible, resolvePayrollChoice } from './payroll-delay.js';
+import { recordFamilyPlan } from './family-visit.js';
 
 export const templateById = { ...eventById, ...meetingById };
 setTemplateLookup(id => templateById[id]);
@@ -37,6 +39,7 @@ export function eligible(s, e, ctx = {}) {
   if (transferConflict(s, e)) return false;
   if (!tenureEventEligible(s, e.id)) return false;
   if (!ventureEventEligible(s, e.id)) return false;
+  if (!payrollEventEligible(s, e.id)) return false;
   if (ctx.fullLeave && excusedDuringLeave(e)) return false;
   const c = e.conditions || {};
   const p = activeProject(s);
@@ -67,6 +70,11 @@ export function eligible(s, e, ctx = {}) {
   if (c.prelimWithin !== undefined) {
     const until = s.milestones?.prelimMonth - s.month;
     if (s.milestones?.prelim === 'pass' || !Number.isFinite(until) || until < 0 || until > c.prelimWithin) return false;
+  }
+  if (c.defenseWithin !== undefined) {
+    const date = s.milestones?.defenseMonth, until = date - s.month;
+    if (!Number.isInteger(date) || s.milestones.defense === 'pass' || s.milestones.graduated
+      || until < 0 || until > c.defenseWithin) return false;
   }
   if (c.minProjectMonths !== undefined && !(editable(p) && Number.isInteger(p.startedMonth) && s.month - p.startedMonth >= c.minProjectMonths)) return false;
   if (c.advisorFeedback && !(editable(p) && p.advisorFeedback && p.advisorFeedback.cycle === p.reviewCycle && p.advisorFeedback.advisorId === s.advisor?.id)) return false;
@@ -541,6 +549,8 @@ export function resolveChoice(s, id) {
   }
   const ventureResult = resolveVentureChoice(s, e.id, c.id, success);
   if (ventureResult) result = joined(result, ' ', ventureResult);
+  resolvePayrollChoice(s, e.id, c.id, success);
+  if (e.id === 'parents_visa') recordFamilyPlan(s, c.id, success);
   for (const f of c.followUps || []) if (!s.scheduled.some(x => x.id === f.id)) s.scheduled.push({ id: f.id, week: absWeek(s) + f.delay * 4, ...(s.eventActor ? { actor: s.eventActor } : {}) });
   if (c.standing) s.standing = clamp((s.standing || 60) + c.standing);
   if (c.personality) s.player.personality[c.personality]++;

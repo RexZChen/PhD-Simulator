@@ -12,6 +12,71 @@
     <meta property="og:url" content="https://rexzchen.github.io/PhD-Simulator/" />
     <meta name="twitter:card" content="summary" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 fill=%27%231f6a6a%27/%3E%3Cpath d=%27M4 11L16 4l12 7H4z M7 13h3v10H7z M14 13h4v10h-4z M22 13h3v10h-3z M4 26h24v2H4z%27 fill=%27%23f4efe2%27/%3E%3C/svg%3E">
+    <style>
+      /* The first screen must not depend on downloading the game or its stylesheet. */
+      #startup { position: fixed; inset: 0; overflow: auto; display: grid; place-items: center; padding: 24px; box-sizing: border-box; background: #1f6a6a; color: #171717; font: 16px/1.5 Tahoma, "Segoe UI", system-ui, sans-serif; }
+      #startup .startup-window { width: 100%; max-width: 480px; box-sizing: border-box; padding: 24px; border: 2px solid; border-color: #fff #444 #444 #fff; background: #e2e2e2; box-shadow: 5px 5px #174f4f; }
+      #startup h1 { margin: 0 0 16px; font-size: 28px; }
+      #startup p { margin: 0 0 16px; }
+      #startup span[lang] { display: block; margin-top: 4px; }
+      #startup .startup-note { font-size: 14px; color: #444; }
+      #startup [hidden] { display: none; }
+      #startup button { padding: 10px 18px; border: 2px solid; border-color: #fff #444 #444 #fff; background: #c6c6c6; color: #171717; font: inherit; cursor: pointer; }
+      #startup button:focus-visible { outline: 3px solid #0a246a; outline-offset: 3px; }
+    </style>
+    <script>
+      // This runs before Vite's module tag, including when that module never arrives.
+      (() => {
+        let failed = false;
+        let observer;
+        const showFailure = () => {
+          if (!document.getElementById('startup')) return;
+          document.getElementById('startup-status').hidden = true;
+          document.getElementById('startup-wait').hidden = true;
+          document.getElementById('startup-error').hidden = false;
+          document.getElementById('startup-retry').hidden = false;
+        };
+        const onError = event => {
+          if (!(event instanceof ErrorEvent) && !(event.target?.tagName === 'SCRIPT' && event.target.type === 'module')) return;
+          failed = true;
+          showFailure();
+        };
+        const cleanup = () => {
+          window.removeEventListener('error', onError, true);
+          observer?.disconnect();
+        };
+        window.addEventListener('error', onError, true);
+        document.addEventListener('DOMContentLoaded', () => {
+          if (!document.getElementById('startup')) { cleanup(); return; }
+          document.getElementById('startup-retry').addEventListener('click', () => window.location.reload());
+          if (failed) showFailure();
+          observer = new MutationObserver(() => {
+            if (!document.getElementById('startup')) cleanup();
+          });
+          observer.observe(document.getElementById('app'), { childList: true });
+        }, { once: true });
+      })();
+    </script>
   </head>
-  <body><div id="app"></div><script type="module" src="/src/main.js"></script></body>
+  <body>
+    <div id="app">
+      <main id="startup" aria-labelledby="startup-title">
+        <section class="startup-window">
+          <h1 id="startup-title">Academic OS</h1>
+          <p id="startup-status" role="status">Starting your workspace…<span lang="zh-CN">正在打开你的工作区……</span></p>
+          <p id="startup-wait" class="startup-note">The first visit downloads the game. A slow connection may take a moment.<span lang="zh-CN">首次打开需要下载游戏。连接较慢时，请稍等片刻。</span></p>
+          <div id="startup-error" role="alert" hidden>
+            <p>Academic OS could not start.<span lang="zh-CN">Academic OS 未能启动。</span></p>
+            <p class="startup-note">Check your connection and try again. Retrying does not erase saved runs.<span lang="zh-CN">请检查网络连接后重试。重试不会删除存档。</span></p>
+          </div>
+          <button id="startup-retry" type="button" hidden>Try again / <span lang="zh-CN" style="display:inline">重试</span></button>
+          <noscript>
+            <style>#startup-status, #startup-wait { display: none; }</style>
+            <p id="startup-noscript">JavaScript is turned off. Enable it in your browser, then reload to play.<span lang="zh-CN">JavaScript 已关闭。请在浏览器中启用后刷新页面，即可开始游戏。</span></p>
+          </noscript>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>

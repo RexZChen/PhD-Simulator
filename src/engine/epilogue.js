@@ -7,10 +7,11 @@ import { SECTION_MAX } from '../data/employers.js';
 import { employers, employersFor, slateOdds, gateFor, drawWeather, weatherLine } from './market.js';
 import { venueById } from '../data/venues.js';
 import { random, roll, clamp, pick, shuffle } from './probability.js';
-import { effects, log, message, award, lastName, firstName, fill, activeLabmates } from './state.js';
+import { effects, log, message, award, lastName, firstName, fill, activeLabmates, joined } from './state.js';
 import { myProfile } from './scholar.js';
 import { diamonds } from './paper.js';
 import { ventureOffer, chooseVentureCareer, ventureOfferView } from './venture.js';
+import { normalizeFamilyVisit, familyCelebrationDue, familyTravelTerms, finishFamilyCelebration } from './family-visit.js';
 
 // ── The CV ────────────────────────────────────────────────────────────────────
 // Every line is something that happened in the run. The score is the argument the CV makes.
@@ -218,9 +219,11 @@ export function startEpilogue(s, chosen) {
 }
 
 function pickBeats(s) {
+  normalizeFamilyVisit(s);
   const has = {
     abandoned: s.projects.some(p => p.status === 'Abandoned' || (p.status !== 'Accepted' && p.kind === 'side')),
     deferredCeremony: !!(s.thesis && s.thesis.deferred),
+    familyCelebration: familyCelebrationDue(s),
     // Filed and not yet decided when you left. Thirty months is longer than anybody's last two
     // years, so this is the only place the process can honestly finish.
     patentPending: !!s.patent && !['granted', 'abandoned'].includes(s.patent.stage),
@@ -228,15 +231,15 @@ function pickBeats(s) {
   const pool = epilogueBeats.filter(b => (!b.needs || has[b.needs]) && (!b.tracks || b.tracks.includes(s.jobs.chosen)));
   const finals = pool.filter(b => b.choices.some(c => c.final));
   const rest = shuffle(s, pool.filter(b => !b.choices.some(c => c.final)));
-  // Two beats are promised rather than drawn. The hooding is the ceremony you deferred, and the
-  // patent is the only way a thirty-month process that started in year three ever gets an ending.
-  // Leaving either to the shuffle means a player who did the whole thing hears nothing about it.
+  // Promised consequences survive the shuffle: the deferred ceremony, a pending
+  // patent, the chosen career, and a family visit planned before the defense.
   const hood = pool.find(b => b.id === 'hooding');
   const pat = pool.find(b => b.id === 'patent_granted');
   const career = pool.find(b => b.tracks?.includes(s.jobs.chosen));
-  const promised = [hood, pat, career].filter(Boolean);
+  const family = pool.find(b => b.id === 'family_celebration');
+  const promised = [hood, pat, career, family].filter(Boolean);
   const chosen = rest.filter(b => !promised.includes(b)).slice(0, 4 - promised.length)
-    .concat([pat, career].filter(Boolean)).sort((a, b) => a.when - b.when);
+    .concat([pat, career, family].filter(Boolean)).sort((a, b) => a.when - b.when);
   // The hooding leads, ahead of anything else in its year: a ceremony you were not at is the first
   // thing your advisor writes to you about, and sorting it in among the other year-one beats loses
   // that. The patent takes its place in the ordinary run of years.
@@ -245,7 +248,14 @@ function pickBeats(s) {
   return [...chosen, last].filter(Boolean).map(b => b.id);
 }
 
-export const currentBeat = s => epilogueBeats.find(b => b.id === s.epilogue?.beats?.[s.epilogue.index]) || null;
+export function currentBeat(s) {
+  const beat = epilogueBeats.find(b => b.id === s.epilogue?.beats?.[s.epilogue.index]) || null;
+  if (beat?.id !== 'family_celebration') return beat;
+  // A legacy save can acquire this promised visit after other years have passed.
+  // Both the displayed date and the completed record use this same dated view.
+  const elapsed = (s.epilogue.done || []).map(d => d.year).filter(Number.isFinite);
+  return { ...beat, when: Math.max(beat.when, ...elapsed) };
+}
 
 function eligibleAdvisorNews(s) {
   const stage = s.advisor?.stage;
@@ -255,6 +265,7 @@ function eligibleAdvisorNews(s) {
 }
 
 export function beatText(s, beat) {
+  if (beat.id === 'family_celebration') return joined(t(beat.text), '\n\n', familyTravelTerms(s));
   const mate = activeLabmates(s)[0]?.name || t('a labmate');
   const accepted = s.projects.filter(p => p.status === 'Accepted');
   const venue = venueById[accepted.at(-1)?.venueId]?.name || t('a venue you know');
@@ -274,6 +285,7 @@ export function answerBeat(s, choiceId) {
   if (!beat) throw new Error(t('There is nothing waiting.'));
   const choice = beat.choices.find(c => c.id === choiceId);
   if (!choice) throw new Error(t('That is not one of the things you could do.'));
+  if (beat.id === 'family_celebration') finishFamilyCelebration(s, choiceId);
   const ep = s.epilogue;
   ep.done.push({ id: beat.id, year: beat.when, subject: t(beat.subject), line: fill(s, t(choice.line)) });
   if (choice.effects?.citations) ep.citations += choice.effects.citations;

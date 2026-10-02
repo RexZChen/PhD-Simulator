@@ -17,6 +17,13 @@ export const cvSections = [
 // The years after. `when` is years post-graduation; conditions filter by what happened.
 export const epilogueBeats = [
   ...careerBeats,
+  { id: 'family_celebration', when: 1, needs: 'familyCelebration', from: 'system',
+    subject: 'The photograph can happen now',
+    text: 'Your degree is deposited. Your family returns to the idea of celebrating at home. Your uncle still has a room and a phone camera. Neither requires a committee signature.',
+    choices: [
+      { id: 'go', label: 'Make the trip', line: 'At the family celebration, your uncle helps with the hood while someone else holds his phone. There are several photographs. For once, none is a required attachment.', effects: { hope: 12 } },
+      { id: 'later', label: 'Leave the visit for another time', line: 'You tell them the visit has to wait. They congratulate you on the call. The degree is finished; the family photograph can wait for a date that works.', effects: { hope: 4 } },
+    ] },
   {
   "id": "hooding",
   "when": 1,

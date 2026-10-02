@@ -364,7 +364,8 @@ function startRun(seed, answers) {
   run = prepareRun(createRun(seed, answers));
   run.seenBefore = { ...meta.eventCounts };
   meta.runs = (meta.runs || 0) + 1;
-  ui = { ...ui, screen: 'game', app: 'dashboard', dialog: null, confirm: null, startMenu: false, minimized: false, wizardStep: 0, selectedMail: null };
+  ui = { ...ui, screen: 'game', app: 'dashboard', dialog: null, confirm: null, startMenu: false, minimized: false, wizardStep: 0, selectedMail: null,
+    prepSection: null, prepTopic: null, prepSearch: '', gaSchool: null, gaTab: null };
   persist(); play('submit'); render();
 }
 function submitProfile() {
@@ -389,10 +390,15 @@ function wizardNext() {
 }
 
 root.addEventListener('submit', e => {
+  if (e.target.id === 'prep-school-search') {
+    e.preventDefault(); ui.prepSearch = new FormData(e.target).get('query') || ''; render();
+    document.querySelector('#prep-school-query')?.focus(); return;
+  }
   if (e.target.id === 'profile-form') { e.preventDefault(); submitProfile(); if (meta.settings.tips) { ui.dialog = 'tips'; render(); } }
   if (e.target.id === 'chatphd-form') { e.preventDefault(); const input = document.querySelector('#chatphd-input'); const text = input?.value || ''; perform({ type: 'CHATPHD_SAY', text }); const again = document.querySelector('#chatphd-input'); if (again) again.focus(); }
 });
 root.addEventListener('change', e => {
+  if (e.target.id === 'prep-topic-filter') { ui.prepTopic = e.target.value; render(); return; }
   if (e.target.id === 'backup-file') { void readBackupFile(e.target.files?.[0]); return; }
   if (e.target.dataset.comfort) {
     const key = e.target.dataset.comfort;
@@ -858,22 +864,30 @@ root.addEventListener('click', event => {
     case 'read-mail': closeCompose(); ui.selectedMail = id; perform({ type: 'READ_MAIL', id }); return;
     case 'apply': perform({ type: 'APPLY', schoolId: id, effort: ui.effort || 'generic', contact: !!ui.contact, poiId: target.dataset.target }); return;
     case 'prep-section': {
-      if (!['statement', 'letters', 'advisors'].includes(id)) return;
+      if (!['statement', 'letters', 'advisors', 'logistics'].includes(id)) return;
+      ui.prepSection = id;
+      render();
       const section = document.querySelector(`#prep-${id}`);
       section?.scrollIntoView({ block: 'start' });
-      section?.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+      section?.focus({ preventScroll: true });
       return;
     }
+    case 'prep-school-back': {
+      const school = ui.gaSchool; ui.gaSchool = null; render();
+      document.querySelector(`[data-action="ga-school"][data-id="${school}"]`)?.focus();
+      return;
+    }
+    case 'prep-school-reset': ui.prepTopic = ''; ui.prepSearch = ''; render(); return;
     case 'ga-tab': ui.gaTab = id; render({ preserveScroll: false }); return;
     case 'ga-school': {
-      // The faculty panel renders below a grid of thirty-two school buttons, roughly five hundred
-      // pixels under the fold. A first-time player clicked MITT three times and reported that
-      // clicking a school did nothing — it is the gateway to researching a program and emailing a
-      // professor, which the tutorial tells you to do. Selecting a school now brings it into view.
       const opening = ui.gaSchool !== id;
       ui.gaSchool = opening ? id : null;
       render();
-      if (opening) requestAnimationFrame(() => document.querySelector('.faculty-panel')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+      if (opening) {
+        const panel = document.querySelector('.faculty-panel');
+        panel?.setAttribute('tabindex', '-1'); panel?.focus({ preventScroll: true });
+        (document.querySelector('#prep-advisors') || panel)?.scrollIntoView({ block: 'start' });
+      }
       return;
     }
     case 'ga-filter': ui.gaFilter = id; render(); return;

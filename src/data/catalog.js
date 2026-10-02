@@ -200,7 +200,7 @@ export const achievements = {
   stillhere: { name: 'Free To Go', desc: 'Walk away from a checkpoint with your documents and your name back.' },
   removed: { name: 'Thirty Days', desc: 'Be removed from the country, and keep the work, because none of it was ever subject to the order.' },
   ownhardware: { name: 'Runs Anywhere Now', desc: 'Be locked out of the cluster and rebuild the pipeline so it does not need one.' },
-  hoodedathome: { name: 'A Hotel Function Room', desc: 'Get hooded by an uncle with a phone camera, six weeks late, because the consulate said 214(b).' },
+  hoodedathome: { name: 'A Family Photograph', desc: 'After depositing the degree, visit home for the family celebration you planned when your parents could not attend.' },
 
   // ── When the person one lap ahead falls off ────────────────────────────────────────────────
   orphaned: { name: 'Advisor Of Record: Pending', desc: 'Lose your advisor mid-degree and find another one. The relationship starts over, which is both halves of the news.' },
