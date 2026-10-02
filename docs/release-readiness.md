@@ -2,6 +2,56 @@
 
 Goal: a polished, replayable browser game hosted on GitHub Pages. “Steam-releasable grade” describes gameplay and presentation quality, not a Steam launch or a native desktop target. This is a working quality checklist, not a claim that the game is finished.
 
+## v1.12.1 checkpoint and pause — October 2
+
+This checkpoint includes the completed graduation-agreement fixes and updated README images.
+Further refinement pauses at the user's request after repository sync and GitHub Pages deployment.
+The broader quality goal remains unfinished; the manual-play and outside-feedback gaps below
+still apply.
+
+Acceptance/submission baselines are captured when a condition is assigned. Every successful
+game action checks progress, including report dismissal, writing turns and lecture completion.
+The documentation condition now binds an actual project, names an active receiving labmate,
+charges six Energy once, and records a receipt plus a LabChat exchange. Generic favors cannot
+satisfy it. Offer leverage remains once per run; a cooled-down conversation resets its local
+move state. Legacy saves retain known acceptance baselines and explicitly disclose uncertain
+progress counted from resumption. Reopening cannot erase an already-fulfilled acceptance.
+
+English/Chinese panels show the condition and next action before optional dialogue and tried
+arguments. Negotiation results retain keyboard focus; the handover receipt survives reload.
+Played prepared checkpoints through the handover, reload and labmate reply in local Chrome,
+including enlarged Chinese text at 390 × 844 and desktop at 1280 × 900. These are scoped
+visual checks, not a natural six-year playthrough.
+
+Visual evidence: [desktop agreement](screens/usability/graduation-condition-desktop.png),
+[Chinese phone condition](screens/usability/graduation-condition-phone-zh.png),
+[Chinese saved receipt](screens/usability/graduation-receipt-phone-zh.png), and
+[LabChat handover](screens/usability/graduation-handover-labchat.png).
+README screenshots are captured by `scripts/capture-readme.mjs` from prepared checkpoints,
+through the actual interface; the script also accepts the production preview base URL.
+All seven README images were recaptured from the built artifact at `/PhD-Simulator/` and
+visually inspected. The capture completed with no page errors or failed asset responses.
+Serve that path locally with `npm run preview -- --port 4174 --base /PhD-Simulator/`.
+
+Validation: **452 unit tests and all 152 browser scenarios passed** (3.2 minutes).
+Translation audit: **0 reached misses / 0 UI literal misses**, across 12 runs, 1,006 planning
+turns and 1,768 UI literals. Production build passed with the existing large-bundle warning
+(220 modules, JS 2,941.97 kB / gzip 1,114.68 kB). `git diff --check` passed.
+Logs: `/tmp/phdsim-graduation-final-unit.log`, `/tmp/phdsim-graduation-full-browser.log`,
+`/tmp/phdsim-graduation-i18n.log`, and `/tmp/phdsim-v1.12.1-build.log`.
+
+The same 40 seeds per scripted policy were compared against v1.12.0:
+
+| Policy | v1.12.0 | v1.12.1 |
+| --- | --- | --- |
+| Diligent | 33 PhDs, 2 dismissals, 5 admission failures | 34 PhDs, 1 dismissal, 5 admission failures |
+| Lazy | 9 PhDs, 24 dismissals, 2 exam failures, 5 admission failures | 10 PhDs, 23 dismissals, 2 exam failures, 5 admission failures |
+| Grinder | 10 PhDs, 25 dismissals, 5 admission failures | 9 PhDs, 24 dismissals, 1 ABD, 1 perpetual student, 5 admission failures |
+
+Changed agreement timing affects later random draws and outcomes. These samples do not isolate
+individual causes or prove enjoyment. Both 120-run outputs completed; logs are
+`/tmp/phdsim-graduation-balance-before.log` and `/tmp/phdsim-graduation-balance.log`.
+
 ## v1.12.0 checkpoint and pause
 
 Refinement paused at the user's request on September26. This version packages the completed
@@ -15,7 +65,8 @@ resumption: acceptance baselines are captured too late; the submission condition
 old paper; six unrelated advisor requests can satisfy the documentation condition; and the
 once-per-run offer move can reappear in a later negotiation. These are existing edge cases,
 not partially shipped new mechanics. Do not wire the proposed `TIMELINE_DOCUMENT` action
-without implementing and testing it first.
+without implementing and testing it first. **Historical note:** these findings are resolved
+in the tested v1.12.1 checkpoint above.
 
 Checkpoint validation: 436 unit tests passed; the full browser run passed 147 scenarios and
 timed out in a helper waiting for a removed exam room after the defense had already passed.

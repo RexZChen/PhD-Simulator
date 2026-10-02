@@ -975,6 +975,8 @@ body.lang-zh .editor-source pre, body.lang-zh .typing-zone { font-family: "Menlo
 .gradtalk.notReady { border-left: 3px solid #8a8f99; }
 .gradtalk.settled { border-left: 3px solid #5f9a5f; background: #f4faf4; }
 .gradtalk p { margin: 0; }
+.gradcondition { display: grid; gap: 8px; margin: 0; min-width: 0; }
+.gradcondition .btn { white-space: normal; text-align: left; }
 .gradtalk-line { font-style: italic; }
 .gradtalk .truth-bad { color: var(--bad); font-weight: 700; }
 .gradtalk .truth-ok { color: #2f6d2f; }

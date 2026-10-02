@@ -17,7 +17,7 @@ export const stances = {
     label: 'They name a condition',
     lines: [
       '“I think so — with one condition: {condition}.” You write it down. For once, “nearly there” has something attached that can be checked.',
-      '“Yes, if {condition}. Let us put that in the plan.” You ask them to confirm the wording. A shared sentence is a better starting point than two memories.',
+      '“Yes, once this is done: {condition}. Let us put that in the plan.” You ask them to confirm the wording. A shared sentence is a better starting point than two memories.',
       'They think for a long time. “Here is what I need before we agree a date: {condition}.” You write it down before either of you can remember it differently.',
     ],
   },
@@ -44,10 +44,10 @@ export const stances = {
 
 // The bar a reasonable advisor sets. Concrete, checkable, and agreed in the room.
 export const conditions = [
-  { id: 'onepaper', text: 'one more accepted paper', check: 'accepted', line: 'One more acceptance. Not a submission — an acceptance.' },
-  { id: 'submitted', text: 'the last chapter submitted somewhere real', check: 'submitted', line: 'It has to be out the door, at a venue you would name at a party.' },
-  { id: 'draft', text: 'a complete dissertation draft', check: 'draft', line: 'All of it. Bad, but all of it. Bad and complete beats good and partial.' },
-  { id: 'handover', text: 'the pipeline documented and handed to someone', check: 'handover', line: 'Write down how the pipeline runs and make it usable by someone else. The exit plan needs fewer things that depend on finding you in the corridor.' },
+  { id: 'onepaper', text: 'one more accepted paper', check: 'accepted', line: 'One acceptance after this conversation. A paper already under review can count; an old acceptance cannot.' },
+  { id: 'submitted', text: 'one further manuscript submission', check: 'submitted', line: 'Submit after this conversation. A revised paper counts if you send it out again; an old submission receipt does not.' },
+  { id: 'draft', text: 'a dissertation draft ready for committee review', check: 'draft', line: 'Reach the 90-point draft threshold. It can still need work. That is what the committee is for, among other things.' },
+  { id: 'handover', text: 'project documentation shared with a labmate', check: 'handover', line: 'Write down the setup, how to run it, and what still breaks. Send it to the named labmate. The corridor is not a documentation system.' },
 ];
 
 // How the player can answer. This is the whole mechanic.
@@ -75,13 +75,13 @@ export const moves = {
   },
   second: {
     id: 'second', label: 'Ask someone who left the lab',
-    hint: 'Costs nothing. Tells you whether the objection is real.',
+    hint: 'No energy cost. A second perspective on the remaining work.',
     line: 'You ask a former lab member how to read this response: a research gap, or a moving target? They can offer a perspective, not a signature.',
     good: null, bad: null,
   },
   offer: {
     id: 'offer', label: 'Put the offer on the table',
-    hint: 'The strongest move available and the one with a shadow. Once per run.',
+    hint: 'Use a current offer to argue for a date. Can strain the relationship. Once per run.',
     line: 'You do not threaten. You say the date on the offer letter out loud, and then you stop talking, which is the whole move.',
     good: 'Something reorders itself behind their eyes. “Right. Then we make it work for spring.” The year you have been asking for arrives in nine seconds, having refused to arrive in nine months.',
     bad: '“An offer does not settle the research question.” They do not agree to the target. The offer is still there; the conversation has become harder.',

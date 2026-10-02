@@ -766,8 +766,20 @@ root.addEventListener('click', event => {
     case 'clinic': perform({ type: 'CLINIC', id }); return;
     case 'budget': perform({ type: 'BUDGET', id }); return;
     case 'reflect': perform({ type: 'REFLECT' }); return;
-    case 'ask-timeline': perform({ type: 'ASK_TIMELINE' }, { preserveScroll: false }); return;
-    case 'timeline-move': perform({ type: 'TIMELINE_MOVE', id }); return;
+    case 'ask-timeline':
+    case 'timeline-move': {
+      perform(action === 'ask-timeline' ? { type: 'ASK_TIMELINE' } : { type: 'TIMELINE_MOVE', id });
+      const panel = document.querySelector('.gradtalk');
+      panel?.setAttribute('tabindex', '-1');
+      panel?.focus(); panel?.scrollIntoView({ block: 'start' });
+      return;
+    }
+    case 'timeline-document': {
+      perform({ type: 'TIMELINE_DOCUMENT', id, recipientId: target.dataset.recipient });
+      const receipt = document.querySelector('[data-timeline-receipt]');
+      receipt?.focus(); receipt?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
     case 'react': perform({ type: 'REACT', id, reaction: target.dataset.reaction }); return;
     case 'chat-reply': perform({ type: 'CHAT_REPLY', id, kind: target.dataset.kind }); return;
     case 'dm-send': perform({ type: 'DM', id, opener: target.dataset.opener }); return;

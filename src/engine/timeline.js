@@ -4,7 +4,7 @@ import { t } from '../i18n/index.js';
 import { stances, conditions, moves, secondOpinions } from '../data/timeline.js';
 import { dateLabel, phdYear } from '../data/calendar.js';
 import { random, roll, clamp, pick } from './probability.js';
-import { effects, log, message, chat, award, lastName, vars, activeProject, joined, TOTAL_MONTHS } from './state.js';
+import { effects, log, message, chat, award, lastName, vars, activeProject, activeLabmates, joined, TOTAL_MONTHS } from './state.js';
 import { paperQuality } from './paper.js';
 
 export const TALK_OPENS = 36;          // year four
@@ -58,12 +58,87 @@ export const canAskTimeline = s => s.phase === 'playing' && s.month >= TALK_OPEN
   && !!feasibleGraduationTarget(s) && (!s.grad?.settled || graduationTargetMissed(s)) && (!s.grad || !s.grad.asked || s.month - s.grad.askedMonth >= (s.grad.burned ? ASK_COOLDOWN * 2 : ASK_COOLDOWN));
 export const askAgainIn = s => (s.grad && s.grad.asked && (!s.grad.settled || graduationTargetMissed(s))) ? Math.max(0, (s.grad.burned ? ASK_COOLDOWN * 2 : ASK_COOLDOWN) - (s.month - s.grad.askedMonth)) : 0;
 
+export const HANDOVER_ENERGY = 6;
+const submissionCount = s => s.projects.filter(p => p.kind !== 'thesis').reduce((n, p) => n + (p.submissionHistory?.length || 0), 0);
+const handoverProject = s => {
+  const candidates = s.projects.filter(p => p.kind !== 'thesis' && p.progress >= 35 && p.status !== 'Abandoned');
+  return candidates.find(p => p.id === s.activeProjectId) || candidates[0];
+};
+const availableConditions = s => conditions.filter(c => c.id !== 'handover' || (handoverProject(s) && activeLabmates(s).length));
+function assignCondition(s, condition) {
+  s.grad.condition = condition;
+  s.grad.conditionBaseline = { accepted: s.counts.accepted, submitted: submissionCount(s) };
+  s.grad.acceptedAt = s.counts.accepted;
+  s.grad.conditionProjectId = condition === 'handover' ? handoverProject(s)?.id || null : null;
+  s.grad.conditionHandover = null;
+  s.grad.conditionLegacy = false;
+}
+
+// Old saves did not record enough evidence to reconstruct every agreement. Preserve a known
+// acceptance baseline; otherwise start counting on resume, before the next player action.
+// Rendering only reads this record. It must never establish or reset a baseline.
+export function reviewTimelineCondition(s) {
+  const g = s.grad;
+  if (!g || g.settled || g.stance !== 'conditional' || !g.condition) return;
+  if (!g.conditionBaseline) {
+    g.conditionBaseline = { accepted: Number.isFinite(g.acceptedAt) ? g.acceptedAt : s.counts.accepted, submitted: submissionCount(s) };
+    g.conditionLegacy = g.condition !== 'draft' && !(g.condition === 'onepaper' && Number.isFinite(g.acceptedAt));
+  }
+  if (g.condition === 'handover' && !g.conditionProjectId) g.conditionProjectId = handoverProject(s)?.id || null;
+}
+
+export function timelineCondition(s) {
+  const g = s.grad, c = conditions.find(c => c.id === g?.condition);
+  if (!c || g.settled || g.stance !== 'conditional') return null;
+  const base = g.conditionBaseline;
+  const project = s.projects.find(p => p.id === g.conditionProjectId);
+  const recipient = activeLabmates(s)[0];
+  const current = {
+    accepted: Math.max(0, s.counts.accepted - (base?.accepted ?? g.acceptedAt ?? s.counts.accepted)),
+    submitted: Math.max(0, submissionCount(s) - (base?.submitted ?? submissionCount(s))),
+    draft: s.projects.filter(p => p.kind === 'thesis').reduce((best, p) => Math.max(best, p.draft), 0),
+    handover: g.conditionHandover?.projectId === project?.id && !!project && !!g.conditionHandover?.recipientId ? 1 : 0,
+  }[c.check];
+  const required = c.check === 'draft' ? 90 : 1;
+  const blocked = c.check !== 'handover' ? null
+    : s.phase !== 'playing' || s.stage !== 'plan' ? t('You can do this work when you are planning a turn.')
+      : !feasibleGraduationTarget(s) ? noDate()
+        : !project ? t('Start a research project and reach 35 Research before preparing a handover.')
+          : !recipient ? t('There is no active labmate to receive this handover. You can still negotiate another finishing target.')
+            : s.player.stats.energy < HANDOVER_ENERGY ? t('Not enough Energy ({n} needed).', { n: HANDOVER_ENERGY }) : null;
+  return { ...c, current, required, met: current >= required, legacy: !!g.conditionLegacy,
+    projectId: project?.id || null, projectTitle: project?.title || null,
+    recipientId: recipient?.id || null, recipientName: recipient?.name || null, energy: HANDOVER_ENERGY, blocked };
+}
+
+export function documentTimelineHandover(s, projectId, recipientId) {
+  const c = timelineCondition(s);
+  if (!c || c.id !== 'handover' || c.met) throw new Error(t('There is no unfinished handover condition.'));
+  if (c.blocked) throw new Error(c.blocked);
+  if (c.projectId !== projectId || c.recipientId !== recipientId) throw new Error(t('The handover details changed. Review the project and recipient before continuing.'));
+  const recipient = activeLabmates(s).find(l => l.id === recipientId);
+  effects(s, { energy: -HANDOVER_ENERGY });
+  recipient.bond = clamp(recipient.bond + 4);
+  s.grad.conditionHandover = { projectId, recipientId, recipientName: recipient.name, month: s.month, week: s.week };
+  const line = t('You document the commands, dependencies and known failures for “{title}”, then walk {name} through the notes. The README finally contains more than the project title.', { title: c.projectTitle, name: recipient.name });
+  log(s, line);
+  chat(s, `dm:${recipient.id}`, s.player.name, t('I shared the handover notes for “{title}”, including the parts that still need work.', { title: c.projectTitle }), { mine: true });
+  chat(s, `dm:${recipient.id}`, recipient.name, t('Got the notes. If something only works on your laptop, I will have a more specific question now.'));
+  checkCondition(s);
+}
+
 export function openTimeline(s) {
+  // A pre-fix save can contain a fulfilled promise that the monthly check missed. Honor it
+  // before a stale "Raise it again" button charges for and replaces that agreement.
+  if (timelineCondition(s)?.met) {
+    checkCondition(s);
+    if (s.grad.settled) return s.grad;
+  }
   if (!feasibleGraduationTarget(s)) throw new Error(noDate());
   if (!canAskTimeline(s)) throw new Error(t('Too early to ask, or already settled. The question keeps.'));
   const record = gradRecord(s), willing = gradWillingness(s);
   const id = record < 35 ? 'notReady' : willing > 62 ? 'yes' : willing > 40 ? 'conditional' : 'deflect';
-  const cond = id === 'conditional' ? pick(s, conditions) : null;
+  const cond = id === 'conditional' ? pick(s, availableConditions(s)) : null;
   const prior = s.grad || {};
   s.grad = {
     ...prior,
@@ -72,8 +147,10 @@ export function openTimeline(s) {
     record: Math.round(record), willing: Math.round(willing),
     line: vars(t(pick(s, stances[id].lines)), { condition: cond ? t(cond.text) : '' }),
     settled: id === 'yes', targetYear: id === 'yes' ? 5 : null,
-    used: [], targetMonth: null,
+    used: [], targetMonth: null, burned: false,
+    conditionBaseline: null, conditionProjectId: null, conditionHandover: null, conditionLegacy: false,
   };
+  if (cond) assignCondition(s, cond.id);
   if (id === 'yes') s.grad.line = t('They open the calendar. “Yes, we can agree a target. The draft still needs approval, and the defense still needs booking.”');
   effects(s, { energy: -4, stress: id === 'yes' ? -8 : 6 });
   log(s, joined(t('You asked about finishing.'), ' ', s.grad.line));
@@ -100,7 +177,7 @@ function settle(s, year, how) {
 
 export function timelineMoves(s) {
   const g = s.grad;
-  if (!g || g.settled || !feasibleGraduationTarget(s)) return [];
+  if (!g || g.settled || g.burned || !feasibleGraduationTarget(s)) return [];
   const used = g.used || [];
   const list = [];
   if (g.stance !== 'notReady') {
@@ -109,8 +186,8 @@ export function timelineMoves(s) {
     list.push({ ...moves.committee, done: used.includes('committee') });
   }
   // The offer move only exists if there is an offer, and only once in a run.
-  if (!used.includes('offer') && (s.jobs?.apps || []).some(a => a.stage === 'offer' && (a.deadlineMonth ?? 99) >= s.month))
-    list.push({ ...moves.offer, done: false, danger: true });
+  if (!s.flags.usedOfferAsLeverage && !used.includes('offer') && (s.jobs?.apps || []).some(a => a.stage === 'offer' && (a.deadlineMonth ?? 99) >= s.month))
+    list.push({ ...contextualMove(s, 'offer'), done: false, danger: true });
   list.push({ ...moves.second, done: used.includes('second') });
   list.push({ ...contextualMove(s, 'accept'), done: false });
   return list;
@@ -124,6 +201,9 @@ export function playTimelineMove(s, id) {
   const move = contextualMove(s, id);
   if (!move) throw new Error(t('That is not something you could say.'));
   if ((g.used || []).includes(id) && id !== 'accept') throw new Error(t('You have tried that. Trying it again is just repeating yourself.'));
+  if (id === 'offer' && s.flags.usedOfferAsLeverage) throw new Error(t('You already put an offer on the table earlier this run.'));
+  if (id === 'offer' && !(s.jobs?.apps || []).some(a => a.stage === 'offer' && (a.deadlineMonth ?? 99) >= s.month)) throw new Error(t('You have no offer to put on the table.'));
+  if (!timelineMoves(s).some(m => m.id === id && !m.done)) throw new Error(t('That is not something you could say.'));
   g.used = [...(g.used || []), id];
 
   if (id === 'accept') {
@@ -188,7 +268,14 @@ export function playTimelineMove(s, id) {
     if (id === 'date') { s.player.personality.boundarySetter++; effects(s, { confidence: 6 }); }
     if (id === 'evidence') { s.player.personality.independent++; effects(s, { trust: 5 }); }
     // A won move upgrades the stance one step; two wins from a deflection still gets you out.
-    if (g.stance === 'deflect') { g.stance = 'conditional'; g.condition = pick(s, conditions).id; effects(s, { hope: 8 }); }
+    if (g.stance === 'deflect') {
+      g.stance = 'conditional';
+      const condition = pick(s, availableConditions(s));
+      assignCondition(s, condition.id);
+      g.line = t('They finally name the remaining work: {condition}. You put it in the shared plan before closing the calendar.', { condition: t(condition.text) });
+      log(s, g.line);
+      effects(s, { hope: 8 });
+    }
     else { settle(s, 5, t('You made the case and it landed.')); award(s, 'heldthedate'); return { id, line: text, outcome: 'settled', won }; }
   } else {
     effects(s, { satisfaction: id === 'committee' ? -10 : -5, stress: 6, hope: -4, ...(id === 'committee' ? { conflict: 10 } : {}) });
@@ -196,20 +283,12 @@ export function playTimelineMove(s, id) {
   return { id, line: text, outcome: g.settled ? 'settled' : 'open', won };
 }
 
-// A condition, once agreed, is checked every month. Meeting it settles the year.
+// Check the agreed condition after progress changes. Meeting it settles the target.
 export function checkCondition(s) {
   const g = s.grad;
-  if (!g || g.settled || g.stance !== 'conditional' || !g.condition || !feasibleGraduationTarget(s)) return;
-  const c = conditions.find(x => x.id === g.condition);
-  if (!c) return;
-  const met = {
-    accepted: () => s.counts.accepted > (g.acceptedAt ?? s.counts.accepted),
-    submitted: () => s.projects.some(p => ['Submitted', 'Rebuttal', 'Accepted'].includes(p.status)),
-    draft: () => s.projects.some(p => p.kind === 'thesis' && p.draft >= 90),
-    handover: () => !!s.flags.documented || s.counts.requestsDone >= 6,
-  }[c.check];
-  if (g.acceptedAt === undefined) { g.acceptedAt = s.counts.accepted; return; }
-  if (met && met()) {
+  if (s.phase !== 'playing' || s.milestones.graduated || !g || g.settled || g.stance !== 'conditional' || !g.condition || !feasibleGraduationTarget(s)) return;
+  reviewTimelineCondition(s);
+  if (timelineCondition(s)?.met) {
     settle(s, 5, t('You met the condition they set, and they kept their word.'));
     award(s, 'metthebar');
   }
@@ -221,7 +300,7 @@ export function timelineDrift(s) {
   checkCondition(s);
   if (s.month === TALK_OPENS && !s.grad?.asked) {
     chat(s, 'advisor', s.advisor.name, t('Year four. At some point we should talk about what finishing looks like. Whenever you are ready.'));
-    log(s, t('Year four begins. Nobody will start the conversation about finishing except you.'));
+    log(s, t('Year four begins. The invitation is there; you still have to put a date on the agenda.'));
   }
   if (s.month === 52 && !s.grad?.settled) {
     log(s, t('There is still no agreed finishing date. The sixth year is arriving by default, which is how most sixth years arrive.'));

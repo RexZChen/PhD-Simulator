@@ -13,12 +13,11 @@ import { milestoneOf, dayEligible, paceOptions, DAYS_PER_WEEK, canDecideThesis, 
 import { diamonds, diamondBar, diamondWord } from '../../engine/paper.js';
 import { caffeineState, healthBand } from '../../engine/life.js';
 import { revisionsLeft, canDeposit, defenseScheduleUnavailable } from '../../engine/thesis.js';
-import { canAskTimeline, askAgainIn, timelineMoves, gradRecord, gradWillingness, feasibleGraduationTarget, agreedGraduationMonth, graduationTargetMissed } from '../../engine/timeline.js';
+import { canAskTimeline, askAgainIn, timelineMoves, timelineCondition, gradRecord, gradWillingness, feasibleGraduationTarget, agreedGraduationMonth, graduationTargetMissed } from '../../engine/timeline.js';
 import { canApplyIntern, internWindow, internTalkMoves, collisions } from '../../engine/internship.js';
 import { availableWriters, letterCount, packetStrength, packetVerdictText, needsLetters, hasAdvisorLetter } from '../../engine/letters.js';
 import { LETTERS_REQUIRED, RANK_NOTE } from '../../data/letters.js';
 import { internTypes } from '../../data/internships.js';
-import { conditions as gradConditions } from '../../data/timeline.js';
 import { STANDING_WARN, quitBand } from '../../engine/divergence.js';
 import { COFFEE } from '../../data/life.js';
 import { MODES } from '../../engine/advisor.js';
@@ -99,7 +98,31 @@ export function revisionPanel(s) {
   </div>`;
 }
 
-// Year four onward: the conversation nobody starts for you.
+function timelineConditionPanel(s, condition) {
+  if (!condition) return '';
+  const metric = {
+    onepaper: t('New acceptances'), submitted: t('New submissions'),
+    draft: t('Draft for review'), handover: t('Handover'),
+  }[condition.id];
+  const blocked = condition.blocked || (s.stage !== 'plan' ? t('Return to planning to prepare the handover.') : '');
+  const handover = condition.id === 'handover';
+  return `<fieldset class="group gradcondition" data-timeline-condition="${esc(condition.id)}">
+    <legend>${t('Agreed condition')}</legend>
+    <b>${esc(t(condition.text))}</b>
+    ${bar(metric, Math.min(condition.current, condition.required), { max: condition.required, suffix: `/${condition.required}`, cls: condition.met ? 'green' : 'gold' })}
+    ${condition.legacy ? `<p class="small">${t('Older save: progress toward this condition is counted from resumption.')}</p>` : ''}
+    ${condition.projectTitle ? `<p class="small"><b>${t('Project')}:</b> ${esc(condition.projectTitle)}</p>` : ''}
+    ${handover && condition.recipientName ? `<p class="small">${esc(t('Share with: {name}', { name: condition.recipientName }))}</p>` : ''}
+    <p class="small muted">${esc(t(condition.line))}</p>
+    ${handover ? btn(esc(t('Prepare project handover · −{n} Energy', { n: condition.energy })), 'timeline-document', {
+      id: condition.projectId, cls: 'primary', disabled: !!blocked,
+      attrs: `data-recipient="${esc(condition.recipientId)}"${blocked ? ' aria-describedby="timeline-handover-blocked"' : ''}`,
+    }) : ''}
+    ${handover && blocked ? `<p class="small" id="timeline-handover-blocked">${esc(t(blocked))}</p>` : ''}
+  </fieldset>`;
+}
+
+// Year four onward: turn the conversation into a date and a specific next step.
 export function timelinePanel(s) {
   const g = s.grad;
   const asked = !!(g && g.asked);
@@ -114,21 +137,34 @@ export function timelinePanel(s) {
   }
   if (g.settled) {
     const month = agreedGraduationMonth(s), missed = graduationTargetMissed(s);
+    const handover = g.conditionHandover;
+    const handedOverProject = handover ? s.projects.find(p => p.id === handover.projectId) : null;
     return `<div class="gradtalk settled">
       <div class="row between"><b>${icon('flag', 14)} ${missed ? t('The earlier target has passed') : t('Agreed defense target')}${Number.isFinite(month) ? `: ${dateLabel(month)}` : ''}</b>${s.flags.committeeBacking ? tag(t('committee backing'), 'ok') : ''}</div>
+      ${handover ? `<div class="gradcondition" data-timeline-receipt tabindex="-1" role="status" aria-label="${esc(t('Handover recorded'))}">
+        <b>${t('Handover recorded')}</b>
+        <p class="small">${esc(handedOverProject?.title || t('Project record unavailable'))}</p>
+        ${handover.recipientName ? `<p class="small">${esc(t('Shared with: {name}', { name: handover.recipientName }))}</p>` : ''}
+      </div>` : ''}
       <p class="small muted">${esc(g.how || '')}</p>
       <p class="small">${missed ? t('The earlier agreement did not book a defense. Review the remaining work and discuss a new feasible target.') : t('This is a planning target, not a booking. Schedule the defense after the dissertation is approved; revisions and deposit still follow.')}</p>
       ${missed ? canAskTimeline(s) ? btn(t('Revisit the finishing date'), 'ask-timeline', { cls: 'small primary', disabled: s.stage !== 'plan' }) : `<p class="small">${feasibleGraduationTarget(s) ? t('You can raise it again in {n} month(s).', { n: askAgainIn(s) }) : t('No new defense target fits before funding ends. An agreement cannot extend the funding window.')}</p>` : ''}
     </div>`;
   }
-  const cond = g.condition ? gradConditions.find(c => c.id === g.condition) : null;
-  const truth = g.knowsTruth === 'unfair' ? t('You know now: this is not about the work.') : g.knowsTruth === 'fair' ? t('You know now: this one is about the work.') : '';
+  const cond = timelineCondition(s);
+  const truth = g.knowsTruth === 'unfair' ? t('Former lab member’s read: the criteria may be moving.') : g.knowsTruth === 'fair' ? t('Former lab member’s read: there may still be a research gap.') : '';
+  const moves = timelineMoves(s), available = moves.filter(m => !m.done), tried = moves.filter(m => m.done);
+  const moveButton = m => `<button class="gradmove" data-action="timeline-move" data-id="${m.id}" ${m.done || s.stage !== 'plan' ? 'disabled' : ''} title="${esc(t(m.hint))}"><b>${esc(t(m.label))}</b><small class="muted">${esc(t(m.hint))}</small></button>`;
   return `<div class="gradtalk ${g.stance}">
-    <div class="row between"><b>${icon('chat', 14)} ${t('Finishing')}</b>${tag({ yes: t('agreed'), conditional: t('conditional'), notReady: t('not yet'), deflect: t('no straight answer') }[g.stance], g.stance === 'deflect' ? 'bad' : g.stance === 'conditional' ? 'warn' : '')}</div>
-    <p class="small gradtalk-line">${esc(g.line || '')}</p>
-    ${cond ? `<p class="small"><b>${t('The bar')}:</b> ${esc(t(cond.text))} — <span class="muted">${esc(t(cond.line))}</span></p>` : ''}
+    <div class="row between"><b>${icon('chat', 14)} ${t('Finishing')}</b>${tag({ yes: t('agreed'), conditional: t('Condition to meet'), notReady: t('not yet'), deflect: t('no straight answer') }[g.stance], g.stance === 'deflect' ? 'bad' : g.stance === 'conditional' ? 'warn' : '')}</div>
+    ${!cond ? `<p class="small gradtalk-line">${esc(g.line || '')}</p>` : ''}
+    ${timelineConditionPanel(s, cond)}
+    ${cond ? `<details data-disclosure="timeline-reply"><summary>${t('Read their reply')}</summary><p class="small gradtalk-line">${esc(g.line || '')}</p></details>` : ''}
     ${truth ? `<p class="small ${g.knowsTruth === 'unfair' ? 'truth-bad' : 'truth-ok'}">${esc(truth)}</p>` : ''}
-    <div class="gradmoves">${timelineMoves(s).map(m => `<button class="gradmove" data-action="timeline-move" data-id="${m.id}" ${m.done || s.stage !== 'plan' ? 'disabled' : ''} title="${esc(t(m.hint))}"><b>${esc(t(m.label))}</b><small class="muted">${esc(t(m.hint))}</small></button>`).join('')}</div>
+    ${g.burned ? `<p class="small">${t('The discussion needs time to cool. Other work can continue; raise the date again after the wait below.')}</p>` : ''}
+    ${s.flags.usedOfferAsLeverage ? `<p class="small muted">${t('Offer discussed earlier this run. This move is used.')}</p>` : ''}
+    ${available.length ? `<div class="gradmoves">${available.map(moveButton).join('')}</div>` : ''}
+    ${tried.length ? `<details data-disclosure="timeline-tried"><summary>${t('Already tried: {n}', { n: tried.length })}</summary><div class="gradmoves">${tried.map(moveButton).join('')}</div></details>` : ''}
     <div class="row" style="margin-top:4px">${canAskTimeline(s)
       ? btn(t('Raise it again'), 'ask-timeline', { cls: 'small', disabled: s.stage !== 'plan', title: t('A term has passed. Asking again, later, moves them — slowly.') })
       : `<span class="tiny muted">${t('You can raise it again in {n} month(s).', { n: askAgainIn(s) })}</span>`}</div>

@@ -498,12 +498,14 @@ test('year four: asking to finish, being deflected, and pushing back', async ({ 
   await page.locator('[data-action="ask-timeline"]').click();
   await resolveScenes(page);
   await expect(page.locator('.gradtalk.deflect')).toBeVisible();
+  await expect(page.locator('.gradtalk.deflect')).toBeFocused();
   await expect(page.locator('.gradtalk-line')).not.toBeEmpty();
 
   // Asking someone who left tells you whether the objection was ever about the work.
   await page.locator('[data-action="timeline-move"][data-id="second"]').click();
   await resolveScenes(page);
   await expect(page.locator('.gradtalk .truth-bad')).toBeVisible();
+  await expect(page.locator('.gradtalk')).toBeFocused();
 
   // The three real moves are each usable once.
   for (const id of ['evidence', 'date', 'committee']) {

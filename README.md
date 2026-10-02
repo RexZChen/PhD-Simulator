@@ -6,9 +6,9 @@
 
 **[▶ Play it in your browser](https://rexzchen.github.io/PhD-Simulator/)** · no install · no account · nothing leaves your machine
 
-<img src="docs/screens/desktop.png" width="820" alt="Academic OS v1.12: a connected workspace sidebar, weekly deadline plans, research projects, advisor status, and a plant on the desk.">
+<img src="docs/screens/desktop.png" width="820" alt="Academic OS v1.12.1: a connected workspace sidebar, planning choices, research projects, advisor status, and a plant on the desk.">
 
-*Screenshots from the browser release, v1.12.0.*
+*Captured in Chrome from v1.12.1 using prepared game checkpoints.*
 
 </div>
 
@@ -81,6 +81,19 @@ Then it keeps going, because a PhD does not end at graduation and neither does y
 
 ---
 
+<details>
+<summary><b>Finishing means agreeing on what remains</b></summary>
+
+<br>
+
+<img src="docs/screens/graduation.png" width="540" alt="A graduation agreement names the project and labmate, shows handover progress and its six-Energy cost, and keeps alternative negotiation choices visible.">
+
+*A finishing date needs a specific promise. Sometimes that promise is a README that somebody else can actually use.*
+
+</details>
+
+---
+
 ## What it is actually about
 
 > “Four minutes at a whiteboard and the problem is a different, smaller problem. You have been carrying it for three weeks and they put it down in four minutes and you are not sure how to feel about that.”
@@ -123,6 +136,9 @@ npm run dev
 | `npm run reach` | which written content anybody actually reaches |
 
 Vanilla ES modules and Vite. No framework or backend. Data in `src/data/`, rules in `src/engine/`, rendering in `src/ui/`.
+
+To refresh these screenshots, start `npm run dev -- --port 4173`, then run `node scripts/capture-readme.mjs`.
+The script opens prepared checkpoints in Chrome and captures the actual interface.
 
 
 **[Contributing →](CONTRIBUTING.md)** · [Report a bug](https://github.com/RexZChen/PhD-Simulator/issues/new?template=bug.yml) · [Suggest a scene](https://github.com/RexZChen/PhD-Simulator/issues/new?template=content.yml) · [Argue with a number](https://github.com/RexZChen/PhD-Simulator/issues/new?template=balance.yml)

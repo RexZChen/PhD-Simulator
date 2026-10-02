@@ -4,6 +4,28 @@ Notable changes to Academic OS. Format follows [Keep a Changelog](https://keepac
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), where a MINOR bump means
 new systems or content and a PATCH means fixes and balance.
 
+## [1.12.1] — 2026-10-02
+
+Graduation agreements now track the work actually promised.
+
+### Fixed
+- Acceptance and submission conditions count progress after the agreement; report dismissal,
+  writing turns, and completed activities honor the condition immediately.
+- Project handovers name the manuscript and receiving labmate, cost six Energy once, and leave
+  a saved receipt and LabChat reply. Unrelated advisor favors no longer count as documentation.
+- Offer leverage stays limited to once per run; cooled-down negotiations can reopen normally.
+- Older saves preserve known acceptance credit and disclose when progress must count from resume.
+
+### Changed
+- English and Simplified Chinese agreement panels put progress and the next action first,
+  collapse repeated dialogue, and keep keyboard focus on the conversation result.
+- Refreshed all six README screenshots, added the graduation panel, and included a repeatable
+  browser capture script.
+
+Validation: 452 unit tests, 152 browser scenarios, zero translation audit misses, and a passing
+production build. The existing bundle-size warning and remaining playtesting work are recorded
+in [release readiness](docs/release-readiness.md). Refinement pauses at this shipped checkpoint.
+
 ## [1.12.0] — 2026-09-26
 
 A browser release checkpoint after the gameplay, accessibility, and story refinement pass.

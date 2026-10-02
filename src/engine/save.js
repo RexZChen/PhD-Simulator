@@ -4,6 +4,7 @@ import { reviewLegacySupervision } from './supervision.js';
 import { validVenture, ventureEventEligible } from './venture.js';
 import { normalizeChatHistory } from './conversation.js';
 import { focusOptions } from './time.js';
+import { reviewTimelineCondition } from './timeline.js';
 export const SAVE_KEY = 'phdsim.academic-os.v2';
 export const SAVE_MAX_BYTES = 5 * 1024 * 1024;
 const KEY = SAVE_KEY;
@@ -27,6 +28,7 @@ function normalizeRun(s) {
   if (!s) return s;
   normalizeChatHistory(s);
   if (s.phase !== 'playing') return s;
+  reviewTimelineCondition(s);
   maintainTenure(s);
   reviewLegacySupervision(s);
   if (TENURE_EVENT_IDS.has(s.event) && !openTenureEvent(s, s.event)) {

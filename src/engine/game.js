@@ -29,7 +29,7 @@ import { trackEndings } from '../data/endings.js';
 import { trackById, ACADEMIC } from '../data/tracks.js';
 import { drawWeather, weatherLine, openBoard } from './market.js';
 import { beginRevisions, revise, deposit, canDeposit, revisionMonth, revisionsLeft, defenseScheduleUnavailable } from './thesis.js';
-import { openTimeline, playTimelineMove, canAskTimeline, timelineDrift } from './timeline.js';
+import { openTimeline, playTimelineMove, canAskTimeline, timelineDrift, reviewTimelineCondition, checkCondition, documentTimelineHandover } from './timeline.js';
 import { crunchOf, tempoOf, focusOptions, focusById, focusScale, crunchSnapshot, milestoneOf, seasonEligible, dayEligible, paceOptions, setPace, DAYS_PER_WEEK, turnWeeks, canDecideThesis, thesisFloor } from './time.js';
 import { applyInternships, canApplyIntern, openInternTalk, playInternMove, endInternship, ensureIntern, internWindow } from './internship.js';
 import { addFunding } from './funding.js';
@@ -671,7 +671,16 @@ function milestone(s, kind, strategy) {
 }
 
 export function dispatch(state, action) {
+  const s = applyAction(state, action);
+  // Review decisions, activities and scene choices return through different paths. Fulfil
+  // an agreed condition before any of them hands the updated run back to the player.
+  if (s.phase === 'playing' && !s.milestones.graduated) checkCondition(s);
+  return s;
+}
+
+function applyAction(state, action) {
   const s = structuredClone(state), a = action;
+  reviewTimelineCondition(s);
   const always = ['READ_MAIL', 'READ_MAIL_ALL', 'READ_CHAT'];
   if (a.type === 'READ_MAIL') { const m = s.inbox.find(x => x.id === a.id); if (m) m.read = true; return s; }
   if (a.type === 'READ_MAIL_ALL') { s.inbox.forEach(m => { if (!a.folder || (m.folder || 'inbox') === a.folder) m.read = true; }); return s; }
@@ -1006,6 +1015,7 @@ export function dispatch(state, action) {
     case 'PAY_DEBT': payDebt(s, a.amount === 'all' ? s.debt : Number(a.amount) || 0); break;
     case 'ASK_TIMELINE': openTimeline(s); break;
     case 'TIMELINE_MOVE': playTimelineMove(s, a.id); break;
+    case 'TIMELINE_DOCUMENT': documentTimelineHandover(s, a.id, a.recipientId); break;
     case 'BENCH': benchSession(s, a.tally); break;
     case 'CLUSTER': clusterSession(s, a.result); break;
     case 'PATENT_MEET': doPatentMeeting(s, a.id); break;
